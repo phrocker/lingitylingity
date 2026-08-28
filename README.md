@@ -59,8 +59,9 @@ and content/profile hashes. `verify` validates the schema and hashes, resolves
 the recorded profile, and replays the analysis; altered or non-reproducible
 artifacts fail explicitly.
 
-The current analyzer is a versioned English regex/lexicon model covering every
-deterministic signal published in the [DESIGN.md](DESIGN.md) dimension table:
+The current analyzer is a versioned English dependency-parse model covering
+every deterministic signal published in the [DESIGN.md](DESIGN.md) dimension
+table:
 
 - **Sentence load** — words, clauses, punctuation depth, and actions per
   sentence.
@@ -68,8 +69,9 @@ deterministic signal published in the [DESIGN.md](DESIGN.md) dimension table:
 - **Noun stacking** — consecutive noun modifiers and hyphenated compound depth.
 - **Agency** — agentless directives and missing explicit actor-action pairs.
 - **Voice** — passive constructions and indirect predicates. Passive detection
-  distinguishes voice from aspect: `be`/`get` auxiliaries license a passive,
-  while `have`/`has`/`had` alone marks the active perfect.
+  is structural: it requires a passive auxiliary or passive subject relation
+  (`auxpass`/`nsubjpass`), so the active perfect (`has expired`) can never be
+  mistaken for the passive (`has been approved`).
 - **Lexical clarity** — jargon, uncommon compounds, and undefined abbreviation
   density.
 - **Structure** — paragraph length, list suitability, and mixed-purpose
@@ -84,6 +86,14 @@ dimensions.
 Every finding carries a rule ID, severity, character location, observed value,
 threshold, and remediation. Overlapping spans within a dimension are
 de-duplicated so a single defect is not penalised twice.
+
+Rules read sentence structure — predicates, subjects, auxiliaries, negation,
+and modifier chains — rather than matching surface strings, so detection
+generalises to unseen wording. Because the parse is part of the analysis
+contract, the pipeline is pinned: `en_core_web_sm` at an exact version, loaded
+fail-closed. Its name, version, runtime, and digest are recorded as
+`linguistic_model` inside the hashed artifact, and `verify` refuses any
+artifact produced by a different pipeline instead of silently re-analysing it.
 
 The Human Readability Index weights those six dimensions and converts each
 dimension's deducted points into a score with a half-life decay, so worse text

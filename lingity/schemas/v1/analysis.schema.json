@@ -6,32 +6,81 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "schema_version", "analyzer_version", "linguistic_model", "profile", "source",
-    "sentences", "protected", "findings", "score", "analysis_sha256"
+    "schema_version",
+    "analyzer_version",
+    "linguistic_model",
+    "profile",
+    "source",
+    "sentences",
+    "protected",
+    "findings",
+    "score",
+    "analysis_sha256"
   ],
   "properties": {
-    "schema_version": {"const": "1.0.0"},
-    "analyzer_version": {"type": "string"},
-    "analysis_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "analyzer_version": {
+      "type": "string"
+    },
+    "analysis_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
     "linguistic_model": {
       "type": "object",
+      "description": "Pinned parsing pipeline this analysis is reproducible against.",
       "additionalProperties": false,
-      "required": ["name", "version", "rules_digest"],
+      "required": [
+        "name",
+        "version",
+        "runtime",
+        "digest"
+      ],
       "properties": {
-        "name": {"type": "string"},
-        "version": {"type": "string"},
-        "rules_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "runtime": {
+          "type": "string",
+          "minLength": 1
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
       }
     },
-    "profile": {"$ref": "#/$defs/profileRef"},
+    "profile": {
+      "$ref": "#/$defs/profileRef"
+    },
     "source": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["text", "sha256", "length"],
+      "required": [
+        "text",
+        "sha256",
+        "length"
+      ],
       "properties": {
-        "text": {"type": "string", "minLength": 1},
-        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
-        "length": {"type": "integer", "minimum": 1}
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 1
+        }
       }
     },
     "sentences": {
@@ -40,32 +89,80 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["index", "start", "end", "text", "word_count", "clause_count", "action_count"],
+        "required": [
+          "index",
+          "start",
+          "end",
+          "text",
+          "word_count",
+          "clause_count",
+          "action_count"
+        ],
         "properties": {
-          "index": {"type": "integer", "minimum": 0},
-          "start": {"type": "integer", "minimum": 0},
-          "end": {"type": "integer", "minimum": 1},
-          "text": {"type": "string"},
-          "word_count": {"type": "integer", "minimum": 0},
-          "clause_count": {"type": "integer", "minimum": 1},
-          "action_count": {"type": "integer", "minimum": 0}
+          "index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "start": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "end": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "text": {
+            "type": "string"
+          },
+          "word_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "clause_count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "action_count": {
+            "type": "integer",
+            "minimum": 0
+          }
         }
       }
     },
-    "protected": {"$ref": "#/$defs/protectedManifest"},
+    "protected": {
+      "$ref": "#/$defs/protectedManifest"
+    },
     "findings": {
       "type": "array",
-      "items": {"$ref": "#/$defs/finding"}
+      "items": {
+        "$ref": "#/$defs/finding"
+      }
     },
     "score": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "value", "band", "formula", "components"],
+      "required": [
+        "name",
+        "value",
+        "band",
+        "formula",
+        "components"
+      ],
       "properties": {
-        "name": {"const": "Human Readability Index"},
-        "value": {"type": "number", "minimum": 0, "maximum": 100},
-        "band": {"type": "string"},
-        "formula": {"type": "string"},
+        "name": {
+          "const": "Human Readability Index"
+        },
+        "value": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "band": {
+          "type": "string"
+        },
+        "formula": {
+          "type": "string"
+        },
         "components": {
           "type": "array",
           "minItems": 6,
@@ -74,24 +171,53 @@
             "type": "object",
             "additionalProperties": false,
             "required": [
-              "dimension", "weight", "raw_score", "deducted_points",
-              "weighted_contribution", "deductions"
+              "dimension",
+              "weight",
+              "raw_score",
+              "deducted_points",
+              "weighted_contribution",
+              "deductions"
             ],
             "properties": {
-              "dimension": {"type": "string"},
-              "weight": {"type": "integer", "minimum": 0, "maximum": 100},
-              "raw_score": {"type": "number", "minimum": 0, "maximum": 100},
-              "deducted_points": {"type": "number", "minimum": 0},
-              "weighted_contribution": {"type": "number", "minimum": 0, "maximum": 100},
+              "dimension": {
+                "type": "string"
+              },
+              "weight": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "raw_score": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "deducted_points": {
+                "type": "number",
+                "minimum": 0
+              },
+              "weighted_contribution": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              },
               "deductions": {
                 "type": "array",
                 "items": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["rule_id", "points"],
+                  "required": [
+                    "rule_id",
+                    "points"
+                  ],
                   "properties": {
-                    "rule_id": {"type": "string"},
-                    "points": {"type": "number", "minimum": 0}
+                    "rule_id": {
+                      "type": "string"
+                    },
+                    "points": {
+                      "type": "number",
+                      "minimum": 0
+                    }
                   }
                 }
               }
@@ -105,79 +231,186 @@
     "profileRef": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "version", "digest"],
+      "required": [
+        "name",
+        "version",
+        "digest"
+      ],
       "properties": {
-        "name": {"type": "string"},
-        "version": {"type": "string"},
-        "digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
       }
     },
     "location": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["start", "end", "line", "column"],
+      "required": [
+        "start",
+        "end",
+        "line",
+        "column"
+      ],
       "properties": {
-        "start": {"type": "integer", "minimum": 0},
-        "end": {"type": "integer", "minimum": 0},
-        "line": {"type": "integer", "minimum": 1},
-        "column": {"type": "integer", "minimum": 1},
-        "sentence_index": {"type": "integer", "minimum": 0}
+        "start": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "end": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sentence_index": {
+          "type": "integer",
+          "minimum": 0
+        }
       }
     },
     "finding": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "rule_id", "dimension", "severity", "location", "observed_value",
-        "threshold", "remediation", "penalty"
+        "rule_id",
+        "dimension",
+        "severity",
+        "location",
+        "observed_value",
+        "threshold",
+        "remediation",
+        "penalty"
       ],
       "properties": {
-        "rule_id": {"type": "string", "pattern": "^LING-[A-Z-]+-[0-9]{3}$"},
-        "dimension": {"enum": ["sentence_load", "morphology", "agency", "lexical_clarity", "structure", "redundancy"]},
-        "severity": {"enum": ["low", "medium", "high"]},
-        "location": {"$ref": "#/$defs/location"},
-        "observed_value": {"$ref": "#/$defs/findingValue"},
-        "threshold": {"$ref": "#/$defs/findingValue"},
-        "remediation": {"type": "string", "minLength": 1},
-        "penalty": {"type": "number", "minimum": 0}
+        "rule_id": {
+          "type": "string",
+          "pattern": "^LING-[A-Z-]+-[0-9]{3}$"
+        },
+        "dimension": {
+          "enum": [
+            "sentence_load",
+            "morphology",
+            "agency",
+            "lexical_clarity",
+            "structure",
+            "redundancy"
+          ]
+        },
+        "severity": {
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        "location": {
+          "$ref": "#/$defs/location"
+        },
+        "observed_value": {
+          "$ref": "#/$defs/findingValue"
+        },
+        "threshold": {
+          "$ref": "#/$defs/findingValue"
+        },
+        "remediation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "penalty": {
+          "type": "number",
+          "minimum": 0
+        }
       }
     },
     "findingValue": {
       "oneOf": [
-        {"type": "number"},
-        {"type": "string"},
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
         {
           "type": "object",
-          "additionalProperties": {"$ref": "#/$defs/findingValue"}
+          "additionalProperties": {
+            "$ref": "#/$defs/findingValue"
+          }
         },
         {
           "type": "array",
-          "items": {"$ref": "#/$defs/findingValue"}
+          "items": {
+            "$ref": "#/$defs/findingValue"
+          }
         }
       ]
     },
     "protectedManifest": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["items", "semantic_signature", "sha256"],
+      "required": [
+        "items",
+        "semantic_signature",
+        "sha256"
+      ],
       "properties": {
-        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
         "semantic_signature": {
           "type": "array",
-          "items": {"type": "string"}
+          "items": {
+            "type": "string"
+          }
         },
         "items": {
           "type": "array",
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["category", "kind", "text", "normalized", "location"],
+            "required": [
+              "category",
+              "kind",
+              "text",
+              "normalized",
+              "location"
+            ],
             "properties": {
-              "category": {"enum": ["identifier", "quantity", "modal", "negation", "citation", "governance"]},
-              "kind": {"type": "string"},
-              "text": {"type": "string"},
-              "normalized": {"type": "string"},
-              "location": {"$ref": "#/$defs/location"}
+              "category": {
+                "enum": [
+                  "identifier",
+                  "quantity",
+                  "modal",
+                  "negation",
+                  "citation",
+                  "governance"
+                ]
+              },
+              "kind": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              },
+              "normalized": {
+                "type": "string"
+              },
+              "location": {
+                "$ref": "#/$defs/location"
+              }
             }
           }
         }

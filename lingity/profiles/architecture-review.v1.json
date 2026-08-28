@@ -1,7 +1,7 @@
 {
   "$schema": "https://lingity.dev/schemas/v1/profile.schema.json",
   "name": "architecture-review",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "language": "en",
   "weights": {
     "sentence_load": 25,
@@ -96,88 +96,135 @@
       "remediation",
       "resilience",
       "resolution",
+      "testing",
       "validation",
       "verification"
     ],
     "hidden_agency": {
       "agentless decision": [
-        "\\b(?:a|the)\\s+decision\\s+should\\s+be\\s+(?:made|taken|finali[sz]ed|approved)\\b",
-        "\\b(?:approval|ratification|validation|verification)\\s+should\\s+be\\s+(?:completed|provided|confirmed)\\b"
+        "decision should be make",
+        "decision should be take",
+        "decision should be finalize",
+        "decision should be approve",
+        "approval should be complete",
+        "ratification should be complete",
+        "validation should be confirm",
+        "verification should be confirm"
       ],
       "impersonal recommendation": [
-        "\\bit\\s+is\\s+recommended\\s+that\\b",
-        "\\bit\\s+is\\s+(?:required|expected|requested)\\s+that\\b"
+        "it be recommend that",
+        "it be require that",
+        "it be expect that",
+        "it be request that"
       ],
       "agentless requirement": [
-        "\\b(?:must|should|needs?\\s+to)\\s+be\\s+(?:approved|built|completed|documented|implemented|made|provided|resolved|reviewed|validated|verified)\\b",
-        "\\brequire\\s+closure\\s+evidence\\b"
+        "must be approve",
+        "should be approve",
+        "need to be approve",
+        "must be build",
+        "should be build",
+        "must be complete",
+        "should be complete",
+        "must be document",
+        "should be document",
+        "must be implement",
+        "should be implement",
+        "must be provide",
+        "should be provide",
+        "must be resolve",
+        "should be resolve",
+        "must be review",
+        "should be review",
+        "must be validate",
+        "should be validate",
+        "must be verify",
+        "should be verify",
+        "require closure evidence"
       ],
       "indirect recommendation": [
-        "\\bpropose\\s+deferr(?:ing|al)\\b"
+        "propose defer",
+        "recommend defer"
       ],
       "indirect decision": [
-        "\\breturns?\\s+for\\s+human\\s+decision\\b"
+        "return for human decision",
+        "returns for human decision"
       ]
     },
     "weak_verbs": {
       "light verb carry out": [
-        "\\b(?:carry|carries|carried|carrying)\\s+out\\s+(?:an?\\s+|the\\s+)?[a-z][a-z-]*(?:\\s+(?!(?:and|as|at|before|by|for|from|in|into|of|on|to|with|without)\\b)[a-z][a-z-]*){0,2}\\b"
+        "carry out"
       ],
       "light verb make decision": [
-        "\\b(?:make|makes|made|making)\\s+(?:an?\\s+|the\\s+)?decision\\b"
+        "make decision"
       ],
       "light verb perform conduct": [
-        "\\b(?:perform|performs|performed|performing|conduct|conducts|conducted|conducting)\\s+(?:an?\\s+|the\\s+)?(?:analysis|assessment|evaluation|investigation|review|test|testing)\\b"
-      ],
-      "weak use-as construction": [
-        "\\buse\\b.{0,80}\\bonly\\s+as\\b"
+        "perform assessment",
+        "perform analysis",
+        "perform evaluation",
+        "perform investigation",
+        "perform review",
+        "perform test",
+        "perform testing",
+        "conduct assessment",
+        "conduct analysis",
+        "conduct evaluation",
+        "conduct investigation",
+        "conduct review",
+        "conduct test",
+        "conduct testing"
       ],
       "proposal chain": [
-        "\\bpropose\\s+deferr(?:ing|al)\\b"
-      ],
-      "abstract remediation": [
-        "\\baddress\\s+(?:the\\s+)?(?:confirmed\\s+)?(?:authorization|security|reliability|availability)\\s+(?:concerns|issues|findings)\\b"
+        "propose defer",
+        "recommend defer"
       ]
     },
     "jargon": {
       "architecture jargon": [
-        "\\beventual\\s+consistency\\b",
-        "\\bblast\\s+radius\\b",
-        "\\bsingle\\s+pane\\s+of\\s+glass\\b",
-        "\\bnorth\\s+star\\s+(?:architecture|design|state)\\b"
+        "eventual consistency",
+        "blast radius",
+        "single pane of glass",
+        "north star architecture",
+        "north star design",
+        "north star state"
       ],
       "machine-made compound": [
-        "\\brepository-evidenced\\s+hybrid\\s+topology\\b",
-        "\\b(?:current-state|future-state)\\s+(?:baseline|architecture|topology)\\b"
+        "repository evidence hybrid topology",
+        "current state baseline",
+        "current state architecture",
+        "current state topology",
+        "future state baseline",
+        "future state architecture",
+        "future state topology"
       ],
       "governance label": [
-        "\\bgoverned\\s+recommendations\\b"
+        "govern recommendation"
       ],
       "abstract evidence phrase": [
-        "\\bclosure\\s+evidence\\b"
+        "closure evidence"
       ]
     },
     "bureaucratic_phrases": {
       "impersonal recommendation": [
-        "\\bit\\s+is\\s+recommended\\s+that\\b",
-        "\\bit\\s+should\\s+be\\s+noted\\s+that\\b"
+        "it be recommend that",
+        "it should be note that"
       ],
       "temporal filler": [
-        "\\bgoing\\s+forward\\b",
-        "\\bat\\s+this\\s+time\\b"
+        "go forward",
+        "at this time"
       ],
       "wordy connector": [
-        "\\bin\\s+order\\s+to\\b",
-        "\\bas\\s+appropriate\\b"
+        "in order to",
+        "as appropriate"
       ],
       "recommend recommending": [
-        "\\brecommended\\s+decision\\s*:\\s*propose\\b"
+        "recommend decision propose"
       ],
       "artificial return phrase": [
-        "\\breturns?\\s+for\\s+human\\s+decision\\b"
+        "return for human decision",
+        "returns for human decision"
       ],
       "provisional baseline phrase": [
-        "\\bprovisional\\s+current-state\\s+baseline\\b"
+        "provisional current state baseline"
       ]
     },
     "protected_concepts": [
@@ -278,14 +325,27 @@
     ],
     "indirect_predicates": {
       "expletive there": [
-        "\\bthere\\s+(?:is|are|was|were)\\s+(?:an?\\s+)?(?:open\\s+)?(?:need|requirement|risk|gap|issue|concern)\\b"
+        "there be need",
+        "there be requirement",
+        "there be risk",
+        "there be gap",
+        "there be issue",
+        "there be concern"
       ],
       "expletive it": [
-        "\\bit\\s+(?:is|was)\\s+(?:important|necessary|critical|clear|unclear|possible|expected)\\s+that\\b"
+        "it be important that",
+        "it be necessary that",
+        "it be critical that",
+        "it be clear that",
+        "it be unclear that",
+        "it be possible that",
+        "it be expect that"
       ],
       "purpose wrapper": [
-        "\\bthe\\s+purpose\\s+of\\s+[^.?!]{1,80}?\\s+is\\s+to\\b",
-        "\\b(?:the\\s+)?(?:goal|objective|intent)\\s+of\\s+[^.?!]{1,80}?\\s+is\\s+to\\b"
+        "purpose of",
+        "goal of",
+        "objective of",
+        "intent of"
       ]
     },
     "allowed_compounds": [
@@ -339,84 +399,98 @@
     ],
     "purpose_markers": {
       "decision": [
-        "\\b(?:accept(?:s|ed|ing|ance)?|approv(?:e|es|ed|ing|al)|approval|decid(?:e|es|ed|ing)|decisions?|deferr(?:al|als|ed|ing)|defer(?:s)?|reject(?:s|ed|ing|ion)?|recommend(?:s|ed|ing|ation|ations)?|ratif(?:y|ies|ied|ication|ications))\\b"
+        "accept",
+        "approval",
+        "approve",
+        "decide",
+        "decision",
+        "defer",
+        "deferral",
+        "reject",
+        "rejection",
+        "recommend",
+        "recommendation",
+        "ratification",
+        "ratify"
       ],
       "remediation": [
-        "\\b(?:address(?:es|ed|ing)?|correct(?:s|ed|ing)?|fix(?:es|ed|ing)?|harden(?:s|ed|ing)?|implement(?:s|ed|ing|ation)?|mitigat(?:e|es|ed|ing|ion)|patch(?:es|ed|ing)?|remediat(?:e|es|ed|ing|ion)|repair(?:s|ed|ing)?|remov(?:e|es|ed|ing|al)|replac(?:e|es|ed|ing)|resolv(?:e|es|ed|ing)|updat(?:e|es|ed|ing))\\b"
+        "address",
+        "correct",
+        "fix",
+        "harden",
+        "implement",
+        "implementation",
+        "mitigate",
+        "mitigation",
+        "patch",
+        "remediate",
+        "remediation",
+        "repair",
+        "remove",
+        "removal",
+        "replace",
+        "resolve",
+        "update"
       ],
       "evidence": [
-        "\\b(?:confirm(?:s|ed|ing)?|demonstrat(?:e|es|ed|ing|ion)|evidence|prov(?:e|es|ed|ing)|validat(?:e|es|ed|ing|ion)|verif(?:y|ies|ied|ying|ication))\\b"
+        "confirm",
+        "demonstrate",
+        "demonstration",
+        "evidence",
+        "prove",
+        "publish",
+        "validate",
+        "validation",
+        "verify",
+        "verification"
       ],
       "exit criteria": [
-        "\\b(?:after|before|exit\\s+criteria|gate|gates|sign-?off|until|when)\\b"
+        "after",
+        "before",
+        "exit criteria",
+        "gate",
+        "sign off",
+        "until",
+        "when"
       ]
     },
     "filler_phrases": {
       "purpose filler": [
-        "\\bin\\s+order\\s+to\\b",
-        "\\bfor\\s+the\\s+purposes?\\s+of\\b"
+        "in order to",
+        "for purpose of",
+        "for the purpose of"
       ],
       "temporal filler": [
-        "\\bat\\s+this\\s+point\\s+in\\s+time\\b",
-        "\\bat\\s+this\\s+time\\b"
+        "at this point in time",
+        "at this time"
       ],
       "noting filler": [
-        "\\bit\\s+should\\s+be\\s+noted\\s+that\\b"
+        "it should be note that"
       ]
     },
     "recommendation_action_groups": {
       "approve": [
         "approve",
-        "approves",
-        "approved",
-        "ratify",
-        "ratifies",
-        "ratified"
+        "ratify"
       ],
       "evidence": [
         "document",
-        "documents",
-        "documented",
         "publish",
-        "publishes",
-        "published",
-        "provide",
-        "provides",
-        "provided"
+        "provide"
       ],
       "fix": [
         "address",
-        "addresses",
-        "addressed",
         "fix",
-        "fixes",
-        "fixed",
         "mitigate",
-        "mitigates",
-        "mitigated",
         "remediate",
-        "remediates",
-        "remediated",
-        "resolve",
-        "resolves",
-        "resolved"
+        "resolve"
       ],
       "validate": [
         "check",
-        "checks",
-        "checked",
         "confirm",
-        "confirms",
-        "confirmed",
         "test",
-        "tests",
-        "tested",
         "validate",
-        "validates",
-        "validated",
-        "verify",
-        "verifies",
-        "verified"
+        "verify"
       ]
     },
     "qualifiers": [

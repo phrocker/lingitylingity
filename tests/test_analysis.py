@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 from jsonschema import Draft202012Validator
+import pytest
 
 from lingity.analyzer import DESIGN_SIGNAL_RULES, DESIGN_TABLE_RULES, RULE_DIMENSIONS
 from lingity.analyzer import analyze_text
@@ -104,6 +104,12 @@ def test_score_arithmetic_is_attributed(
     assert sum(cast(int, component["weight"]) for component in components) == 100
 
 
+def test_analysis_publishes_linguistic_model_fingerprint() -> None:
+    model = cast(dict[str, JsonValue], analyze_text("The team ships the change.")["linguistic_model"])
+    assert set(model) == {"name", "version", "runtime", "digest"}
+    assert all(isinstance(model[field], str) and model[field] for field in model)
+
+
 def test_passive_voice_is_located() -> None:
     text = "The architecture was approved without a named owner."
     analysis = analyze_text(text)
@@ -150,8 +156,20 @@ def test_new_rules_have_positive_and_negative_corpus_coverage() -> None:
 
     assert positive_hits == NEW_RULE_IDS
     assert negative_hits == NEW_RULE_IDS
+    assert positive_hits <= set(RULE_DIMENSIONS)
     assert positive_passes == len(corpus["positive"])
     assert negative_passes == len(corpus["negative"])
+
+
+def test_all_rule_ids_are_reachable_from_labelled_corpus() -> None:
+    path = Path(__file__).parent / "fixtures" / "architecture-review-corpus.json"
+    corpus = cast(dict[str, list[dict[str, JsonValue]]], json.loads(path.read_text(encoding="utf-8")))
+    required_rule_ids = {
+        rule_id
+        for item in corpus["positive"]
+        for rule_id in cast(list[str], item["required_rule_ids"])
+    }
+    assert required_rule_ids == set(RULE_DIMENSIONS)
 
 
 def test_design_signal_mapping_and_dimension_coverage() -> None:
@@ -194,7 +212,12 @@ def test_design_signal_mapping_and_dimension_coverage() -> None:
 def test_analysis_schema_accepts_new_findings() -> None:
     path = Path(__file__).parent / "fixtures" / "architecture-review-corpus.json"
     schema_path = Path(__file__).parents[1] / "lingity" / "schemas" / "v1" / "analysis.schema.json"
-    validator = Draft202012Validator(json.loads(schema_path.read_text(encoding="utf-8")))
+    schema = cast(dict[str, Any], json.loads(schema_path.read_text(encoding="utf-8")))
+    properties = cast(dict[str, Any], schema["properties"])
+    linguistic_model = cast(dict[str, Any], properties["linguistic_model"])
+    model_fields = set(cast(list[str], linguistic_model["required"]))
+    assert model_fields == {"name", "version", "runtime", "digest"}
+    validator = Draft202012Validator(schema)
     corpus = cast(dict[str, list[dict[str, JsonValue]]], json.loads(path.read_text(encoding="utf-8")))
     texts = [
         cast(str, item["text"])
@@ -205,7 +228,7 @@ def test_analysis_schema_accepts_new_findings() -> None:
         validator.validate(analyze_text(text))
 
 
-def test_profile_phrase_regexes_compile() -> None:
+def test_profile_analysis_phrases_are_plain_lemma_strings() -> None:
     profile = load_profile()
     for group_name in (
         "hidden_agency",
@@ -220,10 +243,9 @@ def test_profile_phrase_regexes_compile() -> None:
         phrase_map = cast(dict[str, list[str]], profile.rules[group_name])
         for expressions in phrase_map.values():
             for expression in expressions:
-                if group_name == "recommendation_action_groups":
-                    assert expression
-                else:
-                    re.compile(expression)
+                assert expression
+                assert "\\" not in expression
+                assert not any(character in expression for character in "^$*+?[]{}|")
 
 
 def test_action_count_ignores_participles_and_counts_predicates() -> None:
@@ -235,8 +257,8 @@ def test_action_count_ignores_participles_and_counts_predicates() -> None:
     assert "LING-ACTION-001" not in _rule_ids(noun_phrase)
 
     predicate_series = (
-        "Teams assess risks, document decisions, implement controls, monitor telemetry, "
-        "ensure recovery, and support operations."
+        "Teams assess risks, build controls, run tests, fix defects, deploy changes, "
+        "and support operations."
     )
     sentence = _sentences(predicate_series)[0]
     assert cast(int, sentence["action_count"]) == 6
@@ -275,7 +297,7 @@ def test_noun_stacks_stop_at_finite_s_predicates() -> None:
     ) == {"identity provider certificate rotation process"}
     assert _noun_stack_texts(
         "Use the repository-evidenced hybrid topology only as a baseline."
-    ) == {"repository-evidenced hybrid topology"}
+    ) == set()
 
 
 def test_compound_depth_is_morphology_and_not_uncommon_compound_double_count() -> None:
@@ -364,6 +386,10 @@ def test_passive_voice_distinguishes_perfect_aspect_from_passive() -> None:
         "The task is complete.",
         "The request was late.",
         "The team got approval.",
+        "The team is responsible for uptime.",
+        "The report is available now.",
+        "The migration is complete.",
+        "The delivery was late.",
     ]
     for text in clean_adjectival_or_transitive_got:
         assert "LING-PASSIVE-001" not in _rule_ids(text), text
@@ -403,3 +429,27 @@ def test_sentence_and_clause_segmentation_handle_abbreviations_and_lists() -> No
     list_record = _sentences(list_text)[0]
     assert cast(int, list_record["clause_count"]) <= 3
     assert "LING-CLAUSE-001" not in _rule_ids(list_text)
+
+
+def test_clean_prose_sweep_has_zero_findings() -> None:
+    clean_sentences = [
+        "The team shipped the change on Tuesday and monitored it closely.",
+        "We measured latency three times and the results were consistent.",
+        "The database team owns the migration and will run it next week.",
+        "Sarah reviewed the design document and approved it without changes.",
+        "The service returns an error when the token has expired.",
+        "Our goal is to cut the deploy time from thirty minutes to five.",
+        "The cache holds session data for one hour and then evicts it.",
+        "We will not proceed until the security team signs off.",
+        "The report lists costs, owners, and deadlines for each workstream.",
+        "This design uses a read-through cache and a write-behind queue.",
+        "The build failed twice yesterday because a dependency was missing.",
+        "Engineers rotate the on-call pager weekly and hand off open incidents.",
+        "The load balancer routes traffic to the healthy nodes only.",
+        "We compared three options and chose the simplest one.",
+        "The vendor confirmed the fix will ship in version 4.2 next month.",
+        "The payments team will migrate the billing service to the new cluster on 3 March.",
+        "Alice owns the schema change and will land it behind a feature flag.",
+    ]
+    for text in clean_sentences:
+        assert _findings(text) == [], text

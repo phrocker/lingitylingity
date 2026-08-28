@@ -12,6 +12,7 @@ from jsonschema import Draft202012Validator
 
 from lingity.analyzer import analyze_text
 from lingity.models import Finding, JsonValue, Location
+from lingity.nlp import model_fingerprint
 from lingity.profiles import Profile, canonical_json, load_profile
 from lingity.scoring import (
     DIMENSIONS,
@@ -77,11 +78,7 @@ def _analysis_artifact(
     artifact: dict[str, JsonValue] = {
         "schema_version": "1.0.0",
         "analyzer_version": "test",
-        "linguistic_model": {
-            "name": "test",
-            "version": "test",
-            "rules_digest": "0" * 64,
-        },
+        "linguistic_model": cast(dict[str, JsonValue], model_fingerprint()),
         "profile": profile.reference(),
         "source": {
             "text": text,

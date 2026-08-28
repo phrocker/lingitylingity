@@ -14,6 +14,7 @@ from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError, ValidationError
 
 from lingity.analyzer import analyze_text
+from lingity.nlp import LinguisticModelError, model_fingerprint
 from lingity.profiles import SCHEMA_DIR, canonical_json, load_profile
 
 
@@ -67,7 +68,7 @@ def _analyze(args: argparse.Namespace) -> int:
         result = analyze_text(text, load_profile(cast(str, args.profile)))
         Draft202012Validator(_schema("analysis.schema.json")).validate(result)
         _write_json(result, output)
-    except (OSError, TypeError, ValueError, json.JSONDecodeError, SchemaError, ValidationError) as exc:
+    except (OSError, TypeError, ValueError, json.JSONDecodeError, SchemaError, ValidationError, LinguisticModelError) as exc:
         print(f"lingity analyze failed: {exc}", file=sys.stderr)
         return 2
     return 0
@@ -100,6 +101,19 @@ def _verify(args: argparse.Namespace) -> int:
         profile = load_profile(profile_ref["name"])
         if profile.digest != profile_ref.get("digest") or profile.version != profile_ref.get("version"):
             raise ValueError("analysis profile digest or version does not match the installed profile")
+        recorded_model = artifact.get("linguistic_model")
+        if not isinstance(recorded_model, dict):
+            raise ValueError("analysis linguistic model reference is missing")
+        installed_model = model_fingerprint()
+        if recorded_model != installed_model:
+            raise ValueError(
+                "analysis was produced by a different linguistic pipeline "
+                f"({recorded_model.get('name')} {recorded_model.get('version')} "
+                f"{recorded_model.get('runtime')} digest {recorded_model.get('digest')}) "
+                f"than the installed one ({installed_model['name']} {installed_model['version']} "
+                f"{installed_model['runtime']} digest {installed_model['digest']}); "
+                "analyses are only reproducible against the pipeline that produced them"
+            )
         replayed = analyze_text(source["text"], profile)
         if replayed != artifact:
             raise ValueError("analysis is not reproducible with the installed analyzer")
@@ -109,10 +123,11 @@ def _verify(args: argparse.Namespace) -> int:
             "analysis_sha256": recorded_hash,
             "source_sha256": source.get("sha256"),
             "profile": profile.reference(),
+            "linguistic_model": installed_model,
         }
         Draft202012Validator(_schema("verification.schema.json")).validate(verification)
         _write_json(verification, output)
-    except (OSError, TypeError, ValueError, json.JSONDecodeError, SchemaError, ValidationError) as exc:
+    except (OSError, TypeError, ValueError, json.JSONDecodeError, SchemaError, ValidationError, LinguisticModelError) as exc:
         print(f"lingity verify failed: {exc}", file=sys.stderr)
         return 2
     return 0

@@ -83,6 +83,14 @@ and remediation. Initial metrics are:
 Dependency parsing may be used, but the parser package and model digest become
 part of the reproducibility contract.
 
+The implementation takes that option: every signal above is computed from a
+dependency parse rather than surface pattern matching, so detection depends on
+sentence structure instead of wording. The parser package is pinned to an exact
+model version and loaded fail-closed, and its name, version, runtime, and
+digest are recorded as `linguistic_model` inside the hashed analysis artifact.
+Verification rejects an artifact produced by a different pipeline rather than
+re-analysing it under new assumptions.
+
 ## Scoring
 
 The score is an explanation aid, not the acceptance authority.

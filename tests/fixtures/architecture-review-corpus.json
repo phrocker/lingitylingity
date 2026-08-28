@@ -171,6 +171,42 @@
       "required_rule_ids": [
         "LING-MIXED-PURPOSE-001"
       ]
+    },
+    {
+      "name": "overloaded sentence words",
+      "text": "The platform team reviewed the gateway migration plan with security owners, database owners, payment owners, support engineers, release managers, and telemetry reviewers before the final release readiness meeting.",
+      "required_rule_ids": [
+        "LING-SENTENCE-001"
+      ]
+    },
+    {
+      "name": "verb coordination overload",
+      "text": "Teams assess risks, build controls, run tests, fix defects, deploy changes, and support operations.",
+      "required_rule_ids": [
+        "LING-ACTION-001",
+        "LING-CLAUSE-001"
+      ]
+    },
+    {
+      "name": "nominalization density",
+      "text": "Approval, validation, verification, and ratification delayed the review.",
+      "required_rule_ids": [
+        "LING-NOMINALIZATION-001"
+      ]
+    },
+    {
+      "name": "oversized paragraph",
+      "text": "Architecture reviewers need concise ownership evidence for decisions. Architecture reviewers need concise ownership evidence for decisions. Architecture reviewers need concise ownership evidence for decisions. Architecture reviewers need concise ownership evidence for decisions. Architecture reviewers need concise ownership evidence for decisions. Architecture reviewers need concise ownership evidence for decisions. Architecture reviewers need concise ownership evidence for decisions. Architecture reviewers need concise ownership evidence for decisions. Architecture reviewers need concise ownership evidence for decisions. Architecture reviewers need concise ownership evidence for decisions. Architecture reviewers need concise ownership evidence for decisions. Architecture reviewers need concise ownership evidence for decisions. Architecture reviewers need concise ownership evidence for decisions. Architecture reviewers need concise ownership evidence for decisions.",
+      "required_rule_ids": [
+        "LING-STRUCTURE-001"
+      ]
+    },
+    {
+      "name": "repeated content term",
+      "text": "The migration recommendation explains migration risk while the migration plan assigns owners.",
+      "required_rule_ids": [
+        "LING-REDUNDANCY-001"
+      ]
     }
   ],
   "negative": [
@@ -521,6 +557,527 @@
       "text": "The team will remove the old feature flag after the release.",
       "forbidden_rule_ids": [
         "LING-MIXED-PURPOSE-001"
+      ]
+    },
+    {
+      "name": "adjectival responsible uptime",
+      "text": "The team is responsible for uptime.",
+      "forbidden_rule_ids": [
+        "LING-PASSIVE-001"
+      ]
+    },
+    {
+      "name": "adjectival report available",
+      "text": "The report is available now.",
+      "forbidden_rule_ids": [
+        "LING-PASSIVE-001"
+      ]
+    },
+    {
+      "name": "adjectival migration complete",
+      "text": "The migration is complete.",
+      "forbidden_rule_ids": [
+        "LING-PASSIVE-001"
+      ]
+    },
+    {
+      "name": "adjectival delivery late",
+      "text": "The delivery was late.",
+      "forbidden_rule_ids": [
+        "LING-PASSIVE-001"
+      ]
+    },
+    {
+      "name": "clean shipped monitored",
+      "text": "The team shipped the change on Tuesday and monitored it closely.",
+      "forbidden_rule_ids": [
+        "LING-SENTENCE-001",
+        "LING-CLAUSE-001",
+        "LING-ACTION-001",
+        "LING-PUNCTUATION-001",
+        "LING-NOMINALIZATION-001",
+        "LING-NOUN-STACK-001",
+        "LING-COMPOUND-DEPTH-001",
+        "LING-WEAK-VERB-001",
+        "LING-AGENCY-001",
+        "LING-PASSIVE-001",
+        "LING-ACTOR-001",
+        "LING-INDIRECT-PREDICATE-001",
+        "LING-JARGON-001",
+        "LING-BUREAUCRACY-001",
+        "LING-COMPOUND-001",
+        "LING-ABBREVIATION-001",
+        "LING-STRUCTURE-001",
+        "LING-LIST-001",
+        "LING-MIXED-PURPOSE-001",
+        "LING-REDUNDANCY-001",
+        "LING-FILLER-001",
+        "LING-DUPLICATED-RECOMMENDATION-001",
+        "LING-QUALIFIER-001"
+      ]
+    },
+    {
+      "name": "clean measured latency",
+      "text": "We measured latency three times and the results were consistent.",
+      "forbidden_rule_ids": [
+        "LING-SENTENCE-001",
+        "LING-CLAUSE-001",
+        "LING-ACTION-001",
+        "LING-PUNCTUATION-001",
+        "LING-NOMINALIZATION-001",
+        "LING-NOUN-STACK-001",
+        "LING-COMPOUND-DEPTH-001",
+        "LING-WEAK-VERB-001",
+        "LING-AGENCY-001",
+        "LING-PASSIVE-001",
+        "LING-ACTOR-001",
+        "LING-INDIRECT-PREDICATE-001",
+        "LING-JARGON-001",
+        "LING-BUREAUCRACY-001",
+        "LING-COMPOUND-001",
+        "LING-ABBREVIATION-001",
+        "LING-STRUCTURE-001",
+        "LING-LIST-001",
+        "LING-MIXED-PURPOSE-001",
+        "LING-REDUNDANCY-001",
+        "LING-FILLER-001",
+        "LING-DUPLICATED-RECOMMENDATION-001",
+        "LING-QUALIFIER-001"
+      ]
+    },
+    {
+      "name": "clean database migration",
+      "text": "The database team owns the migration and will run it next week.",
+      "forbidden_rule_ids": [
+        "LING-SENTENCE-001",
+        "LING-CLAUSE-001",
+        "LING-ACTION-001",
+        "LING-PUNCTUATION-001",
+        "LING-NOMINALIZATION-001",
+        "LING-NOUN-STACK-001",
+        "LING-COMPOUND-DEPTH-001",
+        "LING-WEAK-VERB-001",
+        "LING-AGENCY-001",
+        "LING-PASSIVE-001",
+        "LING-ACTOR-001",
+        "LING-INDIRECT-PREDICATE-001",
+        "LING-JARGON-001",
+        "LING-BUREAUCRACY-001",
+        "LING-COMPOUND-001",
+        "LING-ABBREVIATION-001",
+        "LING-STRUCTURE-001",
+        "LING-LIST-001",
+        "LING-MIXED-PURPOSE-001",
+        "LING-REDUNDANCY-001",
+        "LING-FILLER-001",
+        "LING-DUPLICATED-RECOMMENDATION-001",
+        "LING-QUALIFIER-001"
+      ]
+    },
+    {
+      "name": "clean sarah approved",
+      "text": "Sarah reviewed the design document and approved it without changes.",
+      "forbidden_rule_ids": [
+        "LING-SENTENCE-001",
+        "LING-CLAUSE-001",
+        "LING-ACTION-001",
+        "LING-PUNCTUATION-001",
+        "LING-NOMINALIZATION-001",
+        "LING-NOUN-STACK-001",
+        "LING-COMPOUND-DEPTH-001",
+        "LING-WEAK-VERB-001",
+        "LING-AGENCY-001",
+        "LING-PASSIVE-001",
+        "LING-ACTOR-001",
+        "LING-INDIRECT-PREDICATE-001",
+        "LING-JARGON-001",
+        "LING-BUREAUCRACY-001",
+        "LING-COMPOUND-001",
+        "LING-ABBREVIATION-001",
+        "LING-STRUCTURE-001",
+        "LING-LIST-001",
+        "LING-MIXED-PURPOSE-001",
+        "LING-REDUNDANCY-001",
+        "LING-FILLER-001",
+        "LING-DUPLICATED-RECOMMENDATION-001",
+        "LING-QUALIFIER-001"
+      ]
+    },
+    {
+      "name": "clean expired token subordinate",
+      "text": "The service returns an error when the token has expired.",
+      "forbidden_rule_ids": [
+        "LING-SENTENCE-001",
+        "LING-CLAUSE-001",
+        "LING-ACTION-001",
+        "LING-PUNCTUATION-001",
+        "LING-NOMINALIZATION-001",
+        "LING-NOUN-STACK-001",
+        "LING-COMPOUND-DEPTH-001",
+        "LING-WEAK-VERB-001",
+        "LING-AGENCY-001",
+        "LING-PASSIVE-001",
+        "LING-ACTOR-001",
+        "LING-INDIRECT-PREDICATE-001",
+        "LING-JARGON-001",
+        "LING-BUREAUCRACY-001",
+        "LING-COMPOUND-001",
+        "LING-ABBREVIATION-001",
+        "LING-STRUCTURE-001",
+        "LING-LIST-001",
+        "LING-MIXED-PURPOSE-001",
+        "LING-REDUNDANCY-001",
+        "LING-FILLER-001",
+        "LING-DUPLICATED-RECOMMENDATION-001",
+        "LING-QUALIFIER-001"
+      ]
+    },
+    {
+      "name": "clean deploy time goal",
+      "text": "Our goal is to cut the deploy time from thirty minutes to five.",
+      "forbidden_rule_ids": [
+        "LING-SENTENCE-001",
+        "LING-CLAUSE-001",
+        "LING-ACTION-001",
+        "LING-PUNCTUATION-001",
+        "LING-NOMINALIZATION-001",
+        "LING-NOUN-STACK-001",
+        "LING-COMPOUND-DEPTH-001",
+        "LING-WEAK-VERB-001",
+        "LING-AGENCY-001",
+        "LING-PASSIVE-001",
+        "LING-ACTOR-001",
+        "LING-INDIRECT-PREDICATE-001",
+        "LING-JARGON-001",
+        "LING-BUREAUCRACY-001",
+        "LING-COMPOUND-001",
+        "LING-ABBREVIATION-001",
+        "LING-STRUCTURE-001",
+        "LING-LIST-001",
+        "LING-MIXED-PURPOSE-001",
+        "LING-REDUNDANCY-001",
+        "LING-FILLER-001",
+        "LING-DUPLICATED-RECOMMENDATION-001",
+        "LING-QUALIFIER-001"
+      ]
+    },
+    {
+      "name": "clean cache evicts",
+      "text": "The cache holds session data for one hour and then evicts it.",
+      "forbidden_rule_ids": [
+        "LING-SENTENCE-001",
+        "LING-CLAUSE-001",
+        "LING-ACTION-001",
+        "LING-PUNCTUATION-001",
+        "LING-NOMINALIZATION-001",
+        "LING-NOUN-STACK-001",
+        "LING-COMPOUND-DEPTH-001",
+        "LING-WEAK-VERB-001",
+        "LING-AGENCY-001",
+        "LING-PASSIVE-001",
+        "LING-ACTOR-001",
+        "LING-INDIRECT-PREDICATE-001",
+        "LING-JARGON-001",
+        "LING-BUREAUCRACY-001",
+        "LING-COMPOUND-001",
+        "LING-ABBREVIATION-001",
+        "LING-STRUCTURE-001",
+        "LING-LIST-001",
+        "LING-MIXED-PURPOSE-001",
+        "LING-REDUNDANCY-001",
+        "LING-FILLER-001",
+        "LING-DUPLICATED-RECOMMENDATION-001",
+        "LING-QUALIFIER-001"
+      ]
+    },
+    {
+      "name": "clean security signoff",
+      "text": "We will not proceed until the security team signs off.",
+      "forbidden_rule_ids": [
+        "LING-SENTENCE-001",
+        "LING-CLAUSE-001",
+        "LING-ACTION-001",
+        "LING-PUNCTUATION-001",
+        "LING-NOMINALIZATION-001",
+        "LING-NOUN-STACK-001",
+        "LING-COMPOUND-DEPTH-001",
+        "LING-WEAK-VERB-001",
+        "LING-AGENCY-001",
+        "LING-PASSIVE-001",
+        "LING-ACTOR-001",
+        "LING-INDIRECT-PREDICATE-001",
+        "LING-JARGON-001",
+        "LING-BUREAUCRACY-001",
+        "LING-COMPOUND-001",
+        "LING-ABBREVIATION-001",
+        "LING-STRUCTURE-001",
+        "LING-LIST-001",
+        "LING-MIXED-PURPOSE-001",
+        "LING-REDUNDANCY-001",
+        "LING-FILLER-001",
+        "LING-DUPLICATED-RECOMMENDATION-001",
+        "LING-QUALIFIER-001"
+      ]
+    },
+    {
+      "name": "clean report lists",
+      "text": "The report lists costs, owners, and deadlines for each workstream.",
+      "forbidden_rule_ids": [
+        "LING-SENTENCE-001",
+        "LING-CLAUSE-001",
+        "LING-ACTION-001",
+        "LING-PUNCTUATION-001",
+        "LING-NOMINALIZATION-001",
+        "LING-NOUN-STACK-001",
+        "LING-COMPOUND-DEPTH-001",
+        "LING-WEAK-VERB-001",
+        "LING-AGENCY-001",
+        "LING-PASSIVE-001",
+        "LING-ACTOR-001",
+        "LING-INDIRECT-PREDICATE-001",
+        "LING-JARGON-001",
+        "LING-BUREAUCRACY-001",
+        "LING-COMPOUND-001",
+        "LING-ABBREVIATION-001",
+        "LING-STRUCTURE-001",
+        "LING-LIST-001",
+        "LING-MIXED-PURPOSE-001",
+        "LING-REDUNDANCY-001",
+        "LING-FILLER-001",
+        "LING-DUPLICATED-RECOMMENDATION-001",
+        "LING-QUALIFIER-001"
+      ]
+    },
+    {
+      "name": "clean read write queue",
+      "text": "This design uses a read-through cache and a write-behind queue.",
+      "forbidden_rule_ids": [
+        "LING-SENTENCE-001",
+        "LING-CLAUSE-001",
+        "LING-ACTION-001",
+        "LING-PUNCTUATION-001",
+        "LING-NOMINALIZATION-001",
+        "LING-NOUN-STACK-001",
+        "LING-COMPOUND-DEPTH-001",
+        "LING-WEAK-VERB-001",
+        "LING-AGENCY-001",
+        "LING-PASSIVE-001",
+        "LING-ACTOR-001",
+        "LING-INDIRECT-PREDICATE-001",
+        "LING-JARGON-001",
+        "LING-BUREAUCRACY-001",
+        "LING-COMPOUND-001",
+        "LING-ABBREVIATION-001",
+        "LING-STRUCTURE-001",
+        "LING-LIST-001",
+        "LING-MIXED-PURPOSE-001",
+        "LING-REDUNDANCY-001",
+        "LING-FILLER-001",
+        "LING-DUPLICATED-RECOMMENDATION-001",
+        "LING-QUALIFIER-001"
+      ]
+    },
+    {
+      "name": "clean build dependency",
+      "text": "The build failed twice yesterday because a dependency was missing.",
+      "forbidden_rule_ids": [
+        "LING-SENTENCE-001",
+        "LING-CLAUSE-001",
+        "LING-ACTION-001",
+        "LING-PUNCTUATION-001",
+        "LING-NOMINALIZATION-001",
+        "LING-NOUN-STACK-001",
+        "LING-COMPOUND-DEPTH-001",
+        "LING-WEAK-VERB-001",
+        "LING-AGENCY-001",
+        "LING-PASSIVE-001",
+        "LING-ACTOR-001",
+        "LING-INDIRECT-PREDICATE-001",
+        "LING-JARGON-001",
+        "LING-BUREAUCRACY-001",
+        "LING-COMPOUND-001",
+        "LING-ABBREVIATION-001",
+        "LING-STRUCTURE-001",
+        "LING-LIST-001",
+        "LING-MIXED-PURPOSE-001",
+        "LING-REDUNDANCY-001",
+        "LING-FILLER-001",
+        "LING-DUPLICATED-RECOMMENDATION-001",
+        "LING-QUALIFIER-001"
+      ]
+    },
+    {
+      "name": "clean pager rotation",
+      "text": "Engineers rotate the on-call pager weekly and hand off open incidents.",
+      "forbidden_rule_ids": [
+        "LING-SENTENCE-001",
+        "LING-CLAUSE-001",
+        "LING-ACTION-001",
+        "LING-PUNCTUATION-001",
+        "LING-NOMINALIZATION-001",
+        "LING-NOUN-STACK-001",
+        "LING-COMPOUND-DEPTH-001",
+        "LING-WEAK-VERB-001",
+        "LING-AGENCY-001",
+        "LING-PASSIVE-001",
+        "LING-ACTOR-001",
+        "LING-INDIRECT-PREDICATE-001",
+        "LING-JARGON-001",
+        "LING-BUREAUCRACY-001",
+        "LING-COMPOUND-001",
+        "LING-ABBREVIATION-001",
+        "LING-STRUCTURE-001",
+        "LING-LIST-001",
+        "LING-MIXED-PURPOSE-001",
+        "LING-REDUNDANCY-001",
+        "LING-FILLER-001",
+        "LING-DUPLICATED-RECOMMENDATION-001",
+        "LING-QUALIFIER-001"
+      ]
+    },
+    {
+      "name": "clean load balancer routes",
+      "text": "The load balancer routes traffic to the healthy nodes only.",
+      "forbidden_rule_ids": [
+        "LING-SENTENCE-001",
+        "LING-CLAUSE-001",
+        "LING-ACTION-001",
+        "LING-PUNCTUATION-001",
+        "LING-NOMINALIZATION-001",
+        "LING-NOUN-STACK-001",
+        "LING-COMPOUND-DEPTH-001",
+        "LING-WEAK-VERB-001",
+        "LING-AGENCY-001",
+        "LING-PASSIVE-001",
+        "LING-ACTOR-001",
+        "LING-INDIRECT-PREDICATE-001",
+        "LING-JARGON-001",
+        "LING-BUREAUCRACY-001",
+        "LING-COMPOUND-001",
+        "LING-ABBREVIATION-001",
+        "LING-STRUCTURE-001",
+        "LING-LIST-001",
+        "LING-MIXED-PURPOSE-001",
+        "LING-REDUNDANCY-001",
+        "LING-FILLER-001",
+        "LING-DUPLICATED-RECOMMENDATION-001",
+        "LING-QUALIFIER-001"
+      ]
+    },
+    {
+      "name": "clean compared options",
+      "text": "We compared three options and chose the simplest one.",
+      "forbidden_rule_ids": [
+        "LING-SENTENCE-001",
+        "LING-CLAUSE-001",
+        "LING-ACTION-001",
+        "LING-PUNCTUATION-001",
+        "LING-NOMINALIZATION-001",
+        "LING-NOUN-STACK-001",
+        "LING-COMPOUND-DEPTH-001",
+        "LING-WEAK-VERB-001",
+        "LING-AGENCY-001",
+        "LING-PASSIVE-001",
+        "LING-ACTOR-001",
+        "LING-INDIRECT-PREDICATE-001",
+        "LING-JARGON-001",
+        "LING-BUREAUCRACY-001",
+        "LING-COMPOUND-001",
+        "LING-ABBREVIATION-001",
+        "LING-STRUCTURE-001",
+        "LING-LIST-001",
+        "LING-MIXED-PURPOSE-001",
+        "LING-REDUNDANCY-001",
+        "LING-FILLER-001",
+        "LING-DUPLICATED-RECOMMENDATION-001",
+        "LING-QUALIFIER-001"
+      ]
+    },
+    {
+      "name": "clean vendor version",
+      "text": "The vendor confirmed the fix will ship in version 4.2 next month.",
+      "forbidden_rule_ids": [
+        "LING-SENTENCE-001",
+        "LING-CLAUSE-001",
+        "LING-ACTION-001",
+        "LING-PUNCTUATION-001",
+        "LING-NOMINALIZATION-001",
+        "LING-NOUN-STACK-001",
+        "LING-COMPOUND-DEPTH-001",
+        "LING-WEAK-VERB-001",
+        "LING-AGENCY-001",
+        "LING-PASSIVE-001",
+        "LING-ACTOR-001",
+        "LING-INDIRECT-PREDICATE-001",
+        "LING-JARGON-001",
+        "LING-BUREAUCRACY-001",
+        "LING-COMPOUND-001",
+        "LING-ABBREVIATION-001",
+        "LING-STRUCTURE-001",
+        "LING-LIST-001",
+        "LING-MIXED-PURPOSE-001",
+        "LING-REDUNDANCY-001",
+        "LING-FILLER-001",
+        "LING-DUPLICATED-RECOMMENDATION-001",
+        "LING-QUALIFIER-001"
+      ]
+    },
+    {
+      "name": "clean payments migration",
+      "text": "The payments team will migrate the billing service to the new cluster on 3 March.",
+      "forbidden_rule_ids": [
+        "LING-SENTENCE-001",
+        "LING-CLAUSE-001",
+        "LING-ACTION-001",
+        "LING-PUNCTUATION-001",
+        "LING-NOMINALIZATION-001",
+        "LING-NOUN-STACK-001",
+        "LING-COMPOUND-DEPTH-001",
+        "LING-WEAK-VERB-001",
+        "LING-AGENCY-001",
+        "LING-PASSIVE-001",
+        "LING-ACTOR-001",
+        "LING-INDIRECT-PREDICATE-001",
+        "LING-JARGON-001",
+        "LING-BUREAUCRACY-001",
+        "LING-COMPOUND-001",
+        "LING-ABBREVIATION-001",
+        "LING-STRUCTURE-001",
+        "LING-LIST-001",
+        "LING-MIXED-PURPOSE-001",
+        "LING-REDUNDANCY-001",
+        "LING-FILLER-001",
+        "LING-DUPLICATED-RECOMMENDATION-001",
+        "LING-QUALIFIER-001"
+      ]
+    },
+    {
+      "name": "clean alice schema",
+      "text": "Alice owns the schema change and will land it behind a feature flag.",
+      "forbidden_rule_ids": [
+        "LING-SENTENCE-001",
+        "LING-CLAUSE-001",
+        "LING-ACTION-001",
+        "LING-PUNCTUATION-001",
+        "LING-NOMINALIZATION-001",
+        "LING-NOUN-STACK-001",
+        "LING-COMPOUND-DEPTH-001",
+        "LING-WEAK-VERB-001",
+        "LING-AGENCY-001",
+        "LING-PASSIVE-001",
+        "LING-ACTOR-001",
+        "LING-INDIRECT-PREDICATE-001",
+        "LING-JARGON-001",
+        "LING-BUREAUCRACY-001",
+        "LING-COMPOUND-001",
+        "LING-ABBREVIATION-001",
+        "LING-STRUCTURE-001",
+        "LING-LIST-001",
+        "LING-MIXED-PURPOSE-001",
+        "LING-REDUNDANCY-001",
+        "LING-FILLER-001",
+        "LING-DUPLICATED-RECOMMENDATION-001",
+        "LING-QUALIFIER-001"
       ]
     }
   ]

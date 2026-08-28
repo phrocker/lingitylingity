@@ -4,20 +4,77 @@
   "title": "Lingity verification result v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "valid", "analysis_sha256", "source_sha256", "profile"],
+  "required": [
+    "analysis_sha256",
+    "linguistic_model",
+    "profile",
+    "schema_version",
+    "source_sha256",
+    "valid"
+  ],
   "properties": {
-    "schema_version": {"const": "1.0.0"},
-    "valid": {"const": true},
-    "analysis_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
-    "source_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "valid": {
+      "const": true
+    },
+    "analysis_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "source_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
     "profile": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "version", "digest"],
+      "required": [
+        "name",
+        "version",
+        "digest"
+      ],
       "properties": {
-        "name": {"type": "string"},
-        "version": {"type": "string"},
-        "digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "linguistic_model": {
+      "type": "object",
+      "description": "Pinned parsing pipeline this analysis is reproducible against.",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "runtime",
+        "digest"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "runtime": {
+          "type": "string",
+          "minLength": 1
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
       }
     }
   }
