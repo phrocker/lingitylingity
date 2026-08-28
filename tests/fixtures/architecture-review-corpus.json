@@ -1,0 +1,527 @@
+{
+  "positive": [
+    {
+      "name": "agentless decision and bureaucracy",
+      "text": "It is recommended that a decision should be made going forward.",
+      "required_rule_ids": [
+        "LING-AGENCY-001",
+        "LING-BUREAUCRACY-001",
+        "LING-PASSIVE-001"
+      ]
+    },
+    {
+      "name": "light verb and architecture jargon",
+      "text": "Teams should carry out capacity testing for eventual consistency and limit the blast radius.",
+      "required_rule_ids": [
+        "LING-WEAK-VERB-001",
+        "LING-JARGON-001"
+      ]
+    },
+    {
+      "name": "wordy assessment request",
+      "text": "The reviewers will perform an assessment in order to validate the failover design.",
+      "required_rule_ids": [
+        "LING-WEAK-VERB-001",
+        "LING-BUREAUCRACY-001"
+      ]
+    },
+    {
+      "name": "genuine certificate rotation noun stack",
+      "text": "The identity provider certificate rotation process failed.",
+      "required_rule_ids": [
+        "LING-NOUN-STACK-001"
+      ]
+    },
+    {
+      "name": "punctuation depth interrupts sentence",
+      "text": "The platform team recommends approval; however, the service (after migration, audit, and handoff) needs owners, and telemetry, rollout, recovery, exception, and evidence gates remain unresolved.",
+      "required_rule_ids": [
+        "LING-PUNCTUATION-001"
+      ]
+    },
+    {
+      "name": "agentless imperative directive",
+      "text": "Approve the cache design before release.",
+      "required_rule_ids": [
+        "LING-ACTOR-001"
+      ]
+    },
+    {
+      "name": "indirect purpose predicate",
+      "text": "The purpose of the review is to validate recovery evidence.",
+      "required_rule_ids": [
+        "LING-INDIRECT-PREDICATE-001"
+      ]
+    },
+    {
+      "name": "uncommon machine compound",
+      "text": "The risk-adjusted-capacity plan needs review.",
+      "required_rule_ids": [
+        "LING-COMPOUND-001"
+      ]
+    },
+    {
+      "name": "undefined acronym density",
+      "text": "The service must report SLO, RTO, RPO, and XYZ values before release.",
+      "required_rule_ids": [
+        "LING-ABBREVIATION-001"
+      ]
+    },
+    {
+      "name": "inline enumeration should be listed",
+      "text": "The rollout needs authentication, authorization, logging, monitoring, alerting, rollback, and owner approval.",
+      "required_rule_ids": [
+        "LING-LIST-001"
+      ]
+    },
+    {
+      "name": "mixed decision remediation and exit criteria",
+      "text": "The platform team recommends approval, fixes authorization gaps, verifies evidence, and blocks release until telemetry passes.",
+      "required_rule_ids": [
+        "LING-MIXED-PURPOSE-001"
+      ]
+    },
+    {
+      "name": "redundant filler phrase",
+      "text": "The team will validate the gateway in order to confirm recovery.",
+      "required_rule_ids": [
+        "LING-FILLER-001"
+      ]
+    },
+    {
+      "name": "duplicated recommendation in different words",
+      "text": "The platform team should validate telemetry before release. Reviewers must verify telemetry before approval.",
+      "required_rule_ids": [
+        "LING-DUPLICATED-RECOMMENDATION-001"
+      ]
+    },
+    {
+      "name": "stacked repeated qualifiers",
+      "text": "The remediation is very significantly delayed.",
+      "required_rule_ids": [
+        "LING-QUALIFIER-001"
+      ]
+    },
+    {
+      "name": "deep hyphenated compound chain",
+      "text": "The risk-adjusted-capacity-planning-review needs an owner.",
+      "required_rule_ids": [
+        "LING-COMPOUND-DEPTH-001"
+      ]
+    },
+    {
+      "name": "passive perfect approved",
+      "text": "The change has been approved.",
+      "required_rule_ids": [
+        "LING-PASSIVE-001"
+      ]
+    },
+    {
+      "name": "passive simple approved",
+      "text": "The change was approved.",
+      "required_rule_ids": [
+        "LING-PASSIVE-001"
+      ]
+    },
+    {
+      "name": "passive present handled",
+      "text": "The error is handled upstream.",
+      "required_rule_ids": [
+        "LING-PASSIVE-001"
+      ]
+    },
+    {
+      "name": "passive plural removed",
+      "text": "The nodes were removed.",
+      "required_rule_ids": [
+        "LING-PASSIVE-001"
+      ]
+    },
+    {
+      "name": "passive progressive reviewed",
+      "text": "The design is being reviewed.",
+      "required_rule_ids": [
+        "LING-PASSIVE-001"
+      ]
+    },
+    {
+      "name": "passive modal migrated",
+      "text": "The data will be migrated overnight.",
+      "required_rule_ids": [
+        "LING-PASSIVE-001"
+      ]
+    },
+    {
+      "name": "passive modal approved",
+      "text": "The change must be approved.",
+      "required_rule_ids": [
+        "LING-PASSIVE-001"
+      ]
+    },
+    {
+      "name": "get passive deprecated",
+      "text": "The endpoint got deprecated last year.",
+      "required_rule_ids": [
+        "LING-PASSIVE-001"
+      ]
+    },
+    {
+      "name": "mixed deferral patch and exit criteria",
+      "text": "We recommend deferring ratification, and the team must patch the authorization gap, add regression tests, publish the runbook, and obtain sign-off before the exit criteria are considered met.",
+      "required_rule_ids": [
+        "LING-MIXED-PURPOSE-001"
+      ]
+    }
+  ],
+  "negative": [
+    {
+      "name": "direct capacity plan",
+      "text": "The platform team will test capacity next week and publish the results in the review.",
+      "forbidden_rule_ids": [
+        "LING-AGENCY-001",
+        "LING-WEAK-VERB-001",
+        "LING-JARGON-001",
+        "LING-BUREAUCRACY-001",
+        "LING-PASSIVE-001"
+      ]
+    },
+    {
+      "name": "clear ownership",
+      "text": "Architects chose asynchronous replication to keep checkout available during regional failover.",
+      "forbidden_rule_ids": [
+        "LING-AGENCY-001",
+        "LING-WEAK-VERB-001",
+        "LING-JARGON-001",
+        "LING-BUREAUCRACY-001",
+        "LING-PASSIVE-001"
+      ]
+    },
+    {
+      "name": "plain recommendation",
+      "text": "Reviewers recommend a rollout gate after telemetry confirms recovery targets.",
+      "forbidden_rule_ids": [
+        "LING-AGENCY-001",
+        "LING-WEAK-VERB-001",
+        "LING-JARGON-001",
+        "LING-BUREAUCRACY-001",
+        "LING-PASSIVE-001"
+      ]
+    },
+    {
+      "name": "ownership predicate is not a noun stack",
+      "text": "The platform team owns this component.",
+      "forbidden_rule_ids": [
+        "LING-NOUN-STACK-001"
+      ]
+    },
+    {
+      "name": "requirement predicate is not a noun stack",
+      "text": "The security group requires an owner.",
+      "forbidden_rule_ids": [
+        "LING-NOUN-STACK-001"
+      ]
+    },
+    {
+      "name": "needs predicate is not a noun stack",
+      "text": "The migration plan needs approval.",
+      "forbidden_rule_ids": [
+        "LING-NOUN-STACK-001"
+      ]
+    },
+    {
+      "name": "handles predicate is not a noun stack",
+      "text": "The gateway service handles retries.",
+      "forbidden_rule_ids": [
+        "LING-NOUN-STACK-001"
+      ]
+    },
+    {
+      "name": "provides predicate is not a noun stack",
+      "text": "The billing system provides usage data.",
+      "forbidden_rule_ids": [
+        "LING-NOUN-STACK-001"
+      ]
+    },
+    {
+      "name": "punctuation remains shallow",
+      "text": "The platform team recommends approval after migration testing, and owners will publish evidence tomorrow.",
+      "forbidden_rule_ids": [
+        "LING-PUNCTUATION-001"
+      ]
+    },
+    {
+      "name": "directive names actor",
+      "text": "The platform team must approve the cache design before release.",
+      "forbidden_rule_ids": [
+        "LING-ACTOR-001"
+      ]
+    },
+    {
+      "name": "direct predicate states purpose",
+      "text": "The review validates recovery evidence before the release gate.",
+      "forbidden_rule_ids": [
+        "LING-INDIRECT-PREDICATE-001"
+      ]
+    },
+    {
+      "name": "allowed compound modifier",
+      "text": "The evidence-based plan needs review.",
+      "forbidden_rule_ids": [
+        "LING-COMPOUND-001"
+      ]
+    },
+    {
+      "name": "expanded acronyms are accepted",
+      "text": "The service publishes a service level objective (SLO) and recovery time objective (RTO) before release.",
+      "forbidden_rule_ids": [
+        "LING-ABBREVIATION-001"
+      ]
+    },
+    {
+      "name": "short inline list remains readable",
+      "text": "The rollout needs logging, monitoring, and rollback evidence.",
+      "forbidden_rule_ids": [
+        "LING-LIST-001"
+      ]
+    },
+    {
+      "name": "single purpose sentence",
+      "text": "The platform team will fix authorization gaps before release.",
+      "forbidden_rule_ids": [
+        "LING-MIXED-PURPOSE-001"
+      ]
+    },
+    {
+      "name": "direct purpose without filler",
+      "text": "The team will validate the gateway to confirm recovery.",
+      "forbidden_rule_ids": [
+        "LING-FILLER-001"
+      ]
+    },
+    {
+      "name": "distinct recommendations are not duplicates",
+      "text": "The platform team should validate telemetry before release. Security reviewers must fix authorization before approval.",
+      "forbidden_rule_ids": [
+        "LING-DUPLICATED-RECOMMENDATION-001"
+      ]
+    },
+    {
+      "name": "single useful qualifier",
+      "text": "The remediation is significantly delayed.",
+      "forbidden_rule_ids": [
+        "LING-QUALIFIER-001"
+      ]
+    },
+    {
+      "name": "short familiar compound chain",
+      "text": "The risk-based capacity plan needs review.",
+      "forbidden_rule_ids": [
+        "LING-COMPOUND-DEPTH-001",
+        "LING-COMPOUND-001"
+      ]
+    },
+    {
+      "name": "perfect active expired",
+      "text": "The token has expired.",
+      "forbidden_rule_ids": [
+        "LING-PASSIVE-001"
+      ]
+    },
+    {
+      "name": "perfect active completed migration",
+      "text": "The team have completed the migration.",
+      "forbidden_rule_ids": [
+        "LING-PASSIVE-001"
+      ]
+    },
+    {
+      "name": "perfect active finished",
+      "text": "The job has finished.",
+      "forbidden_rule_ids": [
+        "LING-PASSIVE-001"
+      ]
+    },
+    {
+      "name": "perfect active arrived",
+      "text": "The request had arrived late.",
+      "forbidden_rule_ids": [
+        "LING-PASSIVE-001"
+      ]
+    },
+    {
+      "name": "perfect active increased",
+      "text": "Latency has increased.",
+      "forbidden_rule_ids": [
+        "LING-PASSIVE-001"
+      ]
+    },
+    {
+      "name": "perfect active grown",
+      "text": "Traffic has grown steadily.",
+      "forbidden_rule_ids": [
+        "LING-PASSIVE-001"
+      ]
+    },
+    {
+      "name": "adjectival responsible",
+      "text": "The service is responsible.",
+      "forbidden_rule_ids": [
+        "LING-PASSIVE-001"
+      ]
+    },
+    {
+      "name": "adjectival available",
+      "text": "The service is available.",
+      "forbidden_rule_ids": [
+        "LING-PASSIVE-001"
+      ]
+    },
+    {
+      "name": "adjectival complete",
+      "text": "The task is complete.",
+      "forbidden_rule_ids": [
+        "LING-PASSIVE-001"
+      ]
+    },
+    {
+      "name": "adjectival late",
+      "text": "The request was late.",
+      "forbidden_rule_ids": [
+        "LING-PASSIVE-001"
+      ]
+    },
+    {
+      "name": "transitive got approval",
+      "text": "The team got approval.",
+      "forbidden_rule_ids": [
+        "LING-PASSIVE-001"
+      ]
+    },
+    {
+      "name": "adverb terminates noun stack twice",
+      "text": "We tested the rollback path twice and it restored service in under four minutes.",
+      "forbidden_rule_ids": [
+        "LING-NOUN-STACK-001"
+      ]
+    },
+    {
+      "name": "adverb terminates noun stack again",
+      "text": "We tested the rollback path again and it restored service in under four minutes.",
+      "forbidden_rule_ids": [
+        "LING-NOUN-STACK-001"
+      ]
+    },
+    {
+      "name": "adverb terminates noun stack always",
+      "text": "We tested the rollback path always and it restored service in under four minutes.",
+      "forbidden_rule_ids": [
+        "LING-NOUN-STACK-001"
+      ]
+    },
+    {
+      "name": "adverb terminates noun stack annually",
+      "text": "We tested the rollback path annually and it restored service in under four minutes.",
+      "forbidden_rule_ids": [
+        "LING-NOUN-STACK-001"
+      ]
+    },
+    {
+      "name": "adverb terminates noun stack daily",
+      "text": "We tested the rollback path daily and it restored service in under four minutes.",
+      "forbidden_rule_ids": [
+        "LING-NOUN-STACK-001"
+      ]
+    },
+    {
+      "name": "adverb terminates noun stack later",
+      "text": "We tested the rollback path later and it restored service in under four minutes.",
+      "forbidden_rule_ids": [
+        "LING-NOUN-STACK-001"
+      ]
+    },
+    {
+      "name": "adverb terminates noun stack monthly",
+      "text": "We tested the rollback path monthly and it restored service in under four minutes.",
+      "forbidden_rule_ids": [
+        "LING-NOUN-STACK-001"
+      ]
+    },
+    {
+      "name": "adverb terminates noun stack never",
+      "text": "We tested the rollback path never and it restored service in under four minutes.",
+      "forbidden_rule_ids": [
+        "LING-NOUN-STACK-001"
+      ]
+    },
+    {
+      "name": "adverb terminates noun stack often",
+      "text": "We tested the rollback path often and it restored service in under four minutes.",
+      "forbidden_rule_ids": [
+        "LING-NOUN-STACK-001"
+      ]
+    },
+    {
+      "name": "adverb terminates noun stack once",
+      "text": "We tested the rollback path once and it restored service in under four minutes.",
+      "forbidden_rule_ids": [
+        "LING-NOUN-STACK-001"
+      ]
+    },
+    {
+      "name": "adverb terminates noun stack quarterly",
+      "text": "We tested the rollback path quarterly and it restored service in under four minutes.",
+      "forbidden_rule_ids": [
+        "LING-NOUN-STACK-001"
+      ]
+    },
+    {
+      "name": "adverb terminates noun stack soon",
+      "text": "We tested the rollback path soon and it restored service in under four minutes.",
+      "forbidden_rule_ids": [
+        "LING-NOUN-STACK-001"
+      ]
+    },
+    {
+      "name": "adverb terminates noun stack weekly",
+      "text": "We tested the rollback path weekly and it restored service in under four minutes.",
+      "forbidden_rule_ids": [
+        "LING-NOUN-STACK-001"
+      ]
+    },
+    {
+      "name": "clean fixed before release",
+      "text": "We fixed the bug before the release.",
+      "forbidden_rule_ids": [
+        "LING-MIXED-PURPOSE-001"
+      ]
+    },
+    {
+      "name": "clean patched before release",
+      "text": "The team patched the endpoint before release.",
+      "forbidden_rule_ids": [
+        "LING-MIXED-PURPOSE-001"
+      ]
+    },
+    {
+      "name": "clean hardened before rollout",
+      "text": "The platform team will harden the gateway before rollout.",
+      "forbidden_rule_ids": [
+        "LING-MIXED-PURPOSE-001"
+      ]
+    },
+    {
+      "name": "clean deferring until review",
+      "text": "We are deferring ratification until the next review.",
+      "forbidden_rule_ids": [
+        "LING-MIXED-PURPOSE-001"
+      ]
+    },
+    {
+      "name": "clean remove old flag",
+      "text": "The team will remove the old feature flag after the release.",
+      "forbidden_rule_ids": [
+        "LING-MIXED-PURPOSE-001"
+      ]
+    }
+  ]
+}

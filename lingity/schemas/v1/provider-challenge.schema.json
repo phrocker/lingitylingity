@@ -7,7 +7,21 @@
   "required": ["disposition", "claims", "provider", "model"],
   "properties": {
     "disposition": {"enum": ["no_material_change", "material_change", "needs_human"]},
-    "claims": {"type": "array", "items": {"type": "string"}},
+    "claims": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "omitted_claim",
+          "added_claim",
+          "changed_modality",
+          "changed_actor_or_ownership",
+          "changed_condition_or_scope",
+          "changed_uncertainty",
+          "changed_recommendation_or_decision_strength"
+        ]
+      },
+      "uniqueItems": true
+    },
     "provider": {"type": "string", "minLength": 1},
     "model": {"type": "string", "minLength": 1}
   }

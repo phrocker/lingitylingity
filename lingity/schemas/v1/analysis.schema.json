@@ -136,11 +136,25 @@
         "dimension": {"enum": ["sentence_load", "morphology", "agency", "lexical_clarity", "structure", "redundancy"]},
         "severity": {"enum": ["low", "medium", "high"]},
         "location": {"$ref": "#/$defs/location"},
-        "observed_value": {},
-        "threshold": {},
+        "observed_value": {"$ref": "#/$defs/findingValue"},
+        "threshold": {"$ref": "#/$defs/findingValue"},
         "remediation": {"type": "string", "minLength": 1},
         "penalty": {"type": "number", "minimum": 0}
       }
+    },
+    "findingValue": {
+      "oneOf": [
+        {"type": "number"},
+        {"type": "string"},
+        {
+          "type": "object",
+          "additionalProperties": {"$ref": "#/$defs/findingValue"}
+        },
+        {
+          "type": "array",
+          "items": {"$ref": "#/$defs/findingValue"}
+        }
+      ]
     },
     "protectedManifest": {
       "type": "object",

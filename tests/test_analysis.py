@@ -1,9 +1,46 @@
 from __future__ import annotations
 
+import json
+import re
+from pathlib import Path
 from typing import cast
 
+from jsonschema import Draft202012Validator
+
+from lingity.analyzer import DESIGN_SIGNAL_RULES, DESIGN_TABLE_RULES, RULE_DIMENSIONS
 from lingity.analyzer import analyze_text
 from lingity.models import JsonValue
+from lingity.profiles import load_profile
+
+NEW_RULE_IDS = frozenset(DESIGN_SIGNAL_RULES.values())
+EXPECTED_DIMENSIONS = {
+    "sentence_load",
+    "morphology",
+    "agency",
+    "lexical_clarity",
+    "structure",
+    "redundancy",
+}
+
+
+def _findings(text: str) -> list[dict[str, JsonValue]]:
+    return cast(list[dict[str, JsonValue]], analyze_text(text)["findings"])
+
+
+def _rule_ids(text: str) -> set[str]:
+    return {cast(str, finding["rule_id"]) for finding in _findings(text)}
+
+
+def _sentences(text: str) -> list[dict[str, JsonValue]]:
+    return cast(list[dict[str, JsonValue]], analyze_text(text)["sentences"])
+
+
+def _noun_stack_texts(text: str) -> set[str]:
+    return {
+        cast(str, cast(dict[str, JsonValue], finding["observed_value"])["text"])
+        for finding in _findings(text)
+        if finding["rule_id"] == "LING-NOUN-STACK-001"
+    }
 
 
 def test_rewrite_scores_better_and_reduces_findings(
@@ -16,6 +53,8 @@ def test_rewrite_scores_better_and_reduces_findings(
     assert isinstance(original_score, float)
     assert isinstance(rewrite_score, float)
     assert rewrite_score > original_score
+    assert cast(dict[str, JsonValue], original["score"])["band"] == "revision_required"
+    assert cast(dict[str, JsonValue], rewrite["score"])["band"] == "clear"
     assert len(cast(list[JsonValue], rewrite["findings"])) < len(
         cast(list[JsonValue], original["findings"])
     )
@@ -74,3 +113,293 @@ def test_passive_voice_is_located() -> None:
     )
     location = cast(dict[str, JsonValue], passive["location"])
     assert text[cast(int, location["start"]):cast(int, location["end"])] == "was approved"
+
+
+def test_general_architecture_review_corpus_detects_both_directions() -> None:
+    path = Path(__file__).parent / "fixtures" / "architecture-review-corpus.json"
+    corpus = cast(dict[str, list[dict[str, JsonValue]]], json.loads(path.read_text(encoding="utf-8")))
+    for item in corpus["positive"]:
+        text = cast(str, item["text"])
+        required = set(cast(list[str], item["required_rule_ids"]))
+        assert required <= _rule_ids(text), cast(str, item["name"])
+    for item in corpus["negative"]:
+        text = cast(str, item["text"])
+        forbidden = set(cast(list[str], item["forbidden_rule_ids"]))
+        assert _rule_ids(text).isdisjoint(forbidden), cast(str, item["name"])
+
+
+def test_new_rules_have_positive_and_negative_corpus_coverage() -> None:
+    path = Path(__file__).parent / "fixtures" / "architecture-review-corpus.json"
+    corpus = cast(dict[str, list[dict[str, JsonValue]]], json.loads(path.read_text(encoding="utf-8")))
+    positive_hits: set[str] = set()
+    positive_passes = 0
+    for item in corpus["positive"]:
+        text = cast(str, item["text"])
+        required = set(cast(list[str], item["required_rule_ids"]))
+        matched = required <= _rule_ids(text)
+        positive_passes += int(matched)
+        positive_hits.update(required & NEW_RULE_IDS)
+    negative_hits: set[str] = set()
+    negative_passes = 0
+    for item in corpus["negative"]:
+        text = cast(str, item["text"])
+        forbidden = set(cast(list[str], item["forbidden_rule_ids"]))
+        matched = _rule_ids(text).isdisjoint(forbidden)
+        negative_passes += int(matched)
+        negative_hits.update(forbidden & NEW_RULE_IDS)
+
+    assert positive_hits == NEW_RULE_IDS
+    assert negative_hits == NEW_RULE_IDS
+    assert positive_passes == len(corpus["positive"])
+    assert negative_passes == len(corpus["negative"])
+
+
+def test_design_signal_mapping_and_dimension_coverage() -> None:
+    assert set(DESIGN_SIGNAL_RULES) == {
+        "sentence_load.punctuation_depth",
+        "noun_stacking.consecutive_noun_modifiers",
+        "noun_stacking.compound_depth",
+        "agency.explicit_actor_action_pairs",
+        "voice.indirect_predicates",
+        "lexical_clarity.uncommon_compounds",
+        "lexical_clarity.abbreviation_density",
+        "structure.list_suitability",
+        "structure.mixed_purpose_sentences",
+        "redundancy.filler_phrases",
+        "redundancy.duplicated_recommendations",
+        "redundancy.repeated_qualifiers",
+    }
+    assert set(RULE_DIMENSIONS.values()) == EXPECTED_DIMENSIONS
+    assert NEW_RULE_IDS <= set(RULE_DIMENSIONS)
+    assert set(DESIGN_TABLE_RULES) == {
+        "sentence_load",
+        "morphology",
+        "noun_stacking",
+        "agency",
+        "voice",
+        "lexical_clarity",
+        "structure",
+        "redundancy",
+    }
+    mapped_rule_ids = {
+        rule_id
+        for rule_ids in DESIGN_TABLE_RULES.values()
+        for rule_id in rule_ids
+    }
+    assert mapped_rule_ids <= set(RULE_DIMENSIONS)
+    assert {RULE_DIMENSIONS[rule_id] for rule_id in DESIGN_TABLE_RULES["noun_stacking"]} == {"morphology"}
+    assert {RULE_DIMENSIONS[rule_id] for rule_id in DESIGN_TABLE_RULES["voice"]} == {"agency"}
+
+
+def test_analysis_schema_accepts_new_findings() -> None:
+    path = Path(__file__).parent / "fixtures" / "architecture-review-corpus.json"
+    schema_path = Path(__file__).parents[1] / "lingity" / "schemas" / "v1" / "analysis.schema.json"
+    validator = Draft202012Validator(json.loads(schema_path.read_text(encoding="utf-8")))
+    corpus = cast(dict[str, list[dict[str, JsonValue]]], json.loads(path.read_text(encoding="utf-8")))
+    texts = [
+        cast(str, item["text"])
+        for item in corpus["positive"]
+        if NEW_RULE_IDS & set(cast(list[str], item["required_rule_ids"]))
+    ]
+    for text in texts:
+        validator.validate(analyze_text(text))
+
+
+def test_profile_phrase_regexes_compile() -> None:
+    profile = load_profile()
+    for group_name in (
+        "hidden_agency",
+        "weak_verbs",
+        "jargon",
+        "bureaucratic_phrases",
+        "indirect_predicates",
+        "purpose_markers",
+        "filler_phrases",
+        "recommendation_action_groups",
+    ):
+        phrase_map = cast(dict[str, list[str]], profile.rules[group_name])
+        for expressions in phrase_map.values():
+            for expression in expressions:
+                if group_name == "recommendation_action_groups":
+                    assert expression
+                else:
+                    re.compile(expression)
+
+
+def test_action_count_ignores_participles_and_counts_predicates() -> None:
+    noun_phrase = (
+        "Evidence-based planning, advanced design, completed documentation, "
+        "critical final quality, several operational constraints."
+    )
+    assert cast(int, _sentences(noun_phrase)[0]["action_count"]) == 0
+    assert "LING-ACTION-001" not in _rule_ids(noun_phrase)
+
+    predicate_series = (
+        "Teams assess risks, document decisions, implement controls, monitor telemetry, "
+        "ensure recovery, and support operations."
+    )
+    sentence = _sentences(predicate_series)[0]
+    assert cast(int, sentence["action_count"]) == 6
+    assert "LING-ACTION-001" in _rule_ids(predicate_series)
+    assert "LING-NOUN-STACK-001" not in _rule_ids(predicate_series)
+
+
+def test_nominalization_detection_ignores_ordinary_adjectives() -> None:
+    text = "The critical final quality and several operational constraints guide the review."
+    assert "LING-NOMINALIZATION-001" not in _rule_ids(text)
+
+
+def test_noun_stacks_reset_at_punctuation_and_predicates() -> None:
+    text = (
+        "Clear, concise, direct recommendations help reviewers. "
+        "Teams assess risks, document decisions, implement controls, monitor telemetry, "
+        "ensure recovery, and support operations."
+    )
+    assert "LING-NOUN-STACK-001" not in _rule_ids(text)
+
+
+def test_noun_stacks_stop_at_finite_s_predicates() -> None:
+    false_positive_sentences = [
+        "The platform team owns this component.",
+        "The security group requires an owner.",
+        "The migration plan needs approval.",
+        "The gateway service handles retries.",
+        "The billing system provides usage data.",
+    ]
+    for text in false_positive_sentences:
+        assert _noun_stack_texts(text) == set(), text
+        assert cast(int, _sentences(text)[0]["action_count"]) == 1
+
+    assert _noun_stack_texts(
+        "The identity provider certificate rotation process failed."
+    ) == {"identity provider certificate rotation process"}
+    assert _noun_stack_texts(
+        "Use the repository-evidenced hybrid topology only as a baseline."
+    ) == {"repository-evidenced hybrid topology"}
+
+
+def test_compound_depth_is_morphology_and_not_uncommon_compound_double_count() -> None:
+    text = "The risk-adjusted-capacity-planning-review needs an owner."
+    findings = _findings(text)
+    depth = [
+        finding for finding in findings
+        if finding["rule_id"] == "LING-COMPOUND-DEPTH-001"
+    ]
+    assert len(depth) == 1
+    assert depth[0]["dimension"] == "morphology"
+    observed = cast(dict[str, JsonValue], depth[0]["observed_value"])
+    assert observed["compound"] == "risk-adjusted-capacity-planning-review"
+    assert observed["parts"] == 5
+    assert "LING-COMPOUND-001" not in {cast(str, finding["rule_id"]) for finding in findings}
+
+
+def test_mixed_purpose_detects_common_review_vocabulary_without_clean_false_positives() -> None:
+    mixed = (
+        "We recommend deferring ratification, and the team must patch the authorization "
+        "gap, add regression tests, publish the runbook, and obtain sign-off before the "
+        "exit criteria are considered met."
+    )
+    assert "LING-MIXED-PURPOSE-001" in _rule_ids(mixed)
+
+    clean_sentences = [
+        "We fixed the bug before the release.",
+        "The team patched the endpoint before release.",
+        "The platform team will harden the gateway before rollout.",
+        "We are deferring ratification until the next review.",
+        "The team will remove the old feature flag after the release.",
+    ]
+    for text in clean_sentences:
+        assert "LING-MIXED-PURPOSE-001" not in _rule_ids(text), text
+
+
+def test_passive_voice_rejects_adjectives_and_detects_irregulars() -> None:
+    assert "LING-PASSIVE-001" not in _rule_ids("The service is a token. The endpoint is open.")
+
+    text = "The gateway was built by the platform team. The decision was made yesterday."
+    observed = {
+        cast(str, finding["observed_value"])
+        for finding in _findings(text)
+        if finding["rule_id"] == "LING-PASSIVE-001"
+    }
+    assert {"was built", "was made"} <= observed
+
+
+def test_passive_voice_allows_intervening_negation_and_adverbs() -> None:
+    observed = {
+        cast(str, finding["observed_value"])
+        for finding in _findings("The architecture was not formally approved.")
+        if finding["rule_id"] == "LING-PASSIVE-001"
+    }
+    assert "was not formally approved" in observed
+
+
+def test_passive_voice_distinguishes_perfect_aspect_from_passive() -> None:
+    perfect_actives = [
+        "The token has expired.",
+        "The team have completed the migration.",
+        "The job has finished.",
+        "The request had arrived late.",
+        "Latency has increased.",
+        "Traffic has grown steadily.",
+    ]
+    for text in perfect_actives:
+        assert "LING-PASSIVE-001" not in _rule_ids(text), text
+
+    true_passives = [
+        "The change has been approved.",
+        "The change was approved.",
+        "The error is handled upstream.",
+        "The nodes were removed.",
+        "The design is being reviewed.",
+        "The data will be migrated overnight.",
+        "The change must be approved.",
+        "The endpoint got deprecated last year.",
+    ]
+    for text in true_passives:
+        assert "LING-PASSIVE-001" in _rule_ids(text), text
+
+    clean_adjectival_or_transitive_got = [
+        "The service is responsible.",
+        "The service is available.",
+        "The task is complete.",
+        "The request was late.",
+        "The team got approval.",
+    ]
+    for text in clean_adjectival_or_transitive_got:
+        assert "LING-PASSIVE-001" not in _rule_ids(text), text
+
+
+def test_noun_stacks_stop_at_adverbs() -> None:
+    adverbs = [
+        "again",
+        "always",
+        "annually",
+        "daily",
+        "later",
+        "monthly",
+        "never",
+        "often",
+        "once",
+        "quarterly",
+        "soon",
+        "twice",
+        "weekly",
+    ]
+    for adverb in adverbs:
+        text = f"We tested the rollback path {adverb} and it restored service in under four minutes."
+        assert "LING-NOUN-STACK-001" not in _rule_ids(text), text
+
+
+def test_sentence_and_clause_segmentation_handle_abbreviations_and_lists() -> None:
+    text = (
+        "The cache uses a regional store, e.g. Redis, for session hints. "
+        "Teams monitor latency."
+    )
+    records = _sentences(text)
+    assert len(records) == 2
+    assert "e.g. Redis" in cast(str, records[0]["text"])
+
+    list_text = "Authentication, authorization, logging, monitoring, resilience, and deployment are required."
+    list_record = _sentences(list_text)[0]
+    assert cast(int, list_record["clause_count"]) <= 3
+    assert "LING-CLAUSE-001" not in _rule_ids(list_text)

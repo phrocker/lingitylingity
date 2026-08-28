@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any, Sequence, cast
+from uuid import uuid4
 
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError, ValidationError
@@ -28,17 +30,44 @@ def _write_json(value: object, output: Path | None) -> None:
         sys.stdout.write(rendered)
     else:
         output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(rendered, encoding="utf-8")
+        temporary = output.with_name(f".{output.name}.{uuid4().hex}.tmp")
+        try:
+            temporary.write_text(rendered, encoding="utf-8")
+            temporary.replace(output)
+        finally:
+            if temporary.exists():
+                temporary.unlink()
+
+
+def _normalized_path(path: Path) -> str:
+    return os.path.normcase(str(path.expanduser().resolve(strict=False)))
+
+
+def _reject_input_output_alias(input_path: Path, output: Path | None) -> None:
+    if output is not None and _normalized_path(input_path) == _normalized_path(output):
+        raise ValueError("input and output paths must be different")
+
+
+def _remove_stale_output(output: Path | None) -> None:
+    if output is None:
+        return
+    try:
+        output.unlink()
+    except FileNotFoundError:
+        return
 
 
 def _analyze(args: argparse.Namespace) -> int:
     path = cast(Path, args.input)
+    output = cast(Path | None, args.output)
     try:
+        _reject_input_output_alias(path, output)
+        _remove_stale_output(output)
         text = path.read_text(encoding="utf-8")
         result = analyze_text(text, load_profile(cast(str, args.profile)))
         Draft202012Validator(_schema("analysis.schema.json")).validate(result)
-        _write_json(result, cast(Path | None, args.output))
-    except (OSError, ValueError, json.JSONDecodeError, SchemaError, ValidationError) as exc:
+        _write_json(result, output)
+    except (OSError, TypeError, ValueError, json.JSONDecodeError, SchemaError, ValidationError) as exc:
         print(f"lingity analyze failed: {exc}", file=sys.stderr)
         return 2
     return 0
@@ -46,7 +75,10 @@ def _analyze(args: argparse.Namespace) -> int:
 
 def _verify(args: argparse.Namespace) -> int:
     path = cast(Path, args.analysis)
+    output = cast(Path | None, args.output)
     try:
+        _reject_input_output_alias(path, output)
+        _remove_stale_output(output)
         artifact = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(artifact, dict):
             raise ValueError("analysis artifact must be a JSON object")
@@ -79,8 +111,8 @@ def _verify(args: argparse.Namespace) -> int:
             "profile": profile.reference(),
         }
         Draft202012Validator(_schema("verification.schema.json")).validate(verification)
-        _write_json(verification, cast(Path | None, args.output))
-    except (OSError, ValueError, json.JSONDecodeError, SchemaError, ValidationError) as exc:
+        _write_json(verification, output)
+    except (OSError, TypeError, ValueError, json.JSONDecodeError, SchemaError, ValidationError) as exc:
         print(f"lingity verify failed: {exc}", file=sys.stderr)
         return 2
     return 0

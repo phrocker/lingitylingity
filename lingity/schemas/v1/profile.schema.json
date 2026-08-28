@@ -52,7 +52,47 @@
       "required": [
         "nominalization_suffixes", "nominalization_exclusions", "nominalizations",
         "hidden_agency", "weak_verbs", "jargon", "bureaucratic_phrases", "protected_concepts"
-      ]
+      ],
+      "properties": {
+        "nominalization_suffixes": {"$ref": "#/$defs/stringArray"},
+        "nominalization_exclusions": {"$ref": "#/$defs/stringArray"},
+        "nominalizations": {"$ref": "#/$defs/stringArray"},
+        "hidden_agency": {"$ref": "#/$defs/stringArrayMap"},
+        "weak_verbs": {"$ref": "#/$defs/stringArrayMap"},
+        "jargon": {"$ref": "#/$defs/stringArrayMap"},
+        "bureaucratic_phrases": {"$ref": "#/$defs/stringArrayMap"},
+        "protected_concepts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["category", "kind", "value", "patterns"],
+            "properties": {
+              "category": {"type": "string", "minLength": 1},
+              "kind": {"type": "string", "minLength": 1},
+              "value": {"type": "string", "minLength": 1},
+              "patterns": {"$ref": "#/$defs/stringArray"}
+            }
+          }
+        }
+      },
+      "additionalProperties": {
+        "oneOf": [
+          {"$ref": "#/$defs/stringArray"},
+          {"$ref": "#/$defs/stringArrayMap"}
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "stringArray": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "stringArrayMap": {
+      "type": "object",
+      "propertyNames": {"minLength": 1},
+      "additionalProperties": {"$ref": "#/$defs/stringArray"}
     }
   }
 }

@@ -5,8 +5,26 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-WORD_RE = re.compile(r"\b(?:[A-Za-z]+(?:[-'][A-Za-z0-9]+)*|[A-Za-z]*\d+[A-Za-z0-9.-]*)\b")
-SENTENCE_RE = re.compile(r"\S(?:.*?)(?:[.!?](?=\s|$)|$)", re.DOTALL)
+WORD_RE = re.compile(
+    r"(?<![A-Za-z0-9])"
+    r"(?:[A-Za-z](?:\.[A-Za-z])+\.?|[A-Za-z]+(?:[-'][A-Za-z0-9]+)*|[A-Za-z]*\d+[A-Za-z0-9.-]*)"
+    r"(?![A-Za-z0-9])"
+)
+ABBREVIATIONS = frozenset(
+    {
+        "dr.",
+        "e.g.",
+        "etc.",
+        "fig.",
+        "i.e.",
+        "mr.",
+        "mrs.",
+        "ms.",
+        "no.",
+        "prof.",
+        "vs.",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -25,22 +43,47 @@ class Sentence:
     tokens: tuple[Token, ...]
 
 
+def _is_sentence_boundary(text: str, index: int) -> bool:
+    mark = text[index]
+    if mark not in ".!?":
+        return False
+    if index + 1 < len(text) and not text[index + 1].isspace():
+        return False
+    if mark == ".":
+        if 0 < index + 1 < len(text) and text[index - 1].isdigit() and text[index + 1].isdigit():
+            return False
+        prefix = text[max(0, index - 12):index + 1].lower()
+        if any(prefix.endswith(abbreviation) for abbreviation in ABBREVIATIONS):
+            return False
+    return True
+
+
+def _append_sentence(result: list[Sentence], text: str, start: int, end: int) -> None:
+    raw = text[start:end]
+    leading = len(raw) - len(raw.lstrip())
+    trailing = len(raw.rstrip())
+    adjusted_start = start + leading
+    adjusted_end = start + trailing
+    if adjusted_start >= adjusted_end:
+        return
+    sentence_text = text[adjusted_start:adjusted_end]
+    tokens = tuple(
+        Token(token.group(0), adjusted_start + token.start(), adjusted_start + token.end())
+        for token in WORD_RE.finditer(sentence_text)
+    )
+    result.append(Sentence(len(result), sentence_text, adjusted_start, adjusted_end, tokens))
+
+
 def sentences(text: str) -> tuple[Sentence, ...]:
     result: list[Sentence] = []
-    for match in SENTENCE_RE.finditer(text):
-        raw = match.group(0)
-        leading = len(raw) - len(raw.lstrip())
-        trailing = len(raw.rstrip())
-        start = match.start() + leading
-        end = match.start() + trailing
-        if start >= end:
-            continue
-        sentence_text = text[start:end]
-        tokens = tuple(
-            Token(token.group(0), start + token.start(), start + token.end())
-            for token in WORD_RE.finditer(sentence_text)
-        )
-        result.append(Sentence(len(result), sentence_text, start, end, tokens))
+    start = 0
+    index = 0
+    while index < len(text):
+        if _is_sentence_boundary(text, index):
+            _append_sentence(result, text, start, index + 1)
+            start = index + 1
+        index += 1
+    _append_sentence(result, text, start, len(text))
     return tuple(result)
 
 

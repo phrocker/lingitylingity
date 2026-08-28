@@ -8,8 +8,16 @@
   "required": ["candidate_text", "addressed_rule_ids", "claimed_preservations", "provider", "model"],
   "properties": {
     "candidate_text": {"type": "string", "minLength": 1},
-    "addressed_rule_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
-    "claimed_preservations": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "addressed_rule_ids": {
+      "type": "array",
+      "items": {"type": "string", "pattern": "^LING-[A-Z-]+-[0-9]{3}$"},
+      "uniqueItems": true
+    },
+    "claimed_preservations": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
     "provider": {"type": "string", "minLength": 1},
     "model": {"type": "string", "minLength": 1}
   }
