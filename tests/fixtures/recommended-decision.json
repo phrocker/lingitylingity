@@ -1,0 +1,5 @@
+{
+  "name": "recommended-decision",
+  "original": "Recommended decision: Propose deferring architecture ratification and any irreversible V2 cutover. Use the repository-evidenced hybrid topology only as a provisional current-state baseline, immediately address confirmed authorization concerns, verify the two critical messaging loss hypotheses, and require closure evidence for the governed recommendations before a target architecture returns for human decision.",
+  "rewrite": "Recommendation: Do not approve the architecture or begin an irreversible V2 cutover yet. Treat the hybrid topology found in the repositories as our working view of the current system\u2014not as the target architecture. First, fix the confirmed authorization issues, determine whether either messaging path can lose data, and provide evidence that the review recommendations have been addressed. Then bring the target architecture back for human approval."
+}

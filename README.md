@@ -35,19 +35,34 @@ The first target profile is `architecture-review`: recommendations, ADR
 summaries, findings, risks, and review decisions that must remain precise while
 reading like professional human communication.
 
-## Planned CLI
+## CLI
 
 ```text
 lingity analyze review.md --profile architecture-review
-lingity improve review.md --profile architecture-review --max-attempts 3
-lingity verify .lingity/runs/<run-id>/record.json
+lingity verify analysis.json
 ```
+
+`analyze` emits a deterministic, schema-valid JSON artifact containing located
+findings, the attributed Human Readability Index, protected-element manifests,
+and content/profile hashes. `verify` validates the schema and hashes, resolves
+the recorded profile, and replays the analysis; altered or non-reproducible
+artifacts fail explicitly.
+
+The current analyzer is a versioned English regex/lexicon model. It detects
+sentence and action load, nominalizations, noun stacks, passive or hidden
+agency, weak verbs, jargon, bureaucratic phrasing, structure, and redundancy.
+Provider protocols exist for future proposal and semantic-challenge adapters,
+but this milestone performs no network or LLM calls.
 
 See [DESIGN.md](DESIGN.md), the
 [AgenticTuner comparison](docs/agentictuner-comparison.md), and the
 [implementation plan](docs/implementation-plan.md).
 
-## Status
+## Development
 
-The repository currently contains the initial design and implementation plan.
-
+```text
+python -m pip install -e .[dev]
+pytest
+mypy
+python -m compileall -q lingity tests
+```

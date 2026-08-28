@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lingity"
+version = "0.1.0"
+description = "Deterministic governed text analysis"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "jsonschema>=4.23,<5",
+]
+
+[project.optional-dependencies]
+dev = [
+  "mypy>=1.13,<2",
+  "pytest>=8.3,<9",
+  "types-jsonschema>=4.23,<5",
+]
+
+[project.scripts]
+lingity = "lingity.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["lingity*"]
+
+[tool.setuptools.package-data]
+lingity = ["py.typed", "profiles/*.json", "schemas/v1/*.json"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["lingity", "tests"]

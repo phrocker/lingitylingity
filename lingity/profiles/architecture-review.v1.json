@@ -1,0 +1,126 @@
+{
+  "$schema": "https://lingity.dev/schemas/v1/profile.schema.json",
+  "name": "architecture-review",
+  "version": "1.0.0",
+  "language": "en",
+  "weights": {
+    "sentence_load": 25,
+    "morphology": 20,
+    "agency": 20,
+    "lexical_clarity": 15,
+    "structure": 10,
+    "redundancy": 10
+  },
+  "bands": [
+    {"name": "revision_required", "minimum": 0, "maximum": 69.99},
+    {"name": "usable_but_improvable", "minimum": 70, "maximum": 84.99},
+    {"name": "clear", "minimum": 85, "maximum": 100}
+  ],
+  "thresholds": {
+    "max_sentence_words": 25,
+    "max_actions_per_sentence": 3,
+    "max_clauses_per_sentence": 3,
+    "max_nominalizations_per_sentence": 2,
+    "noun_stack_words": 3,
+    "max_paragraph_words": 90,
+    "max_repeated_content_word": 2
+  },
+  "rules": {
+    "nominalization_suffixes": ["tion", "sion", "ment", "ance", "ence", "ity", "al"],
+    "nominalization_exclusions": ["decision", "recommendation"],
+    "nominalizations": ["ratification", "authorization", "closure", "approval"],
+    "hidden_agency": {
+      "indirect recommendation": ["\\bpropose\\s+deferr(?:ing|al)\\b"],
+      "indirect decision": ["\\breturns?\\s+for\\s+human\\s+decision\\b"],
+      "agentless requirement": ["\\brequire\\s+closure\\s+evidence\\b"]
+    },
+    "weak_verbs": {
+      "proposal chain": ["\\bpropose\\s+deferr(?:ing|al)\\b"],
+      "weak use-as construction": ["\\buse\\b.{0,80}\\bonly\\s+as\\b"],
+      "abstract remediation": ["\\baddress\\s+(?:the\\s+)?confirmed\\s+authorization\\s+concerns\\b"]
+    },
+    "jargon": {
+      "machine-made compound": ["\\brepository-evidenced\\s+hybrid\\s+topology\\b"],
+      "governance label": ["\\bgoverned\\s+recommendations\\b"],
+      "abstract evidence phrase": ["\\bclosure\\s+evidence\\b"]
+    },
+    "bureaucratic_phrases": {
+      "recommend recommending": ["\\brecommended\\s+decision\\s*:\\s*propose\\b"],
+      "artificial return phrase": ["\\breturns?\\s+for\\s+human\\s+decision\\b"],
+      "provisional baseline phrase": ["\\bprovisional\\s+current-state\\s+baseline\\b"]
+    },
+    "protected_concepts": [
+      {
+        "category": "governance",
+        "kind": "statement_type",
+        "value": "recommendation",
+        "patterns": [
+          "recommended decision",
+          "recommendation:"
+        ]
+      },
+      {
+        "category": "negation",
+        "kind": "governance_polarity",
+        "value": "architecture_approval_deferred",
+        "patterns": [
+          "deferr(?:ing|al).{0,30}architecture ratification",
+          "do not approve the architecture"
+        ]
+      },
+      {
+        "category": "negation",
+        "kind": "governance_polarity",
+        "value": "v2_cutover_deferred",
+        "patterns": [
+          "deferr(?:ing|al).{0,80}irreversible V2 cutover",
+          "do not.{0,40}irreversible V2 cutover yet"
+        ]
+      },
+      {
+        "category": "governance",
+        "kind": "status",
+        "value": "current_state_is_provisional",
+        "patterns": [
+          "provisional current-state baseline",
+          "working view of the current system.not as the target architecture"
+        ]
+      },
+      {
+        "category": "governance",
+        "kind": "evidence",
+        "value": "authorization_concerns_confirmed",
+        "patterns": [
+          "confirmed authorization (?:concerns|issues)"
+        ]
+      },
+      {
+        "category": "governance",
+        "kind": "evidence",
+        "value": "messaging_loss_requires_resolution",
+        "patterns": [
+          "verify the two critical messaging loss hypotheses",
+          "determine whether either messaging path can lose data"
+        ]
+      },
+      {
+        "category": "governance",
+        "kind": "gate",
+        "value": "recommendation_closure_evidence_required",
+        "patterns": [
+          "require closure evidence for the governed recommendations",
+          "provide evidence that the review recommendations have been addressed"
+        ]
+      },
+      {
+        "category": "governance",
+        "kind": "authority",
+        "value": "target_architecture_requires_human_approval",
+        "patterns": [
+          "target architecture returns for human decision",
+          "bring the target architecture back for human approval"
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lingity.dev/schemas/v1/provider-proposal.schema.json",
+  "$comment": "Future providers propose text but never approve it.",
+  "title": "Lingity proposal provider response v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["candidate_text", "addressed_rule_ids", "claimed_preservations", "provider", "model"],
+  "properties": {
+    "candidate_text": {"type": "string", "minLength": 1},
+    "addressed_rule_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "claimed_preservations": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "provider": {"type": "string", "minLength": 1},
+    "model": {"type": "string", "minLength": 1}
+  }
+}

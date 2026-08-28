@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lingity.dev/schemas/v1/provider-challenge.schema.json",
+  "title": "Lingity drift challenger response v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["disposition", "claims", "provider", "model"],
+  "properties": {
+    "disposition": {"enum": ["no_material_change", "material_change", "needs_human"]},
+    "claims": {"type": "array", "items": {"type": "string"}},
+    "provider": {"type": "string", "minLength": 1},
+    "model": {"type": "string", "minLength": 1}
+  }
+}
