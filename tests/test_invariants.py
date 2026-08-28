@@ -37,6 +37,14 @@ def test_changed_quantity_is_rejected(
     assert "quantity:count:3" in cast(list[str], comparison["added"])
 
 
+def test_dropped_duplicate_protected_value_is_rejected() -> None:
+    source = analyze_text("ADR-42 must retain two paths and two owners.")
+    candidate = analyze_text("ADR-42 must retain two paths and owners.")
+    comparison = compare_protected(_protected(source), _protected(candidate))
+    assert comparison["equivalent"] is False
+    assert cast(list[str], comparison["missing"]) == ["quantity:count:2"]
+
+
 def test_extracts_modal_citation_and_governance() -> None:
     text = "ADR-42 must not change by more than 15% [E-7]; approval requires a waiver."
     manifest = _protected(analyze_text(text))

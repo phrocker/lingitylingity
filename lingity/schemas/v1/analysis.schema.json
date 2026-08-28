@@ -150,8 +150,7 @@
         "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
         "semantic_signature": {
           "type": "array",
-          "items": {"type": "string"},
-          "uniqueItems": true
+          "items": {"type": "string"}
         },
         "items": {
           "type": "array",

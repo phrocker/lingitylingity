@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from collections import defaultdict
+from collections import Counter
 from typing import Any, Iterable, cast
 
 from lingity.models import JsonValue
@@ -170,10 +170,8 @@ def extract_protected(text: str, profile: Profile) -> dict[str, JsonValue]:
         ),
     )
     signature = sorted(
-        {
-            f"{item['category']}:{item['kind']}:{item['normalized']}"
-            for item in ordered
-        }
+        f"{item['category']}:{item['kind']}:{item['normalized']}"
+        for item in ordered
     )
     manifest: dict[str, JsonValue] = {
         "items": cast(list[JsonValue], ordered),
@@ -187,10 +185,10 @@ def compare_protected(
     source_manifest: dict[str, JsonValue],
     candidate_manifest: dict[str, JsonValue],
 ) -> dict[str, JsonValue]:
-    source = set(cast(list[str], source_manifest["semantic_signature"]))
-    candidate = set(cast(list[str], candidate_manifest["semantic_signature"]))
-    missing = sorted(source - candidate)
-    added = sorted(candidate - source)
+    source = Counter(cast(list[str], source_manifest["semantic_signature"]))
+    candidate = Counter(cast(list[str], candidate_manifest["semantic_signature"]))
+    missing = sorted((source - candidate).elements())
+    added = sorted((candidate - source).elements())
     return {
         "equivalent": not missing and not added,
         "source_manifest_sha256": cast(str, source_manifest["sha256"]),
