@@ -51,13 +51,24 @@ reading like professional human communication.
 ```text
 lingity analyze review.md --profile architecture-review
 lingity verify analysis.json
+
+lingity critique review.md --output brief.json
+lingity judge review.md --candidate rewrite.md
+lingity improve review.md --provider subagent --candidate rewrite.md
 ```
 
 `analyze` emits a deterministic, schema-valid JSON artifact containing located
 findings, the attributed Human Readability Index, protected-element manifests,
 and content/profile hashes. `verify` validates the schema and hashes, resolves
 the recorded profile, and replays the analysis; altered or non-reproducible
-artifacts fail explicitly.
+artifacts fail explicitly. Both commands are pure and offline.
+
+`critique`, `judge`, and `improve` drive rewriting. `critique` emits an
+improvement brief — the ranked defects and the elements a rewrite may not
+change. `judge` decides a single candidate. `improve` runs the bounded loop,
+feeding each rejection back into the next brief. All three exit `0` on success,
+`1` on a reasoned rejection, and `2` on an error, so a host agent can branch on
+the exit code alone.
 
 The current analyzer is a versioned English dependency-parse model covering
 every deterministic signal published in the [DESIGN.md](DESIGN.md) dimension
@@ -101,11 +112,43 @@ never scores higher than better text. The exact arithmetic is published in the
 artifact's `score.formula` field.
 
 Provider protocols exist for future proposal and semantic-challenge adapters,
-but this milestone performs no network or LLM calls.
+but `analyze` and `verify` themselves perform no network or LLM calls.
 
 See [DESIGN.md](DESIGN.md), the
 [AgenticTuner comparison](docs/agentictuner-comparison.md), and the
 [implementation plan](docs/implementation-plan.md).
+
+## Rewriting
+
+A model may *propose* a rewrite. Only deterministic code decides whether to
+accept one. A candidate is accepted when, and only when, all of the following
+hold:
+
+- protected meaning is equivalent to the source,
+- the Human Readability Index strictly improves,
+- no new high-severity finding appears,
+- and no semantic-drift challenge raised material doubt.
+
+A regression is never accepted, a tie is never accepted, and an unresolved
+meaning comparison is never accepted. When nothing qualifies, the source text is
+returned unchanged together with the reasons every candidate failed. A candidate
+that scores a perfect 100 but drops a protected claim is rejected; a higher
+score never buys a change in meaning.
+
+Providers are transports, never authorities:
+
+- **`subagent`** (default) — no network and no API key. The host agent, such as
+  Agency, *is* the model: Lingity hands it a brief, the host writes a candidate,
+  and Lingity judges the result. Use `critique` and `judge` interactively, or
+  pass `--candidate` files to `improve`.
+- **`openai`** and **`anthropic`** — direct API calls over the standard library.
+  Credentials come only from `OPENAI_API_KEY` and `ANTHROPIC_API_KEY`, and are
+  never accepted as arguments, logged, or written to an artifact. There is no
+  default model: omitting `--model` is an error rather than a guess.
+
+A drift challenger may only *raise* doubt. It can block an acceptance, but it
+can never clear a deterministic failure, and an unparseable challenge response
+is an error rather than a quiet `no_material_change`.
 
 ## Development
 

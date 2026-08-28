@@ -14,8 +14,29 @@ from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError, ValidationError
 
 from lingity.analyzer import analyze_text
+from lingity.critique import CritiqueError, build_critique
+from lingity.improve import ImprovementError, improve_text, judge_candidate
 from lingity.nlp import LinguisticModelError, model_fingerprint
 from lingity.profiles import SCHEMA_DIR, canonical_json, load_profile
+from lingity.providers import (
+    ProviderError,
+    available_proposal_providers,
+    create_challenge_provider,
+    create_proposal_provider,
+)
+
+CLI_ERRORS = (
+    OSError,
+    TypeError,
+    ValueError,
+    json.JSONDecodeError,
+    SchemaError,
+    ValidationError,
+    LinguisticModelError,
+    CritiqueError,
+    ImprovementError,
+    ProviderError,
+)
 
 
 def _schema(name: str) -> dict[str, Any]:
@@ -133,6 +154,139 @@ def _verify(args: argparse.Namespace) -> int:
     return 0
 
 
+def _load_prior_attempts(path: Path | None) -> list[dict[str, Any]]:
+    if path is None:
+        return []
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if isinstance(payload, dict):
+        payload = payload.get("attempts")
+    if not isinstance(payload, list):
+        raise ValueError(
+            f"prior-attempts file {path} must hold a JSON array of attempt "
+            "records, or an object with an 'attempts' array"
+        )
+    return [cast(dict[str, Any], item) for item in payload]
+
+
+def _critique(args: argparse.Namespace) -> int:
+    path = cast(Path, args.input)
+    output = cast(Path | None, args.output)
+    try:
+        _reject_input_output_alias(path, output)
+        _remove_stale_output(output)
+        text = path.read_text(encoding="utf-8")
+        analysis = analyze_text(text, load_profile(cast(str, args.profile)))
+        brief = build_critique(
+            analysis,
+            prior_attempts=cast(
+                Any, _load_prior_attempts(cast(Path | None, args.prior_attempts))
+            ),
+        )
+        Draft202012Validator(_schema("critique.schema.json")).validate(brief)
+        _write_json(brief, output)
+    except CLI_ERRORS as exc:
+        print(f"lingity critique failed: {exc}", file=sys.stderr)
+        return 2
+    return 0
+
+
+def _judge(args: argparse.Namespace) -> int:
+    source_path = cast(Path, args.source)
+    candidate_path = cast(Path, args.candidate)
+    output = cast(Path | None, args.output)
+    try:
+        _reject_input_output_alias(source_path, output)
+        _reject_input_output_alias(candidate_path, output)
+        _remove_stale_output(output)
+        profile = load_profile(cast(str, args.profile))
+        source_text = source_path.read_text(encoding="utf-8")
+        candidate_text = candidate_path.read_text(encoding="utf-8")
+        if not candidate_text.strip():
+            raise ValueError(
+                f"candidate file {candidate_path} is empty; an empty rewrite is "
+                "never an improvement"
+            )
+        challenger = None
+        challenge_provider = cast(str | None, args.challenge_provider)
+        if challenge_provider is not None:
+            challenger = create_challenge_provider(
+                challenge_provider, model=cast(str | None, args.challenge_model)
+            )
+        accepted, reasons, evidence = judge_candidate(
+            source_text, candidate_text, profile, challenger=challenger
+        )
+        verdict = {
+            "schema_version": "1.0.0",
+            "accepted": accepted,
+            "rejection_reasons": list(reasons),
+            "source_score": evidence["source_score"],
+            "candidate_score": evidence["candidate_score"],
+            "protected_disposition": evidence["protected_disposition"],
+            "challenge": evidence["challenge"],
+            "profile": profile.reference(),
+            "linguistic_model": model_fingerprint(),
+        }
+        Draft202012Validator(_schema("verdict.schema.json")).validate(verdict)
+        _write_json(verdict, output)
+        return 0 if accepted else 1
+    except CLI_ERRORS as exc:
+        print(f"lingity judge failed: {exc}", file=sys.stderr)
+        return 2
+
+
+def _improve(args: argparse.Namespace) -> int:
+    source_path = cast(Path, args.source)
+    output = cast(Path | None, args.output)
+    try:
+        _reject_input_output_alias(source_path, output)
+        _remove_stale_output(output)
+        profile = load_profile(cast(str, args.profile))
+        source_text = source_path.read_text(encoding="utf-8")
+
+        options: dict[str, Any] = {}
+        provider_name = cast(str, args.provider)
+        if provider_name == "subagent":
+            candidates = cast(list[Path] | None, args.candidate)
+            if not candidates:
+                raise ValueError(
+                    "the subagent provider requires at least one --candidate "
+                    "file written by the host agent"
+                )
+            options["candidate_paths"] = candidates
+        else:
+            model = cast(str | None, args.model)
+            if not model:
+                raise ValueError(
+                    f"provider {provider_name!r} requires an explicit --model; "
+                    "Lingity does not choose a model for you"
+                )
+            options["model"] = model
+        provider = create_proposal_provider(provider_name, **options)
+
+        challenger = None
+        challenge_provider = cast(str | None, args.challenge_provider)
+        if challenge_provider is not None:
+            challenger = create_challenge_provider(
+                challenge_provider, model=cast(str | None, args.challenge_model)
+            )
+
+        result = improve_text(
+            source_text,
+            profile,
+            provider,
+            max_attempts=cast(int, args.max_attempts),
+            challenger=challenger,
+        )
+        record = result.to_dict()
+        record["profile"] = cast(Any, profile.reference())
+        record["linguistic_model"] = cast(Any, model_fingerprint())
+        _write_json(record, output)
+        return 0 if result.accepted else 1
+    except CLI_ERRORS as exc:
+        print(f"lingity improve failed: {exc}", file=sys.stderr)
+        return 2
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="lingity")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -146,6 +300,47 @@ def build_parser() -> argparse.ArgumentParser:
     verify.add_argument("analysis", type=Path)
     verify.add_argument("--output", type=Path)
     verify.set_defaults(handler=_verify)
+
+    critique = subparsers.add_parser(
+        "critique",
+        help="emit a deterministic improvement brief for a host agent or model",
+    )
+    critique.add_argument("input", type=Path)
+    critique.add_argument("--profile", default="architecture-review")
+    critique.add_argument("--prior-attempts", type=Path, dest="prior_attempts")
+    critique.add_argument("--output", type=Path)
+    critique.set_defaults(handler=_critique)
+
+    judge = subparsers.add_parser(
+        "judge",
+        help="decide a single candidate rewrite; exits 1 when it is rejected",
+    )
+    judge.add_argument("source", type=Path)
+    judge.add_argument("--candidate", type=Path, required=True)
+    judge.add_argument("--profile", default="architecture-review")
+    judge.add_argument("--challenge-provider", dest="challenge_provider")
+    judge.add_argument("--challenge-model", dest="challenge_model")
+    judge.add_argument("--output", type=Path)
+    judge.set_defaults(handler=_judge)
+
+    improve = subparsers.add_parser(
+        "improve",
+        help="run the bounded improvement loop; exits 1 when nothing is accepted",
+    )
+    improve.add_argument("source", type=Path)
+    improve.add_argument(
+        "--provider",
+        default="subagent",
+        choices=list(available_proposal_providers()),
+    )
+    improve.add_argument("--model")
+    improve.add_argument("--candidate", type=Path, action="append")
+    improve.add_argument("--max-attempts", type=int, default=3, dest="max_attempts")
+    improve.add_argument("--profile", default="architecture-review")
+    improve.add_argument("--challenge-provider", dest="challenge_provider")
+    improve.add_argument("--challenge-model", dest="challenge_model")
+    improve.add_argument("--output", type=Path)
+    improve.set_defaults(handler=_improve)
     return parser
 
 

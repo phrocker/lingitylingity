@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lingity.dev/schemas/v1/verdict.schema.json",
+  "$comment": "The deterministic decision on a single candidate rewrite. A rejected candidate must always carry at least one reason.",
+  "title": "Lingity candidate verdict v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "accepted",
+    "rejection_reasons",
+    "source_score",
+    "candidate_score",
+    "protected_disposition",
+    "challenge",
+    "profile",
+    "linguistic_model"
+  ],
+  "properties": {
+    "schema_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "accepted": {"type": "boolean"},
+    "rejection_reasons": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    },
+    "source_score": {"type": "number", "minimum": 0, "maximum": 100},
+    "candidate_score": {"type": "number", "minimum": 0, "maximum": 100},
+    "protected_disposition": {"enum": ["equivalent", "changed", "unresolved"]},
+    "challenge": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["disposition", "claims", "provider", "model"],
+          "properties": {
+            "disposition": {
+              "enum": ["no_material_change", "material_change", "needs_human"]
+            },
+            "claims": {"type": "array", "items": {"type": "string"}},
+            "provider": {"type": "string", "minLength": 1},
+            "model": {"type": "string", "minLength": 1}
+          }
+        }
+      ]
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "digest"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "linguistic_model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "runtime", "digest"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "runtime": {"type": "string", "minLength": 1},
+        "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$comment": "A rejection without a reason would be an unattributed verdict.",
+      "if": {"properties": {"accepted": {"const": false}}},
+      "then": {"properties": {"rejection_reasons": {"minItems": 1}}}
+    },
+    {
+      "$comment": "An accepted candidate must carry no outstanding reason.",
+      "if": {"properties": {"accepted": {"const": true}}},
+      "then": {"properties": {"rejection_reasons": {"maxItems": 0}}}
+    }
+  ]
+}

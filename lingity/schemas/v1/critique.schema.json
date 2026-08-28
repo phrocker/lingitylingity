@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lingity.dev/schemas/v1/critique.schema.json",
+  "$comment": "A deterministic improvement brief. It states what is wrong and what must not change; it never states a verdict.",
+  "title": "Lingity critique brief v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "kind",
+    "analyzer_version",
+    "linguistic_model",
+    "profile",
+    "source",
+    "current_score",
+    "defects",
+    "must_preserve",
+    "protected_sha256",
+    "acceptance",
+    "prior_attempts",
+    "critique_sha256"
+  ],
+  "properties": {
+    "schema_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "kind": {"const": "lingity.critique.v1"},
+    "analyzer_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "linguistic_model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "runtime", "digest"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "runtime": {"type": "string", "minLength": 1},
+        "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "digest"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "sha256"],
+      "properties": {
+        "text": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "current_score": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "band"],
+      "properties": {
+        "value": {"type": "number", "minimum": 0, "maximum": 100},
+        "band": {"enum": ["revision_required", "usable_but_improvable", "clear"]}
+      }
+    },
+    "defects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rule_id",
+          "dimension",
+          "severity",
+          "location",
+          "observed_value",
+          "threshold",
+          "remediation",
+          "excerpt"
+        ],
+        "properties": {
+          "rule_id": {"type": "string", "pattern": "^LING-[A-Z-]+-[0-9]{3}$"},
+          "dimension": {"type": "string", "minLength": 1},
+          "severity": {"enum": ["low", "medium", "high"]},
+          "location": {
+            "type": "object",
+            "required": ["start", "end", "line", "column"],
+            "properties": {
+              "start": {"type": "integer", "minimum": 0},
+              "end": {"type": "integer", "minimum": 0},
+              "line": {"type": "integer", "minimum": 1},
+              "column": {"type": "integer", "minimum": 1},
+              "sentence_index": {"type": "integer", "minimum": 0}
+            }
+          },
+          "observed_value": {},
+          "threshold": {},
+          "remediation": {"type": "string", "minLength": 1},
+          "excerpt": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "must_preserve": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["category", "kind", "text", "normalized"],
+        "properties": {
+          "category": {"type": "string", "minLength": 1},
+          "kind": {"type": "string", "minLength": 1},
+          "text": {"type": "string", "minLength": 1},
+          "normalized": {"type": "string"}
+        }
+      }
+    },
+    "protected_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "acceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requires_higher_score",
+        "requires_protected_equivalence",
+        "forbids_new_high_severity_findings"
+      ],
+      "properties": {
+        "requires_higher_score": {"const": true},
+        "requires_protected_equivalence": {"const": true},
+        "forbids_new_high_severity_findings": {"const": true}
+      }
+    },
+    "prior_attempts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["index", "rejection_reasons"],
+        "properties": {
+          "index": {"type": "integer", "minimum": 1},
+          "candidate_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "rejection_reasons": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1}
+          },
+          "score_after": {"type": "number"},
+          "protected_disposition": {
+            "enum": ["equivalent", "changed", "unresolved"]
+          }
+        }
+      }
+    },
+    "critique_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}
