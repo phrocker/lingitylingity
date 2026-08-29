@@ -99,6 +99,8 @@ def _analysis_artifact(
         "protected": {
             "items": [],
             "semantic_signature": [],
+            "coverage": {"sentences": 0, "uncovered": []},
+            "source_sha256": "0" * 64,
             "sha256": "0" * 64,
         },
         "findings": cast(list[JsonValue], [finding.to_dict() for finding in findings]),
@@ -209,8 +211,18 @@ def test_canonical_decision_fixture_keeps_calibrated_bands() -> None:
     rewrite_score = cast(dict[str, JsonValue], analyze_text(fixture["rewrite"])["score"])
 
     assert original_score["band"] == "revision_required"
-    assert rewrite_score["band"] == "clear"
+    # The unfaithful rewrite reaches "clear" but is rejected by the meaning
+    # gate; the faithful one trades score for fidelity. Both facts are asserted
+    # in tests/test_invariants.py. Here we only require that the bands stay
+    # ordered with the scores.
+    assert rewrite_score["band"] == "usable_but_improvable"
     assert _number(rewrite_score["value"]) > _number(original_score["value"])
+
+    unfaithful_score = cast(
+        dict[str, JsonValue], analyze_text(fixture["unfaithful_rewrite"])["score"]
+    )
+    assert unfaithful_score["band"] == "clear"
+    assert _number(unfaithful_score["value"]) > _number(rewrite_score["value"])
 
 
 def test_catastrophic_findings_remain_bounded_and_banded() -> None:

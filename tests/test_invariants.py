@@ -6,6 +6,7 @@ import pytest
 
 from lingity.invariants import compare_protected, extract_protected
 from lingity.models import JsonValue
+from lingity.morphology import canonical_action
 from lingity.nlp import LinguisticModelError
 from lingity.profiles import load_profile
 
@@ -32,14 +33,44 @@ def test_clearer_rewrite_preserves_protected_meaning(
     signature = cast(list[str], source["semantic_signature"])
     assert "identifier:identifier:V2" in signature
     assert "quantity:count:2" in signature
-    assert "negation:governance_polarity:architecture_approval_deferred" in signature
-    assert "governance:authority:target_architecture_requires_human_approval" in signature
+    # Derived from the dependency parse, not from a stored phrasing: deferring
+    # "architecture ratification" is an obligation not to ratify, yet.
+    assert (
+        "claim:action=ratify;actor=unspecified;modality=must;polarity=negative;"
+        "status=deferred;target=architecture" in signature
+    )
+    assert (
+        "claim:action=begin;actor=unspecified;modality=must;polarity=negative;"
+        "status=deferred;target=irreversible v2 cutover" in signature
+    )
+
+
+def test_higher_scoring_rewrite_that_drops_content_is_rejected(
+    recommendation_fixture: dict[str, str],
+) -> None:
+    """A better score never buys a meaning change.
+
+    The unfaithful rewrite reads more clearly and scores higher than the
+    faithful one, but it drops the count "two" and weakens the closure-evidence
+    requirement. Acceptance must depend on preserved meaning, not on score.
+    """
+
+    comparison = _comparison(
+        recommendation_fixture["original"],
+        recommendation_fixture["unfaithful_rewrite"],
+    )
+    assert comparison["equivalent"] is False
+    assert comparison["disposition"] != "equivalent"
 
 
 def test_changed_quantity_is_rejected(
     recommendation_fixture: dict[str, str],
 ) -> None:
-    changed = recommendation_fixture["rewrite"].replace("either messaging path", "three messaging paths")
+    changed = recommendation_fixture["rewrite"].replace(
+        "two critical messaging loss hypotheses",
+        "three critical messaging loss hypotheses",
+    )
+    assert changed != recommendation_fixture["rewrite"], "mutation did not apply"
     comparison = _comparison(recommendation_fixture["original"], changed)
     assert comparison["equivalent"] is False
     assert "quantity:count:2" in cast(list[str], comparison["missing"])
@@ -49,7 +80,7 @@ def test_changed_quantity_is_rejected(
 def test_dropped_duplicate_protected_value_is_rejected() -> None:
     comparison = _comparison("ADR-42 must retain two paths and two owners.", "ADR-42 must retain two paths and owners.")
     assert comparison["equivalent"] is False
-    assert cast(list[str], comparison["missing"]) == ["quantity:count:2"]
+    assert "quantity:count:2" in cast(list[str], comparison["missing"])
 
 
 def test_added_duplicate_protected_value_is_rejected() -> None:
@@ -134,33 +165,78 @@ def test_extracts_modal_citation_and_governance() -> None:
     manifest = _protected(text)
     signature = set(cast(list[str], manifest["semantic_signature"]))
     assert "identifier:identifier:ADR-42" in signature
-    assert "claim:action=change;actor=adr-42;modality=must;polarity=negative;status=asserted;target=%" in signature
+    # The bound travels with the claim. Reducing this target to "%" would let a
+    # rewrite change "more than 15%" to any other threshold undetected.
+    assert (
+        "claim:action=change;actor=adr-42;modality=must;polarity=negative;"
+        "status=asserted;target=more than 15 %" in signature
+    )
     assert "quantity:threshold:operator=gt;unit=percent;value=15" in signature
     assert "citation:reference:[E-7]" in signature
-    assert "governance:term:approval" in signature
-    assert "governance:term:waiver" in signature
+    # Governance vocabulary is keyed by the action it names, so that the
+    # nominal and verbal forms of the same term agree. The key is WordNet's
+    # representative for the derivational family, not a display string.
+    assert f"governance:term:{canonical_action('approval')}" in signature
+    assert f"governance:term:{canonical_action('waiver')}" in signature
+    assert canonical_action("approval") == canonical_action("approve")
+    assert canonical_action("waiver") == canonical_action("waive")
 
 
 @pytest.mark.parametrize(
-    "text",
+    ("text", "approve_status", "begin_status"),
     [
-        "Do not approve the architecture or begin an irreversible V2 cutover yet.",
-        "Do not approve the architecture yet. Do not begin any irreversible V2 cutover.",
-        "Do not approve the architecture, and do not begin an irreversible V2 cutover.",
-        "Do not approve the architecture yet, and do not begin any irreversible V2 cutover.",
+        (
+            "Do not approve the architecture or begin an irreversible V2 cutover yet.",
+            "deferred",
+            "deferred",
+        ),
+        (
+            "Do not approve the architecture yet, and do not begin any irreversible V2 cutover.",
+            "deferred",
+            "deferred",
+        ),
+        (
+            "Do not approve the architecture, and do not begin an irreversible V2 cutover.",
+            "asserted",
+            "asserted",
+        ),
+        (
+            "Do not approve the architecture yet. Do not begin any irreversible V2 cutover.",
+            "deferred",
+            "asserted",
+        ),
     ],
 )
-def test_negative_coordination_preserves_each_claim(text: str) -> None:
+def test_negative_coordination_preserves_each_claim(
+    text: str,
+    approve_status: str,
+    begin_status: str,
+) -> None:
+    """Each conjunct keeps its own negated claim, and deferral keeps its scope.
+
+    A sentence-final "yet" scopes over a coordination, so the first two forms
+    defer both directives. The third defers neither and is a permanent
+    prohibition; the fourth defers only its first sentence. These are different
+    instructions and the signature must distinguish them -- collapsing them
+    would let a rewrite convert a postponement into a ban.
+    """
+
     signature = _signature(text)
-    assert "claim:action=approve;actor=unspecified;modality=must;polarity=negative;status=deferred;target=architecture" in signature
-    assert "claim:action=begin;actor=unspecified;modality=must;polarity=negative;status=deferred;target=v2 cutover" in signature
+    assert (
+        f"claim:action=approve;actor=unspecified;modality=must;polarity=negative;"
+        f"status={approve_status};target=architecture" in signature
+    )
+    assert (
+        f"claim:action=begin;actor=unspecified;modality=must;polarity=negative;"
+        f"status={begin_status};target=irreversible v2 cutover" in signature
+    )
 
 
 def test_explicit_and_do_not_cutover_rewrite_matches_canonical_original(
     recommendation_fixture: dict[str, str],
 ) -> None:
     rewrite = (
-        "Recommendation: Do not approve the architecture yet, and do not begin any irreversible V2 cutover. "
+        "Recommendation: Do not ratify the architecture yet, and do not begin any irreversible V2 cutover. "
         "Treat the hybrid topology found in the repository as a provisional current-state baseline only. "
         "The platform team must immediately address the confirmed authorization concerns. "
         "The messaging team must verify the two critical messaging loss hypotheses. "

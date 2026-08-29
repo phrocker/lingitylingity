@@ -200,6 +200,19 @@ def judge_candidate(
         "source_score": source_score,
         "candidate_score": candidate_score,
         "protected_disposition": disposition,
+        # A rejection that only says "meaning changed" cannot be acted on. The
+        # exact elements that moved are carried through so a host agent can
+        # restore them by name on the next attempt.
+        "protected_delta": {
+            "missing": list(cast(list[JsonValue], comparison.get("missing") or [])),
+            "added": list(cast(list[JsonValue], comparison.get("added") or [])),
+            "unresolved": list(
+                cast(list[JsonValue], comparison.get("unresolved") or [])
+            ),
+            "specified": list(
+                cast(list[JsonValue], comparison.get("specified") or [])
+            ),
+        },
         "challenge": challenge.to_dict() if challenge is not None else None,
     }
     return (not reasons, tuple(reasons), evidence)

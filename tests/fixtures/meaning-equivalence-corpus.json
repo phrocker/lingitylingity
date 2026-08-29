@@ -1,0 +1,231 @@
+{
+  "schema_version": "1.0.0",
+  "description": "Held-out corpus for the protected-meaning gate. Every pair states governance prose twice. Equivalent pairs differ only in wording and MUST compare 'equivalent'; changed pairs alter propositional content and MUST compare 'changed'. Authored from the semantics of governance directives, deliberately NOT from the phrasings in any profile or in recommended-decision.json, so that a gate which memorises fixture wording cannot pass it.",
+  "actor_policy": {
+    "rule": "unspecified -> named is permitted; named -> different named is a change; named -> unspecified is a change",
+    "rationale": "LING-AGENCY-001 penalises agentless obligations and its remediation instructs the writer to name the responsible party. A gate that treated naming an actor as a meaning change would reject the very rewrite the analyzer demands. Specifying an unspecified actor adds accountability without altering the directive; swapping or erasing a named actor reassigns or destroys it."
+  },
+  "equivalent_pairs": [
+    {
+      "id": "eq-deferral-verbal-nominal",
+      "left": "Defer ratification of the interface contract.",
+      "right": "Do not ratify the interface contract yet.",
+      "rationale": "Deferral expressed as a nominalized object versus a negated verb with a temporal marker."
+    },
+    {
+      "id": "eq-deferral-postpone",
+      "left": "Postpone the irreversible database cutover.",
+      "right": "Do not begin the irreversible database cutover yet.",
+      "rationale": "Deferring an event noun is equivalent to not beginning it yet."
+    },
+    {
+      "id": "eq-deferral-hold-off",
+      "left": "Hold off on retiring the legacy broker.",
+      "right": "Defer retirement of the legacy broker.",
+      "rationale": "Two deferral operators over the same complement."
+    },
+    {
+      "id": "eq-passive-active",
+      "left": "The platform team must resolve the authorization gaps.",
+      "right": "The authorization gaps must be resolved by the platform team.",
+      "rationale": "Voice alternation with the agent retained."
+    },
+    {
+      "id": "eq-action-synonym",
+      "left": "Address the confirmed authorization concerns.",
+      "right": "Remediate the confirmed authorization concerns.",
+      "rationale": "Declared action synonyms under the normalization policy."
+    },
+    {
+      "id": "eq-quantity-word-digit",
+      "left": "Verify the two outstanding data loss hypotheses.",
+      "right": "Verify the 2 outstanding data loss hypotheses.",
+      "rationale": "Numeral spelled versus written as a digit."
+    },
+    {
+      "id": "eq-quantity-both",
+      "left": "Check both critical replication hypotheses.",
+      "right": "Check the two critical replication hypotheses.",
+      "rationale": "'both' denotes exactly two over a definite plural."
+    },
+    {
+      "id": "eq-nominal-gate",
+      "left": "Require closure of the outstanding audit findings.",
+      "right": "Require that the outstanding audit findings be closed.",
+      "rationale": "Nominalized complement versus finite subordinate clause."
+    },
+    {
+      "id": "eq-authority-direction",
+      "left": "A human must approve the target topology.",
+      "right": "The target topology requires human approval.",
+      "rationale": "Obligation expressed from the actor side versus the object side."
+    },
+    {
+      "id": "eq-modality-paraphrase",
+      "left": "The service owner is required to verify the retention schedule.",
+      "right": "The service owner must verify the retention schedule.",
+      "rationale": "'is required to' and 'must' are the same deontic modality."
+    },
+    {
+      "id": "eq-negation-voice",
+      "left": "Do not deploy the ingress gateway.",
+      "right": "The ingress gateway must not be deployed.",
+      "rationale": "Negated imperative versus negated passive obligation."
+    },
+    {
+      "id": "eq-provisional-status",
+      "left": "Treat the current topology as a provisional baseline.",
+      "right": "The current topology is only a provisional baseline.",
+      "rationale": "Directive framing versus predicative framing of the same status."
+    },
+    {
+      "id": "eq-actor-specified",
+      "left": "Verify the failover runbook.",
+      "right": "The reliability team must verify the failover runbook.",
+      "rationale": "Naming a previously unspecified actor is permitted specification; see actor_policy. This is the rewrite LING-AGENCY-001 explicitly asks for."
+    },
+    {
+      "id": "eq-coordination-split",
+      "left": "Confirm the retention policy and publish the migration plan.",
+      "right": "Confirm the retention policy. Publish the migration plan.",
+      "rationale": "Coordinated imperatives split into separate sentences; two claims either way."
+    },
+    {
+      "id": "eq-order-preserved",
+      "left": "Close the audit findings before the design returns for sign-off.",
+      "right": "The design returns for sign-off only after the audit findings are closed.",
+      "rationale": "Same ordering constraint stated from either side."
+    },
+    {
+      "id": "eq-jargon-removed",
+      "left": "Use the repository-evidenced topology as the baseline.",
+      "right": "Use the topology that the repository evidences as the baseline.",
+      "rationale": "Compound modifier unpacked into a relative clause; no propositional change."
+    }
+  ],
+  "changed_pairs": [
+    {
+      "id": "ch-identifier",
+      "left": "Do not begin the irreversible V2 cutover yet.",
+      "right": "Do not begin the irreversible V3 cutover yet.",
+      "mutation": "identifier",
+      "rationale": "A different release is named."
+    },
+    {
+      "id": "ch-negation-dropped",
+      "left": "Do not ratify the interface contract yet.",
+      "right": "Ratify the interface contract.",
+      "mutation": "polarity",
+      "rationale": "The prohibition is inverted into an instruction."
+    },
+    {
+      "id": "ch-quantity",
+      "left": "Verify the two outstanding data loss hypotheses.",
+      "right": "Verify the three outstanding data loss hypotheses.",
+      "mutation": "quantity",
+      "rationale": "The count of protected items changed."
+    },
+    {
+      "id": "ch-actor-swapped",
+      "left": "A human must approve the target topology.",
+      "right": "An automated pipeline must approve the target topology.",
+      "mutation": "actor",
+      "rationale": "Approval authority is reassigned away from a person."
+    },
+    {
+      "id": "ch-actor-erased",
+      "left": "The platform team must resolve the authorization gaps.",
+      "right": "The authorization gaps must be resolved.",
+      "mutation": "actor",
+      "rationale": "A named accountable party is erased; see actor_policy."
+    },
+    {
+      "id": "ch-modality-weakened",
+      "left": "The service owner must verify the retention schedule.",
+      "right": "The service owner should verify the retention schedule.",
+      "mutation": "modality",
+      "rationale": "An obligation is downgraded to a recommendation."
+    },
+    {
+      "id": "ch-deferral-to-prohibition",
+      "left": "Defer ratification of the interface contract.",
+      "right": "Never ratify the interface contract.",
+      "mutation": "status",
+      "rationale": "'not yet' is not 'not ever'; deferral becomes permanent prohibition."
+    },
+    {
+      "id": "ch-action-swapped",
+      "left": "Address the confirmed authorization concerns.",
+      "right": "Document the confirmed authorization concerns.",
+      "mutation": "action",
+      "rationale": "Recording a concern is not resolving it."
+    },
+    {
+      "id": "ch-target-swapped",
+      "left": "Address the confirmed authorization concerns.",
+      "right": "Address the confirmed authentication concerns.",
+      "mutation": "target",
+      "rationale": "Authorization and authentication are different subsystems."
+    },
+    {
+      "id": "ch-scope-narrowed",
+      "left": "Close all outstanding audit findings.",
+      "right": "Close some outstanding audit findings.",
+      "mutation": "scope",
+      "rationale": "Universal scope narrowed to partial."
+    },
+    {
+      "id": "ch-gate-removed",
+      "left": "Require closure evidence for the outstanding findings.",
+      "right": "Closure evidence for the outstanding findings is optional.",
+      "mutation": "gate",
+      "rationale": "A mandatory gate is made discretionary."
+    },
+    {
+      "id": "ch-order-reversed",
+      "left": "Close the audit findings before the design returns for sign-off.",
+      "right": "Close the audit findings after the design returns for sign-off.",
+      "mutation": "ordering",
+      "rationale": "The sequencing constraint is inverted."
+    },
+    {
+      "id": "ch-certainty-raised",
+      "left": "Verify whether the replication path can lose data.",
+      "right": "The replication path loses data.",
+      "mutation": "certainty",
+      "rationale": "An open hypothesis is asserted as established fact."
+    },
+    {
+      "id": "ch-provisional-to-final",
+      "left": "Treat the current topology as a provisional baseline.",
+      "right": "Treat the current topology as the target architecture.",
+      "mutation": "status",
+      "rationale": "A provisional current-state view is promoted to an endorsed target."
+    },
+    {
+      "id": "ch-claim-dropped",
+      "left": "Confirm the retention policy and publish the migration plan.",
+      "right": "Confirm the retention policy.",
+      "mutation": "omission",
+      "rationale": "One of two coordinated directives is dropped."
+    },
+    {
+      "id": "ch-claim-added",
+      "left": "Confirm the retention policy.",
+      "right": "Confirm the retention policy and decommission the legacy broker.",
+      "mutation": "addition",
+      "rationale": "A destructive directive absent from the source is introduced."
+    }
+  ],
+  "known_gaps": {
+    "eq-deferral-hold-off": "Particle deferral ('hold off on X') is not yet resolved to the same operator as 'defer X', and the parser mis-tags the sentence-initial 'Defer'. Reported unresolved.",
+    "eq-nominal-gate": "A nominalized complement ('require closure of X') is not yet aligned with the finite subordinate clause that states the same gate ('require that X be closed'). Reported changed.",
+    "eq-authority-direction": "Converse relations are not modelled: an obligation stated from the actor side ('a human must approve X') is not yet aligned with the same obligation stated from the object side ('X requires human approval'). Reported changed.",
+    "eq-order-preserved": "An ordering constraint stated as a subordinate 'after' clause is not yet aligned with the same constraint stated as a 'before' clause. Reported unresolved.",
+    "eq-jargon-removed": "A hyphenated attributive modifier ('repository-evidenced topology') is not yet aligned with the relative clause that unpacks it ('topology that the repository evidences'). Reported changed.",
+    "ch-action-swapped": "Both actions are sentence-initial imperatives that the parser tags as nouns, so neither side yields a claim to compare. Reported unresolved.",
+    "ch-scope-narrowed": "Quantifier scope ('all' versus 'some') is not yet part of the claim signature, and 'Close all ...' is mis-tagged. Reported unresolved.",
+    "ch-gate-removed": "A copular predicate adjective ('X is optional') is not yet extracted as a claim, so removing a gate that way leaves nothing to compare. Reported unresolved."
+  },
+  "known_gaps_note": "Documented extractor gaps, kept in the corpus rather than deleted so the score stays honest. Every gap is conservative: the gate answers 'unresolved' or 'changed', never 'equivalent'. tests/test_meaning_equivalence.py asserts that each entry still fails, still fails conservatively, and is removed once fixed."
+}

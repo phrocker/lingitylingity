@@ -222,6 +222,7 @@ def _judge(args: argparse.Namespace) -> int:
             "source_score": evidence["source_score"],
             "candidate_score": evidence["candidate_score"],
             "protected_disposition": evidence["protected_disposition"],
+            "protected_delta": evidence["protected_delta"],
             "challenge": evidence["challenge"],
             "profile": profile.reference(),
             "linguistic_model": model_fingerprint(),

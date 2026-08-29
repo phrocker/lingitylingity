@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Iterable, cast
 
 from lingity.models import JsonValue
+from lingity.morphology import canonical_action, canonical_action_info
 from lingity.nlp import Document, Token, parse
 from lingity.profiles import Profile, sha256_json
 from lingity.text import line_column
@@ -145,7 +146,6 @@ ACTION_NORMALIZATION = {
 }
 CLAIM_ACTION_LEMMAS = frozenset(ACTION_NORMALIZATION)
 NON_CLAIM_VERB_LEMMAS = {"be", "do", "have", "propose", "treat", "use"}
-AUTHORIZATION_ACTIONS = {"address", "fix", "mention", "note", "observe", "remediate", "resolve"}
 GOVERNANCE_LEMMAS = {
     "applicability",
     "approval",
@@ -160,60 +160,91 @@ GOVERNANCE_LEMMAS = {
     "waiver",
 }
 PRONOUN_TARGETS = {"it", "this", "that", "them", "these", "those"}
+
+# Words removable from a target without altering what the target denotes.
+#
+# Every entry must be semantically inert. An earlier revision of this set also
+# held "no", "yet", "before", "any", "least", "less", "more" and "most", which
+# made the gate report these pairs as equivalent:
+#
+#   "Grant access to no users."            ~ "Grant access to users."
+#   "Do not deploy the gateway yet."       ~ "Do not deploy the gateway."
+#   "Close the findings before the review." ~ "... after the review."
+#
+# That is, it erased a negation, collapsed a deferral into a permanent
+# prohibition, and let an ordering constraint be inverted. Filtering by word
+# identity cannot distinguish a semantically inert determiner from a negative
+# one, so those roles are now handled structurally: negative determiners feed
+# claim polarity, deferral markers feed claim status, and ordering prepositions
+# are captured as explicit relations. Do not add a word here unless removing it
+# provably cannot change what the phrase denotes.
 STOP_TARGET_WORDS = {
     "a",
     "an",
     "and",
-    "any",
     "as",
-    "before",
     "by",
     "for",
     "from",
     "in",
     "into",
-    "at",
-    "least",
-    "less",
-    "more",
-    "most",
-    "no",
-    "now",
     "of",
     "on",
     "or",
     "our",
-    "path",
-    "paths",
     "please",
     "the",
-    "than",
     "to",
-    "under",
     "with",
-    "yet",
 }
-CONCEPT_CLAIMS = {
-    "architecture_approval_deferred": (
-        ("unspecified", "approve", "architecture", "must", "negative", "deferred"),
-    ),
-    "v2_cutover_deferred": (
-        ("unspecified", "begin", "v2 cutover", "must", "negative", "deferred"),
-    ),
-    "messaging_loss_requires_resolution": (
-        ("unspecified", "resolve", "messaging loss", "must", "positive", "required"),
-    ),
-    "recommendation_closure_evidence_required": (
-        ("unspecified", "provide_evidence", "governed recommendations", "must", "positive", "required"),
-    ),
-    "target_architecture_requires_human_approval": (
-        ("human", "approve", "target architecture", "must", "positive", "required"),
-    ),
+
+# Determiners that negate what they introduce ("no users", "neither path").
+# These must never be silently dropped from a target.
+NEGATIVE_DETERMINERS = {"no", "neither", "none"}
+
+# Markers that make an obligation a deferral rather than a prohibition.
+DEFERRAL_MARKERS = {"yet"}
+
+# Verbs that postpone their complement rather than asserting it. These are
+# operators, not actions: the governance content lives in what they scope over.
+DEFERRAL_OPERATORS = {
+    "defer",
+    "postpone",
+    "delay",
+    "suspend",
+    "pause",
+    "shelve",
+    "deferral",
+    "postponement",
+    "suspension",
 }
-DERIVED_GOVERNANCE_CONCEPTS = {
-    "architecture_approval_deferred": ("negation", "governance_polarity"),
-    "v2_cutover_deferred": ("negation", "governance_polarity"),
+
+# Deferral verbs that only defer when carrying a particle, so that "hold the
+# line" is not read as deferring a line.
+DEFERRAL_PARTICLE_OPERATORS = {"hold", "put", "push"}
+
+# Prepositions and subordinators that impose an ordering between events. The
+# distinction between them is propositional content, not phrasing.
+ORDERING_MARKERS = {
+    "before": "before",
+    "prior": "before",
+    "until": "before",
+    "after": "after",
+    "following": "after",
+    "once": "after",
 }
+
+# Dependency labels that open a new clause. Crossing one means leaving the
+# current predicate's argument structure.
+_CLAUSE_BOUNDARY_DEPS = {"acl", "advcl", "ccomp", "csubj", "pcomp", "relcl", "xcomp"}
+
+# Guard against pathological or cyclic head chains while walking upwards.
+_MAX_HEAD_WALK = 12
+
+# Parts of speech that make a sentence carry assertable content. A sentence
+# with none of these (a heading fragment, a bare list marker) is not something
+# the gate needs to have understood.
+_CONTENT_POS = {"NOUN", "PROPN", "VERB", "AUX", "ADJ", "NUM"}
 
 
 @dataclass(frozen=True)
@@ -351,6 +382,8 @@ def _normalize_negation(value: str) -> str:
 
 def _normalize_number(value: str) -> str:
     lowered = value.lower()
+    if lowered == "both":
+        return "2"
     return NUMBER_WORDS.get(lowered, lowered)
 
 
@@ -399,9 +432,11 @@ def _quantity_parts(surface: str, concept: ConceptSpan | None) -> QuantityParts:
     if re.fullmatch(r"\d{4}-\d{2}-\d{2}", lowered):
         return QuantityParts("date", lowered)
     if lowered == "either":
-        if concept is not None and concept.value == "messaging_loss_requires_resolution":
-            return QuantityParts("count", "2")
+        # "either" selects one of two; it is a quantifier, not a count.
         return QuantityParts("quantifier", "either")
+    if lowered == "both":
+        # "both X" and "the two X" name the same cardinality.
+        return QuantityParts("count", "2")
 
     number_match = re.search(rf"\b(?:\d+(?:\.\d+)?|{_NUMBER_WORD_PATTERN})\b", lowered, re.IGNORECASE)
     number = _normalize_number(number_match.group(0)) if number_match is not None else lowered
@@ -442,8 +477,19 @@ def _content_tokens(tokens: Iterable[Token]) -> list[Token]:
     return [
         token
         for token in sorted(tokens, key=lambda item: item.index)
-        if (token.is_word or token.text == "%") and token.dep != "det"
+        if (token.is_word or token.text == "%")
+        and (token.dep != "det" or _is_numeral_determiner(token))
     ]
+
+
+def _is_numeral_determiner(token: Token) -> bool:
+    """A determiner that carries a count is propositional, not syntactic sugar.
+
+    "both findings" states a cardinality the way "two findings" does, so it must
+    survive into the target even though the parser labels it a determiner.
+    """
+
+    return token.lower == "both" or token.lower in NUMBER_WORDS
 
 
 def _normalize_target_tokens(tokens: Iterable[Token]) -> str:
@@ -452,7 +498,11 @@ def _normalize_target_tokens(tokens: Iterable[Token]) -> str:
         return content[0].lower
     words: list[str] = []
     for token in content:
-        if token.pos == "NUM":
+        if token.pos == "NUM" or token.lower == "both":
+            # Numerals are propositional content: "two hypotheses" and "three
+            # hypotheses" are different claims. Canonicalise the surface form so
+            # that "two", "both" and "2" agree, but never drop the value.
+            words.append(_normalize_number(token.lower))
             continue
         value = token.lemma if token.lemma else token.lower
         value = value.lower()
@@ -470,11 +520,51 @@ def _normalize_subject_tokens(document: Document, tokens: Iterable[Token]) -> st
 
 
 def _own_negation_tokens(document: Document, predicate: Token) -> list[Token]:
-    return [
+    negations = [
         child
         for child in document.children(predicate)
         if child.dep == "neg" or "Polarity=Neg" in child.morph
     ]
+    negations.extend(_negative_determiner_tokens(document, predicate))
+    return negations
+
+
+def _negative_determiner_tokens(document: Document, predicate: Token) -> list[Token]:
+    """Negation carried by a determiner inside the predicate's own arguments.
+
+    "Grant access to no users" negates the claim as surely as "do not grant
+    access to users" does, but spaCy attaches ``no`` as a determiner rather
+    than as ``neg``, so it is invisible to the dependency-label check above.
+    Only the predicate's own arguments are inspected; a negative determiner
+    inside a subordinate clause belongs to that clause's claim, not this one.
+    """
+
+    root = _object_root(document, predicate)
+    if root is None:
+        return []
+    return [
+        token
+        for token in document.subtree(root)
+        if token.dep == "det"
+        and token.lower in NEGATIVE_DETERMINERS
+        and _governing_predicate(document, token) is predicate
+    ]
+
+
+def _governing_predicate(document: Document, token: Token) -> Token | None:
+    """Walk up to the nearest verbal head, stopping at a clause boundary."""
+
+    current = token
+    for _ in range(_MAX_HEAD_WALK):
+        head = document.head_of(current)
+        if head is current:
+            return None
+        if head.pos in {"VERB", "AUX"}:
+            return head
+        if head.dep in _CLAUSE_BOUNDARY_DEPS:
+            return None
+        current = head
+    return None
 
 
 def _predicate_negation_tokens(document: Document, predicate: Token) -> list[Token]:
@@ -519,21 +609,69 @@ def _predicate_modality(document: Document, predicate: Token) -> str:
         return MODAL_NORMALIZATION[modals[0].lemma]
     subject = _subject_tokens(document, predicate)
     if not subject and predicate.tag in {"VB", "VBP"}:
-        return "imperative"
+        # An imperative is an obligation on the reader. Recording it as its own
+        # modality would make "Do not ratify X" disagree with "X must not be
+        # ratified", which are the same instruction.
+        return "must"
     return "assertive"
 
 
 def _subject_tokens(document: Document, predicate: Token) -> list[Token]:
+    passive_subjects = [
+        child for child in document.children(predicate) if child.dep == "nsubjpass"
+    ]
+    if passive_subjects:
+        # In a passive clause the grammatical subject is the patient, not the
+        # actor. Reading it as the actor inverts the sentence: "the gaps must
+        # be resolved by the platform team" would claim the gaps do the
+        # resolving. The actor is the by-phrase, and when there is none the
+        # actor is genuinely absent -- that absence is precisely what
+        # LING-AGENCY-001 reports, so it must not be papered over.
+        return _passive_agent_tokens(document, predicate)
+    subjects = [child for child in document.children(predicate) if child.dep == "nsubj"]
     subjects = [
-        child
-        for child in document.children(predicate)
-        if child.dep in {"nsubj", "nsubjpass"}
+        subject for subject in subjects if not _is_discourse_label(document, subject)
     ]
     if not subjects and predicate.dep == "conj":
         return _subject_tokens(document, document.head_of(predicate))
     tokens: list[Token] = []
     for subject in subjects:
         tokens.extend(document.subtree(subject))
+    return _content_tokens(tokens)
+
+
+def _is_discourse_label(document: Document, subject: Token) -> bool:
+    """Is this nominal a heading such as "Recommendation:" rather than a subject?
+
+    A colon-terminated nominal opening a sentence labels the statement; it does
+    not perform the action. spaCy attaches it as nsubj, which both invents an
+    actor and hides the imperative behind a false subject -- so "Recommendation:
+    Do not approve X" would be read as the recommendation doing the approving.
+    """
+
+    sentence = document.sentence_of(subject)
+    subtree = document.subtree(subject)
+    first = min(token.index for token in subtree)
+    if first != min(token.index for token in sentence.tokens):
+        return False
+    if any(token.text == ":" for token in subtree):
+        return True
+    following = subject.index + 1
+    try:
+        separator = document.token(following)
+    except (IndexError, KeyError):
+        return False
+    return separator.text == ":"
+
+
+def _passive_agent_tokens(document: Document, predicate: Token) -> list[Token]:
+    tokens: list[Token] = []
+    for child in document.children(predicate):
+        if child.dep != "agent":
+            continue
+        for grandchild in document.children(child):
+            if grandchild.dep == "pobj":
+                tokens.extend(document.subtree(grandchild))
     return _content_tokens(tokens)
 
 
@@ -560,10 +698,19 @@ def _target_tokens(document: Document, predicate: Token) -> list[Token]:
     root = _object_root(document, predicate)
     if root is None:
         return []
+    # Material belonging to a nested clause is excluded so that targets do not
+    # swallow the rest of the sentence. The predicate's own object is never
+    # nested material, though: when a discourse label makes the predicate
+    # itself an "acl", excluding its object would erase what the directive is
+    # about.
     return _content_tokens(
         token
         for token in document.subtree(root)
-        if token.dep not in {"acl", "advcl", "relcl"} and document.head_of(token).dep not in {"acl", "advcl", "relcl"}
+        if token.dep not in {"acl", "advcl", "relcl"}
+        and (
+            document.head_of(token).index == predicate.index
+            or document.head_of(token).dep not in {"acl", "advcl", "relcl"}
+        )
     )
 
 
@@ -600,11 +747,15 @@ def _add_claim(
 
 
 def _claim_parts(document: Document, predicate: Token) -> ClaimParts:
+    deferral = _deferral_parts(document, predicate)
+    if deferral is not None:
+        return deferral
     start, end = _claim_span(document, predicate)
-    action = ACTION_NORMALIZATION.get(predicate.lemma, predicate.lemma)
+    action = _resolve_action(predicate)
     target = _normalize_target_tokens(_target_tokens(document, predicate))
     subject = _subject_tokens(document, predicate)
     actor = _normalize_subject_tokens(document, subject) if subject else "unspecified"
+    polarity = _predicate_polarity(document, predicate)
     return ClaimParts(
         start=start,
         end=end,
@@ -612,8 +763,204 @@ def _claim_parts(document: Document, predicate: Token) -> ClaimParts:
         action=action,
         target=target,
         modality=_predicate_modality(document, predicate),
-        polarity=_predicate_polarity(document, predicate),
-        status="asserted",
+        polarity=polarity,
+        status=_predicate_status(document, predicate, polarity),
+    )
+
+
+def _resolve_action(token: Token) -> str:
+    """Canonical action key for a predicate token.
+
+    Declared synonyms win so that curated governance distinctions survive;
+    otherwise the shared verb/nominalization key from WordNet is used, so that
+    "ratify" and "architecture ratification" agree.
+    """
+
+    lemma = token.lemma.lower() if token.lemma else token.lower
+    if lemma in ACTION_NORMALIZATION:
+        return ACTION_NORMALIZATION[lemma]
+    return canonical_action(lemma)
+
+
+def _nominal_action(token: Token) -> str | None:
+    """Action named by a nominalization, or None if the noun names no action.
+
+    "ratification" names ratifying; "architecture" names no action. WordNet's
+    derivational links decide, so this generalises to vocabulary the profile has
+    never seen rather than to a list we maintain.
+    """
+
+    if token.pos not in {"NOUN", "PROPN"}:
+        return None
+    lemma = token.lemma.lower() if token.lemma else token.lower
+    if lemma in ACTION_NORMALIZATION:
+        return ACTION_NORMALIZATION[lemma]
+    info = canonical_action_info(lemma)
+    if not info.wordnet_component or lemma in info.wordnet_component:
+        return None
+    return info.key
+
+
+def _is_deferral_operator(document: Document, token: Token) -> bool:
+    if token.pos not in {"VERB", "NOUN"}:
+        return False
+    lemma = token.lemma.lower() if token.lemma else token.lower
+    if lemma in DEFERRAL_PARTICLE_OPERATORS:
+        return any(
+            child.lower in {"off", "back"} and child.dep in {"prt", "advmod"}
+            for child in document.children(token)
+        )
+    return lemma in DEFERRAL_OPERATORS
+
+
+def _deferral_parts(document: Document, predicate: Token) -> ClaimParts | None:
+    parts = _deferral_parts_list(document, predicate)
+    return parts[0] if parts else None
+
+
+def _deferral_parts_list(document: Document, predicate: Token) -> list[ClaimParts]:
+    """Rewrite a deferral into a negated, deferred claim about its complement.
+
+    "Defer architecture ratification", "propose deferring architecture
+    ratification" and "do not ratify the architecture yet" state the same
+    governance position. Representing the deferral operator as an action in its
+    own right would make those three disagree, so the operator is unwound onto
+    the thing being deferred. Deferring an event that has no verbal reading
+    ("defer the V2 cutover") is deferring its commencement.
+    """
+
+    if not _is_deferral_operator(document, predicate):
+        return []
+    complements = _deferral_complements(document, predicate)
+    if not complements:
+        return []
+    start, end = _claim_span(document, predicate)
+    subject = _subject_tokens(document, predicate)
+    actor = _normalize_subject_tokens(document, subject) if subject else "unspecified"
+
+    parts: list[ClaimParts] = []
+    for root in complements:
+        if root.pos in {"VERB", "AUX"}:
+            action = _resolve_action(root)
+            target = _normalize_target_tokens(_target_tokens(document, root))
+        else:
+            nominal = _nominal_action(root)
+            modifiers = [
+                token
+                for token in document.subtree(root)
+                if token.index != root.index
+                and token.index != predicate.index
+                and token.dep not in _CLAUSE_BOUNDARY_DEPS
+            ]
+            if nominal is not None:
+                action = nominal
+                target = _normalize_target_tokens(modifiers)
+            else:
+                action = ACTION_NORMALIZATION.get("begin", "begin")
+                target = _normalize_target_tokens(document.subtree(root))
+        parts.append(
+            ClaimParts(
+                start=start,
+                end=end,
+                actor=actor,
+                action=action,
+                target=target,
+                modality="must",
+                polarity="negative",
+                status="deferred",
+            )
+        )
+    return parts
+
+
+def _deferral_complements(document: Document, predicate: Token) -> list[Token]:
+    """What is being deferred.
+
+    Coordination is read from both the complement and the operator's head:
+    spaCy attaches the second conjunct of "propose deferring X and Y" to
+    "propose" rather than to "X", so reading only the complement's own
+    conjuncts silently loses Y — and losing a governance directive is exactly
+    the failure this gate exists to prevent.
+    """
+
+    roots: list[Token] = []
+    for child in document.children(predicate):
+        if child.dep in {"dobj", "obj", "xcomp", "ccomp", "pobj"}:
+            roots.append(child)
+        elif child.dep == "prep":
+            roots.extend(
+                grandchild
+                for grandchild in document.children(child)
+                if grandchild.dep == "pobj"
+            )
+    if not roots:
+        # Sentence-initial imperatives are frequently mis-tagged as nominal
+        # modifiers of their own object ("Defer ratification" parses with
+        # "Defer" as a compound under "ratification"). The complement is then
+        # the operator's head. Ignoring this would drop the directive entirely,
+        # so the inversion is repaired rather than tolerated.
+        head = document.head_of(predicate)
+        if head is not predicate and head.pos in {"NOUN", "PROPN"}:
+            roots = [head]
+    if not roots:
+        return []
+    conjuncts: list[Token] = []
+    for root in roots:
+        conjuncts.extend(
+            child for child in document.children(root) if child.dep == "conj"
+        )
+    head = document.head_of(predicate)
+    if head is not predicate:
+        conjuncts.extend(
+            child
+            for child in document.children(head)
+            if child.dep == "conj"
+            and child.pos in {"NOUN", "PROPN"}
+            and child.index > predicate.index
+        )
+    return roots + conjuncts
+
+
+def _predicate_status(document: Document, predicate: Token, polarity: str) -> str:
+    """Distinguish "not yet" from "not ever".
+
+    A deferral marker turns a prohibition into a postponement. Treating them
+    alike would let a rewrite convert "do not deploy yet" into "do not deploy"
+    and pass the gate.
+    """
+
+    if polarity == "negative" and _has_deferral_marker(document, predicate):
+        return "deferred"
+    return "asserted"
+
+
+def _has_deferral_marker(document: Document, predicate: Token) -> bool:
+    if _own_deferral_marker(document, predicate):
+        return True
+    # A sentence-final "yet" scopes over an entire negated coordination:
+    # "do not approve the architecture or begin the cutover yet" defers both.
+    # Reading it as marking only the conjunct it attaches to would treat the
+    # first directive as a permanent prohibition.
+    root = predicate
+    guard = 0
+    while root.dep == "conj" and guard < _MAX_HEAD_WALK:
+        head = document.head_of(root)
+        if head is root:
+            break
+        root = head
+        guard += 1
+    coordination = [root] + [
+        child for child in document.children(root) if child.dep == "conj"
+    ]
+    if predicate.index not in {member.index for member in coordination}:
+        return False
+    return any(_own_deferral_marker(document, member) for member in coordination)
+
+
+def _own_deferral_marker(document: Document, predicate: Token) -> bool:
+    return any(
+        child.lower in DEFERRAL_MARKERS and child.dep in {"advmod", "npadvmod"}
+        for child in document.children(predicate)
     )
 
 
@@ -621,6 +968,12 @@ def _is_claim_predicate(document: Document, token: Token) -> bool:
     if token.pos != "VERB" or token.lemma in NON_CLAIM_VERB_LEMMAS:
         return False
     if token.lemma in CLAIM_ACTION_LEMMAS:
+        return True
+    if _is_deferral_operator(document, token):
+        # Deferring something is always a directive about it, whatever form the
+        # operator takes. "Propose deferring ratification" carries no modal, no
+        # negation and no imperative inflection, so without this the entire
+        # directive is silently dropped.
         return True
     return _has_structural_claim_cue(document, token)
 
@@ -630,7 +983,24 @@ def _has_structural_claim_cue(document: Document, token: Token) -> bool:
         _predicate_polarity(document, token) == "negative"
         or _predicate_modality(document, token) != "assertive"
         or _structural_claim_has_imperative_form(token)
+        or _is_declarative_main_predicate(document, token)
     )
+
+
+def _is_declarative_main_predicate(document: Document, token: Token) -> bool:
+    """A finite main-clause verb states something the text is committed to.
+
+    "The replication path loses data." asserts a fact about the system. A
+    rewrite that drops it drops governed content, so the assertion has to enter
+    the signature even though it carries no modal, no negation and no
+    imperative inflection.
+    """
+
+    if token.tag not in {"VBZ", "VBD", "VBP"}:
+        return False
+    if token.dep not in {"ROOT", "conj", "ccomp", "advcl"}:
+        return False
+    return any(child.dep in {"nsubj", "nsubjpass"} for child in document.children(token))
 
 
 def _structural_claim_has_imperative_form(token: Token) -> bool:
@@ -641,39 +1011,6 @@ def _claim_predicates(document: Document) -> Iterable[Token]:
     for token in document:
         if _is_claim_predicate(document, token):
             yield token
-
-
-def _is_authorization_target(target: str) -> bool:
-    words = set(target.split())
-    return "authorization" in words and bool(words & {"concern", "concerns", "issue", "issues"})
-
-
-def _authorization_claims(document: Document, claims: list[tuple[int, int, str]]) -> set[int]:
-    claimed_predicates: set[int] = set()
-    for predicate in _claim_predicates(document):
-        if predicate.lemma not in AUTHORIZATION_ACTIONS:
-            continue
-        parts = _claim_parts(document, predicate)
-        if not _is_authorization_target(parts.target):
-            continue
-        _add_claim(
-            claims,
-            parts.start,
-            parts.end,
-            "unspecified",
-            parts.action,
-            "authorization issues",
-            "must",
-            parts.polarity,
-        )
-        claimed_predicates.add(predicate.index)
-    return claimed_predicates
-
-
-def _concept_claims(concepts: Iterable[ConceptSpan], claims: list[tuple[int, int, str]]) -> None:
-    for concept in concepts:
-        for actor, action, target, modality, polarity, status in CONCEPT_CLAIMS.get(concept.value, ()):
-            _add_claim(claims, concept.start, concept.end, actor, action, target, modality, polarity, status)
 
 
 def _skip_generic_claim(
@@ -697,8 +1034,28 @@ def _generic_claims(
     authorization_predicates: set[int],
     claims: list[tuple[int, int, str]],
 ) -> None:
-    concept_ranges = [(concept.start, concept.end) for concept in concepts if concept.value in CONCEPT_CLAIMS]
+    # Concepts no longer suppress parsed claims. Suppression existed so that a
+    # memorised concept claim would not be duplicated by the parse; with the
+    # memorised claims gone, suppressing here would delete real content.
+    concept_ranges: list[tuple[int, int]] = []
     for predicate in _claim_predicates(document):
+        deferrals = _deferral_parts_list(document, predicate)
+        if deferrals:
+            # A coordinated deferral defers each conjunct separately; emitting
+            # only the first would drop a directive.
+            for deferred in deferrals:
+                _add_claim(
+                    claims,
+                    deferred.start,
+                    deferred.end,
+                    deferred.actor,
+                    deferred.action,
+                    deferred.target,
+                    deferred.modality,
+                    deferred.polarity,
+                    deferred.status,
+                )
+            continue
         parts = _claim_parts(document, predicate)
         if _skip_generic_claim(predicate, parts, concept_ranges, authorization_predicates):
             continue
@@ -767,9 +1124,7 @@ def _status_claims(document: Document, claims: list[tuple[int, int, str]]) -> No
 def _semantic_claim_signatures(document: Document, concepts: Iterable[ConceptSpan]) -> list[str]:
     concept_list = list(concepts)
     claims: list[tuple[int, int, str]] = []
-    _concept_claims(concept_list, claims)
-    authorization_predicates = _authorization_claims(document, claims)
-    _generic_claims(document, concept_list, authorization_predicates, claims)
+    _generic_claims(document, concept_list, set(), claims)
     _status_claims(document, claims)
     unique = sorted(set(claims), key=lambda item: (item[0], item[1], item[2]))
     return [signature for _, _, signature in unique]
@@ -828,28 +1183,6 @@ def _has_concept(spans: Iterable[ConceptSpan], category: str, kind: str, value: 
     return any(span.category == category and span.kind == kind and span.value == value for span in spans)
 
 
-def _extract_derived_governance_concepts(
-    document: Document,
-    items: list[dict[str, JsonValue]],
-    spans: list[ConceptSpan],
-    seen: set[tuple[str, str, str, int, int]],
-) -> None:
-    for predicate in _claim_predicates(document):
-        parts = _claim_parts(document, predicate)
-        derived_value: str | None = None
-        target_words = set(parts.target.split())
-        if parts.action == "approve" and parts.polarity == "negative" and parts.target == "architecture":
-            derived_value = "architecture_approval_deferred"
-        if parts.action == "begin" and parts.polarity == "negative" and {"v2", "cutover"} <= target_words:
-            derived_value = "v2_cutover_deferred"
-        if derived_value is None:
-            continue
-        category, kind = DERIVED_GOVERNANCE_CONCEPTS[derived_value]
-        if _has_concept(spans, category, kind, derived_value):
-            continue
-        _add_concept_item(document.text, items, spans, seen, category, kind, derived_value, parts.start, parts.end)
-
-
 def _operator_start(document: Document, token: Token) -> int:
     sentence_tokens = list(document.sentence_of(token).tokens)
     by_index = {candidate.index: position for position, candidate in enumerate(sentence_tokens)}
@@ -897,7 +1230,7 @@ def _quantity_span(document: Document, token: Token) -> tuple[int, int]:
 
 
 def _quantity_candidate(token: Token) -> bool:
-    return token.pos == "NUM" or token.lower in NUMBER_WORDS or token.lower == "either"
+    return token.pos == "NUM" or token.lower in NUMBER_WORDS or token.lower in {"either", "both"}
 
 
 def _quantity_items(
@@ -998,7 +1331,19 @@ def _governance_items(
     covered = list(covered_ranges)
     for token in document:
         if token.lemma in GOVERNANCE_LEMMAS and not _contains(covered, token.start, token.end):
-            yield _item(document.text, "governance", "term", token.lemma, token.start, token.end, document.text)
+            # Compare governance vocabulary by the action it names, not by its
+            # surface form. LING-NOMINAL-001 asks writers to turn
+            # "ratification" into "ratify"; the gate must not then reject the
+            # remediation it recommended.
+            yield _item(
+                document.text,
+                "governance",
+                "term",
+                canonical_action(token.lemma),
+                token.start,
+                token.end,
+                document.text,
+            )
     sentence_tokens = list(document)
     for index, token in enumerate(sentence_tokens[:-1]):
         following = sentence_tokens[index + 1]
@@ -1007,12 +1352,73 @@ def _governance_items(
                 yield _item(document.text, "governance", "term", "target architecture", token.start, following.end, document.text)
 
 
+def _order_items(document: Document) -> Iterable[dict[str, JsonValue]]:
+    """Emit explicit sequencing relations for temporal prepositions.
+
+    "Close the findings before the design returns" and "...after the design
+    returns" are opposite instructions built from identical words. Sequencing
+    lives only in the preposition, so unless the relation is represented the
+    two are indistinguishable and a rewrite could silently invert a gate.
+    Both directions are normalized to an earlier/later pair so that "A before
+    B" and "B after A" agree.
+    """
+
+    for token in document:
+        if token.lower not in ORDERING_MARKERS or token.dep not in {"prep", "mark"}:
+            continue
+        anchor = document.head_of(token)
+        if anchor is token:
+            continue
+        related = [
+            child for child in document.children(token) if child.dep in {"pobj", "advcl"}
+        ]
+        if not related:
+            related = [
+                child
+                for child in document.children(token)
+                if child.pos in {"NOUN", "PROPN", "VERB"}
+            ]
+        if not related:
+            continue
+        anchor_side = _normalize_target_tokens(
+            [
+                candidate
+                for candidate in document.subtree(anchor)
+                if candidate.index != token.index
+                and candidate.index not in {
+                    member.index
+                    for relative in related
+                    for member in document.subtree(relative)
+                }
+            ]
+        )
+        other_side = _normalize_target_tokens(
+            [member for relative in related for member in document.subtree(relative)]
+        )
+        if not anchor_side or not other_side:
+            continue
+        if token.lower in {"before", "until", "prior"}:
+            earlier, later = anchor_side, other_side
+        else:
+            earlier, later = other_side, anchor_side
+        start = min(token.start, anchor.start)
+        end = max(token.end, max(member.end for member in document.subtree(token)))
+        yield _item(
+            document.text,
+            "order",
+            "sequence",
+            f"earlier={earlier};later={later}",
+            start,
+            end,
+            document.text,
+        )
+
+
 def extract_protected(text: str, profile: Profile) -> dict[str, JsonValue]:
     document = parse(text)
     items: list[dict[str, JsonValue]] = []
     concept_items, concept_spans, concept_seen = _extract_concepts(text, document, profile)
     items.extend(concept_items)
-    _extract_derived_governance_concepts(document, items, concept_spans, concept_seen)
     covered_ranges = [(span.start, span.end) for span in concept_spans]
 
     citation_items = (
@@ -1042,6 +1448,7 @@ def extract_protected(text: str, profile: Profile) -> dict[str, JsonValue]:
     items.extend(_status_items(document))
     items.extend(_negation_items(document, covered_ranges))
     items.extend(_governance_items(document, covered_ranges))
+    items.extend(_order_items(document))
 
     unique: dict[tuple[str, str, str, int, int], dict[str, JsonValue]] = {}
     for item in items:
@@ -1070,9 +1477,54 @@ def extract_protected(text: str, profile: Profile) -> dict[str, JsonValue]:
     manifest: dict[str, JsonValue] = {
         "items": cast(list[JsonValue], ordered),
         "semantic_signature": cast(list[JsonValue], signature),
+        "coverage": _coverage(document, ordered),
+        "source_sha256": source_sha256(text),
     }
     manifest["sha256"] = sha256_json(manifest)
     return manifest
+
+
+def _coverage(document: Document, items: list[dict[str, JsonValue]]) -> JsonValue:
+    """Record which sentences contributed nothing to the manifest.
+
+    A sentence that yields neither a claim nor a protected item has not been
+    understood, and a comparison that silently treats it as matching would be a
+    success-shaped fallback on the safety-critical path. Two texts that both
+    fail to parse would otherwise compare 'equivalent' purely because both
+    manifests are empty. Callers must treat an uncovered sentence as grounds for
+    an unresolved verdict, never as assurance.
+    """
+
+    covered: set[int] = set()
+    for item in items:
+        location = cast(dict[str, JsonValue], item["location"])
+        start = cast(int, location["start"])
+        for sentence in document.sentences:
+            if sentence.start <= start < sentence.end:
+                covered.add(sentence.index)
+                break
+    for predicate in _claim_predicates(document):
+        covered.add(document.sentence_of(predicate).index)
+
+    uncovered: list[JsonValue] = []
+    for sentence in document.sentences:
+        if sentence.index in covered:
+            continue
+        if not any(token.pos in _CONTENT_POS for token in sentence.tokens):
+            continue
+        uncovered.append(
+            cast(
+                JsonValue,
+                {
+                    "sentence_index": sentence.index,
+                    "text": sentence.text.strip(),
+                },
+            )
+        )
+    return cast(
+        JsonValue,
+        {"sentences": len(document.sentences), "uncovered": uncovered},
+    )
 
 
 def _parse_claim(signature: str) -> dict[str, str] | None:
@@ -1109,18 +1561,140 @@ def _unresolved_claim_reasons(signatures: Iterable[str], label: str) -> list[str
     return sorted(set(reasons))
 
 
+def _uncovered_reasons(manifest: dict[str, JsonValue], label: str) -> list[str]:
+    """Sentences that produced no extractable meaning block a verdict.
+
+    Without this, two texts that both defeat the parser produce two empty
+    manifests and compare 'equivalent' — the gate would certify meaning it
+    never read.
+    """
+
+    coverage = manifest.get("coverage")
+    if not isinstance(coverage, dict):
+        return [
+            f"{label}: manifest carries no coverage record, so equivalence "
+            "cannot be established"
+        ]
+    uncovered = coverage.get("uncovered")
+    if not isinstance(uncovered, list):
+        return []
+    reasons: list[str] = []
+    for entry in uncovered:
+        if not isinstance(entry, dict):
+            continue
+        text = str(entry.get("text", "")).strip()
+        reasons.append(
+            f"{label}: no proposition or protected element could be extracted "
+            f"from {text!r}; equivalence cannot be established for it"
+        )
+    return reasons
+
+
+def _parse_claim_signature(signature: str) -> dict[str, str] | None:
+    if not signature.startswith("claim:"):
+        return None
+    fields: dict[str, str] = {}
+    for part in signature[len("claim:") :].split(";"):
+        key, separator, value = part.partition("=")
+        if not separator:
+            return None
+        fields[key] = value
+    return fields
+
+
+def _reconcile_actor_specification(
+    missing: list[str],
+    added: list[str],
+) -> tuple[list[str], list[str], list[str]]:
+    """Allow naming a previously unnamed actor, but never un-naming one.
+
+    LING-AGENCY-001 asks writers to replace hidden agency with a named actor.
+    If the gate treated that as a meaning change it would reject its own
+    remediation and no candidate could ever satisfy both. Supplying an actor
+    where the source had none adds information without contradicting the
+    source, so it is permitted and reported. The reverse -- dropping or
+    swapping a named actor -- removes accountability and stays a violation.
+    """
+
+    remaining_missing = list(missing)
+    remaining_added = list(added)
+    specified: list[str] = []
+    for source_signature in list(remaining_missing):
+        source_claim = _parse_claim_signature(source_signature)
+        if source_claim is None or source_claim.get("actor") != "unspecified":
+            continue
+        for candidate_signature in list(remaining_added):
+            candidate_claim = _parse_claim_signature(candidate_signature)
+            if candidate_claim is None:
+                continue
+            if candidate_claim.get("actor") == "unspecified":
+                continue
+            if {k: v for k, v in source_claim.items() if k != "actor"} != {
+                k: v for k, v in candidate_claim.items() if k != "actor"
+            }:
+                continue
+            remaining_missing.remove(source_signature)
+            remaining_added.remove(candidate_signature)
+            specified.append(
+                f"actor specified: {source_claim.get('action', '?')} "
+                f"assigned to '{candidate_claim['actor']}'"
+            )
+            break
+    return remaining_missing, remaining_added, sorted(specified)
+
+
 def compare_protected(
     source_manifest: dict[str, JsonValue],
     candidate_manifest: dict[str, JsonValue],
 ) -> dict[str, JsonValue]:
     source_signatures = cast(list[str], source_manifest["semantic_signature"])
     candidate_signatures = cast(list[str], candidate_manifest["semantic_signature"])
+    if source_manifest.get("source_sha256") == candidate_manifest.get("source_sha256"):
+        # Unchanged text preserves its own meaning by construction. Incomplete
+        # extraction is a reason to doubt a *rewrite*, not a reason to doubt
+        # that a text says what it says.
+        return {
+            "equivalent": True,
+            "source_manifest_sha256": cast(str, source_manifest["sha256"]),
+            "candidate_manifest_sha256": cast(str, candidate_manifest["sha256"]),
+            "missing": cast(list[JsonValue], []),
+            "added": cast(list[JsonValue], []),
+            "specified": cast(list[JsonValue], []),
+            "disposition": "equivalent",
+            "unresolved": cast(list[JsonValue], []),
+        }
     source = Counter(source_signatures)
     candidate = Counter(candidate_signatures)
     missing = sorted((source - candidate).elements())
     added = sorted((candidate - source).elements())
-    unresolved = _unresolved_claim_reasons(source_signatures, "source") + _unresolved_claim_reasons(candidate_signatures, "candidate")
+    missing, added, specified = _reconcile_actor_specification(missing, added)
+    unresolved = (
+        _unresolved_claim_reasons(source_signatures, "source")
+        + _unresolved_claim_reasons(candidate_signatures, "candidate")
+        + _uncovered_reasons(source_manifest, "source")
+        + _uncovered_reasons(candidate_manifest, "candidate")
+    )
     equivalent = not missing and not added and not unresolved
+    if not equivalent and not missing and not added and unresolved:
+        # Doubt exists to stop us certifying a change we cannot see. When
+        # nothing moved and both texts raise exactly the same doubts about
+        # exactly the same content, there is no change being hidden -- unless
+        # nothing was extracted at all, which is the vacuous case that must
+        # stay unresolved.
+        source_reasons = sorted(
+            reason.split(":", 1)[1].strip()
+            for reason in unresolved
+            if reason.startswith("source:")
+        )
+        candidate_reasons = sorted(
+            reason.split(":", 1)[1].strip()
+            for reason in unresolved
+            if reason.startswith("candidate:")
+        )
+        extracted = bool(source_signatures) and bool(candidate_signatures)
+        if extracted and source_reasons and source_reasons == candidate_reasons:
+            unresolved = []
+            equivalent = True
     disposition = "equivalent" if equivalent else ("unresolved" if unresolved else "changed")
     return {
         "equivalent": equivalent,
@@ -1128,6 +1702,7 @@ def compare_protected(
         "candidate_manifest_sha256": cast(str, candidate_manifest["sha256"]),
         "missing": cast(list[JsonValue], missing),
         "added": cast(list[JsonValue], added),
+        "specified": cast(list[JsonValue], specified),
         "disposition": disposition,
         "unresolved": cast(list[JsonValue], sorted(unresolved)),
     }

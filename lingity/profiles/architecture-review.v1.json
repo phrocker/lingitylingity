@@ -1,7 +1,7 @@
 {
   "$schema": "https://lingity.dev/schemas/v1/profile.schema.json",
   "name": "architecture-review",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "language": "en",
   "weights": {
     "sentence_load": 25,
@@ -45,6 +45,13 @@
     "max_compound_parts": 3
   },
   "rules": {
+    "abstract_evidence_heads": [
+      "evidence",
+      "attestation",
+      "assurance",
+      "artifact",
+      "artefact"
+    ],
     "nominalization_suffixes": [
       "tion",
       "sion",
@@ -188,19 +195,12 @@
         "north star state"
       ],
       "machine-made compound": [
-        "repository evidence hybrid topology",
         "current state baseline",
         "current state architecture",
         "current state topology",
         "future state baseline",
         "future state architecture",
         "future state topology"
-      ],
-      "governance label": [
-        "govern recommendation"
-      ],
-      "abstract evidence phrase": [
-        "closure evidence"
       ]
     },
     "bureaucratic_phrases": {
@@ -235,68 +235,6 @@
         "patterns": [
           "recommended decision",
           "recommendation:"
-        ]
-      },
-      {
-        "category": "negation",
-        "kind": "governance_polarity",
-        "value": "architecture_approval_deferred",
-        "patterns": [
-          "deferr(?:ing|al).{0,30}architecture ratification",
-          "do not approve the architecture"
-        ]
-      },
-      {
-        "category": "negation",
-        "kind": "governance_polarity",
-        "value": "v2_cutover_deferred",
-        "patterns": [
-          "deferr(?:ing|al).{0,80}irreversible V2 cutover",
-          "do not.{0,40}irreversible V2 cutover yet"
-        ]
-      },
-      {
-        "category": "governance",
-        "kind": "status",
-        "value": "current_state_is_provisional",
-        "patterns": [
-          "provisional current-state baseline",
-          "working view of the current system.not as the target architecture"
-        ]
-      },
-      {
-        "category": "governance",
-        "kind": "evidence",
-        "value": "authorization_concerns_confirmed",
-        "patterns": [
-          "confirmed authorization (?:concerns|issues)"
-        ]
-      },
-      {
-        "category": "governance",
-        "kind": "evidence",
-        "value": "messaging_loss_requires_resolution",
-        "patterns": [
-          "verify the two critical messaging loss hypotheses",
-          "determine whether either messaging path can lose data"
-        ]
-      },
-      {
-        "category": "governance",
-        "kind": "gate",
-        "value": "recommendation_closure_evidence_required",
-        "patterns": [
-          "require closure evidence for the governed recommendations",
-          "provide evidence that the review recommendations have been addressed"
-        ]
-      },
-      {
-        "category": "governance",
-        "kind": "authority",
-        "value": "target_architecture_requires_human_approval",
-        "patterns": [
-          "target architecture returns for human decision",
-          "bring the target architecture back for human approval"
         ]
       }
     ],

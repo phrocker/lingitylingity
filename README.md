@@ -135,6 +135,29 @@ returned unchanged together with the reasons every candidate failed. A candidate
 that scores a perfect 100 but drops a protected claim is rejected; a higher
 score never buys a change in meaning.
 
+Rejections are actionable. Every verdict carries `protected_delta`, naming the
+exact elements dropped, introduced, or left unresolved, so the next attempt can
+restore them by name instead of guessing:
+
+```text
+$ lingity judge source.txt --candidate shorter.txt
+accepted False   68.17 -> 89.59
+  reason: protected meaning is changed: 5 protected element(s) dropped
+  MISSING quantity:count:2
+  MISSING governance:term:recommend
+  MISSING order:sequence:earlier=govern recommendation;later=target architecture return human decision
+```
+
+Meaning is compared as propositions, not wording. Sentences are parsed into
+claim signatures — action, actor, target, modality, polarity, status — plus
+ordering relations, so "close the findings before sign-off" and "sign-off
+happens only after the findings are closed" agree while "approve" and "ratify"
+do not. No profile contains protected sentence patterns. Generalisation is
+measured against a held-out corpus of 32 pairs that shares no wording with any
+profile or fixture; the gate resolves 24/32 with zero false `equivalent`
+verdicts, and the eight unresolved cases are documented in the corpus with the
+linguistic reason for each.
+
 Providers are transports, never authorities:
 
 - **`subagent`** (default) — no network and no API key. The host agent, such as
@@ -154,7 +177,36 @@ is an error rather than a quiet `no_material_change`.
 
 ```text
 python -m pip install -e .[dev]
+python -m spacy download en_core_web_sm
+python -m nltk.downloader wordnet omw-1.4
 pytest
-mypy
+mypy --strict lingity tests
 python -m compileall -q lingity tests
 ```
+
+Analysis needs the spaCy model and the WordNet corpora present locally. Both are
+install-time steps on purpose: nothing downloads anything at analysis time, so a
+run cannot silently depend on the network or quietly change behaviour when a
+corpus is missing. Missing data is an error, not a fallback.
+
+WordNet drives morphology — deriving the verb behind a nominalization
+("ratification" → "ratify") and separating a word from its antonyms — rather
+than a hand-maintained suffix list.
+
+## Prior art
+
+The rule families follow published work on requirements and plain-language
+quality:
+
+- Femmer, Méndez Fernández, Wagner, Eder, *Rapid Quality Assurance with
+  Requirements Smells* (Journal of Systems and Software, 2017) — the
+  smell-detection framing behind nominalization, passive voice, and vague-term
+  rules.
+- INCOSE-TP-010-009, *Guide to Writing Requirements* (2019) — rules on
+  imperatives, ambiguity, and quantification.
+- U.S. Federal Plain Language Guidelines (PLAIN) — actor-first sentences, active
+  voice, and short sentence targets.
+
+No existing package was found that detects nominalizations, noun stacks, hidden
+agency, or bureaucratic phrasing as attributed findings, or that gates a rewrite
+on preserved governed meaning, so those are implemented here.

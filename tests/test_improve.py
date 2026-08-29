@@ -148,6 +148,29 @@ def test_regression_is_rejected(profile: Profile) -> None:
     assert any("regressed" in reason for reason in reasons)
 
 
+def test_rejected_candidate_names_the_elements_that_moved(profile: Profile) -> None:
+    """A rejection has to be actionable, not just a refusal.
+
+    "Meaning changed" tells a host agent nothing it can fix. The verdict must
+    name the protected elements that were dropped so the next attempt can
+    restore them, which is the only way an iterative loop can converge.
+    """
+
+    original, _ = _fixture()
+    dropped = original.replace("two critical messaging loss hypotheses", "hypotheses")
+    assert dropped != original, "the fixture text changed; update this mutation"
+
+    accepted, reasons, evidence = judge_candidate(original, dropped, profile)
+    assert not accepted
+    delta = cast(dict[str, list[str]], evidence["protected_delta"])
+    assert set(delta) == {"missing", "added", "unresolved", "specified"}
+    moved = delta["missing"] + delta["added"] + delta["unresolved"]
+    assert moved, f"a rejected candidate reported no delta; reasons were {reasons}"
+    assert any("2" in element for element in moved), (
+        f"the dropped count was not named in the delta: {moved}"
+    )
+
+
 def test_identical_text_is_rejected(profile: Profile) -> None:
     original, _ = _fixture()
     accepted, reasons, _ = judge_candidate(original, original, profile)
@@ -317,6 +340,12 @@ def test_verdict_schema_requires_a_reason_for_every_rejection() -> None:
         "source_score": 50.0,
         "candidate_score": 60.0,
         "protected_disposition": "changed",
+        "protected_delta": {
+            "missing": ["quantity:count:2"],
+            "added": [],
+            "unresolved": [],
+            "specified": [],
+        },
         "challenge": None,
         "profile": {"name": "architecture-review", "version": "1.2.0", "digest": "0" * 64},
         "linguistic_model": {

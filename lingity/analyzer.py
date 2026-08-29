@@ -1142,6 +1142,59 @@ def _analyze_sentences(document: Document, profile: Profile) -> tuple[list[dict[
     return records, findings
 
 
+def _abstract_evidence_findings(document: Document, profile: Profile) -> list[Finding]:
+    """Flag "<nominalization> evidence" compounds structurally.
+
+    "closure evidence", "attestation evidence" and "remediation evidence" are
+    the same construction: an abstract noun standing in for the act that would
+    actually produce the evidence. Listing the phrases seen in one fixture
+    detects that fixture, not the construction, so the modifier is tested for
+    being a nominalization instead.
+    """
+
+    heads = {
+        word.lower()
+        for word in cast(list[str], profile.rules["abstract_evidence_heads"])
+    }
+    findings: list[Finding] = []
+    for token in document:
+        if token.lower not in heads and _lemma(token) not in heads:
+            continue
+        for child in document.children(token):
+            if child.dep != "compound" or child.index >= token.index:
+                continue
+            if not _is_nominalization(child, profile):
+                continue
+            phrase = f"{child.text} {token.text}"
+            findings.append(
+                Finding(
+                    rule_id="LING-JARGON-001",
+                    dimension="lexical_clarity",
+                    severity="medium",
+                    location=_location(
+                        document.text,
+                        child.start,
+                        token.end,
+                        document.sentence_of(token).index,
+                    ),
+                    observed_value={
+                        "phrase": phrase,
+                        "classification": "abstract evidence phrase",
+                        "nominalization": child.text,
+                    },
+                    threshold={
+                        "rule": "a nominalization must not stand in as the modifier of an evidence noun"
+                    },
+                    remediation=(
+                        f"Name the act and who performs it, rather than {phrase!r}: "
+                        f"say who must show that the work was done."
+                    ),
+                    penalty=6.0,
+                )
+            )
+    return findings
+
+
 def _dedupe_findings(findings: list[Finding]) -> list[Finding]:
     result: list[Finding] = []
     seen: set[tuple[str, int, int, str]] = set()
@@ -1180,6 +1233,7 @@ def analyze_text(text: str, profile: Profile | None = None) -> dict[str, JsonVal
         6.0,
     )
     findings.extend(jargon_findings)
+    findings.extend(_abstract_evidence_findings(document, selected_profile))
     lexical_spans = [(finding.location.start, finding.location.end) for finding in jargon_findings]
     compound_depth_findings = _compound_depth_findings(document, selected_profile)
     findings.extend(compound_depth_findings)

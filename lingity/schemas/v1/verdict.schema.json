@@ -12,6 +12,7 @@
     "source_score",
     "candidate_score",
     "protected_disposition",
+    "protected_delta",
     "challenge",
     "profile",
     "linguistic_model"
@@ -26,6 +27,18 @@
     "source_score": {"type": "number", "minimum": 0, "maximum": 100},
     "candidate_score": {"type": "number", "minimum": 0, "maximum": 100},
     "protected_disposition": {"enum": ["equivalent", "changed", "unresolved"]},
+    "protected_delta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["missing", "added", "unresolved", "specified"],
+      "description": "Exactly which protected elements moved, so a rejected candidate can be repaired by name rather than guessed at.",
+      "properties": {
+        "missing": {"type": "array", "items": {"type": "string"}},
+        "added": {"type": "array", "items": {"type": "string"}},
+        "unresolved": {"type": "array", "items": {"type": "string"}},
+        "specified": {"type": "array", "items": {"type": "string"}}
+      }
+    },
     "challenge": {
       "oneOf": [
         {"type": "null"},

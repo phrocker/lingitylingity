@@ -62,7 +62,39 @@ Deterministic extraction identifies elements that a candidate must preserve:
 - quoted text, code spans, URLs, and citations
 - profile-defined terminology
 
-Profiles may add exact protected phrases and approved substitutions.
+Meaning is compared as propositions, not as wording. Each sentence is parsed
+into claim signatures — action, actor, target, modality, polarity, and status —
+plus ordering relations between them. Two texts are equivalent when their
+signatures match, so "close the findings before sign-off" and "sign-off happens
+only after the findings are closed" agree, while "approve" and "ratify" do not.
+Profiles carry no protected sentence patterns. An earlier revision matched
+protected concepts against literal phrases copied from the test fixture, which
+made the fixture pass without the gate understanding anything; those patterns
+were removed and the gate rebuilt on the parse.
+
+The comparison is deliberately directional. Naming an actor the source left
+unnamed is a permitted specification and is reported under `specified` —
+otherwise the remediation `LING-AGENCY-001` itself recommends would be
+rejected. Dropping or swapping a named actor stays a violation.
+
+The gate is fail-closed. A sentence that yields no proposition and no protected
+element is reported as `unresolved` rather than assumed to match, because two
+texts that both fail to parse would otherwise compare equal and certify a
+meaning nobody read. `unresolved` costs a rewrite that should have been
+accepted; a false `equivalent` certifies a rewrite that changed what the text
+commits to. Only the second is a safety failure, and
+`tests/test_meaning_equivalence.py` asserts it never happens.
+
+Generalisation is measured against a held-out corpus of 32 pairs
+(`tests/fixtures/meaning-equivalence-corpus.json`) authored from governance
+semantics rather than from any profile or shipped fixture. Answering "changed"
+for every pair scores 16/32, so the changed-pair count alone proves nothing; the
+equivalent-pair count is what separates a semantic gate from a lookup table.
+The gate currently resolves 24/32 with zero false `equivalent` verdicts. The
+eight it does not resolve are listed in the corpus under `known_gaps` with the
+linguistic reason for each, and are recorded as strict expected failures so a
+gap that gets fixed forces the win to be acknowledged rather than silently
+absorbed.
 
 ### 3. Analyze language
 
@@ -139,6 +171,14 @@ The model must return structured output:
 ```
 
 The runtime ignores self-reported preservation claims when deciding acceptance.
+
+A rejected candidate is returned with `protected_delta`, naming the exact
+elements that were dropped, introduced, or left unresolved. A verdict that only
+says "meaning changed" cannot be acted on; naming the elements is what lets an
+iterative loop converge instead of guessing. A candidate that scores higher but
+drops governed content is rejected on that evidence — the fixture in
+`tests/fixtures/recommended-decision.json` keeps such a rewrite as
+`unfaithful_rewrite` for exactly this reason.
 
 Iteration stops deterministically when:
 

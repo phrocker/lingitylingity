@@ -363,7 +363,9 @@
       "required": [
         "items",
         "semantic_signature",
-        "sha256"
+        "sha256",
+        "coverage",
+        "source_sha256"
       ],
       "properties": {
         "sha256": {
@@ -396,7 +398,8 @@
                   "modal",
                   "negation",
                   "citation",
-                  "governance"
+                  "governance",
+                  "order"
                 ]
               },
               "kind": {
@@ -413,6 +416,44 @@
               }
             }
           }
+        },
+        "coverage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sentences",
+            "uncovered"
+          ],
+          "properties": {
+            "sentences": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "uncovered": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "sentence_index",
+                  "text"
+                ],
+                "properties": {
+                  "sentence_index": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "source_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
         }
       }
     }
