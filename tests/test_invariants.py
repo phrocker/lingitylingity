@@ -324,3 +324,65 @@ def test_linguistic_model_errors_propagate(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.setattr("lingity.invariants.parse", broken_parse)
     with pytest.raises(LinguisticModelError):
         _protected("ADR-42 must remain governed.")
+
+
+CODE_REVIEW_CONCLUSION = (
+    "The exact-policy-pin fix is complete and fail-closed, and the analogous "
+    "index pin lookup remains exact and bounded. Static inspection and all "
+    "requested validation found no actionable defects."
+)
+
+
+def test_linking_verb_states_are_part_of_the_signature() -> None:
+    """A text is committed to what it says a thing is, not only what to do."""
+
+    signature = _signature(CODE_REVIEW_CONCLUSION)
+    states = [item for item in signature if "action=be;" in item or "action=remain;" in item]
+    assert len(states) == 2, signature
+    assert any("target=complete,fail close" in item for item in states), signature
+    assert any("target=bound,exact" in item for item in states), signature
+
+
+@pytest.mark.parametrize(
+    ("mutation", "replacement"),
+    [
+        ("is complete and fail-closed", "is incomplete and fail-open"),
+        ("complete and fail-closed", "complete and fail-open"),
+        ("remains exact and bounded", "remains approximate and bounded"),
+        ("exact and bounded", "exact and unbounded"),
+        ("fix is complete", "fix is not complete"),
+        ("complete and fail-closed", "complete"),
+    ],
+)
+def test_flipping_a_predicate_adjective_is_never_certified_equivalent(
+    mutation: str, replacement: str
+) -> None:
+    """The defect this guards against shipped once and was found on live text.
+
+    Every one of these reverses what the conclusion asserts about the fix. A
+    reviewer reading an accepted rewrite would be told the meaning was
+    preserved.
+    """
+
+    candidate = CODE_REVIEW_CONCLUSION.replace(mutation, replacement)
+    assert candidate != CODE_REVIEW_CONCLUSION
+    comparison = _comparison(CODE_REVIEW_CONCLUSION, candidate)
+    assert comparison["disposition"] == "changed", comparison
+
+
+def test_unchanged_conclusion_still_compares_equivalent() -> None:
+    """State claims must not make the gate reject text it should accept."""
+
+    comparison = _comparison(CODE_REVIEW_CONCLUSION, CODE_REVIEW_CONCLUSION)
+    assert comparison["disposition"] == "equivalent", comparison
+
+
+def test_a_second_finite_predicate_is_not_absorbed_as_a_state() -> None:
+    """"is complete and passes review" coordinates two predicates, not two states."""
+
+    signature = _signature("The fix is complete and passes review.")
+    states = [item for item in signature if "action=be;" in item]
+    assert states == [
+        "claim:action=be;actor=fix;modality=assertive;polarity=positive;"
+        "status=asserted;target=complete"
+    ], signature

@@ -152,11 +152,16 @@ Meaning is compared as propositions, not wording. Sentences are parsed into
 claim signatures — action, actor, target, modality, polarity, status — plus
 ordering relations, so "close the findings before sign-off" and "sign-off
 happens only after the findings are closed" agree while "approve" and "ratify"
-do not. No profile contains protected sentence patterns. Generalisation is
-measured against a held-out corpus of 32 pairs that shares no wording with any
-profile or fixture; the gate resolves 24/32 with zero false `equivalent`
-verdicts, and the eight unresolved cases are documented in the corpus with the
-linguistic reason for each.
+do not. Linking verbs are read as state claims, so "the fix is complete and
+fail-closed" and "the fix is incomplete and fail-open" disagree. No profile
+contains protected sentence patterns.
+
+Generalisation is measured against a held-out corpus of 32 pairs that shares no
+wording with any profile or fixture; the eight pairs the gate does not resolve
+are documented in the corpus with the linguistic reason for each, and every one
+of them answers `unresolved` or `changed` rather than `equivalent`. The corpus
+is evidence, not proof: it once masked a false `equivalent` on copular text
+behind an unrelated coverage failure. Treat a passing corpus as a floor.
 
 Providers are transports, never authorities:
 

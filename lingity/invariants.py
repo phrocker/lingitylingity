@@ -1121,10 +1121,133 @@ def _status_claims(document: Document, claims: list[tuple[int, int, str]]) -> No
         )
 
 
+def _has_own_subject(document: Document, token: Token) -> bool:
+    return any(child.dep in {"nsubj", "nsubjpass"} for child in document.children(token))
+
+
+def _is_adjectival(token: Token) -> bool:
+    """A predicate complement, as opposed to a second finite predicate.
+
+    "remains exact and bounded" coordinates two states; "is complete and passes
+    review" coordinates two predicates, and the second belongs to the ordinary
+    claim extractor. Finite tense marking is what separates them.
+    """
+
+    return token.pos == "ADJ" or token.tag in {"VBN", "VBG"}
+
+
+def _predicate_complements(document: Document, predicate: Token) -> list[Token]:
+    """Collect the predicate complements of a linking verb.
+
+    "is complete and fail-closed" and "remains exact and bounded" attach their
+    conjuncts inconsistently -- sometimes under the first complement, sometimes
+    directly under the verb -- so both attachment points are collected. A
+    conjunct carrying its own subject is a separate clause, not a shared
+    complement, and is left for that clause's own extraction.
+    """
+
+    complements: list[Token] = []
+    for child in document.children(predicate):
+        if child.dep in {"acomp", "attr", "oprd"}:
+            complements.append(child)
+            complements.extend(
+                grandchild
+                for grandchild in document.children(child)
+                if grandchild.dep == "conj" and not _has_own_subject(document, grandchild)
+            )
+        elif (
+            child.dep == "conj"
+            and complements
+            and _is_adjectival(child)
+            and not _has_own_subject(document, child)
+        ):
+            complements.append(child)
+    return complements
+
+
+def _complement_tokens(document: Document, complement: Token, siblings: Iterable[Token]) -> list[Token]:
+    """The complement's own words, excluding any coordinated complement.
+
+    A conjunct is normalized as its own state, so leaving it inside the head's
+    subtree would record the pair twice under two different keys. Only nested
+    conjuncts are removed -- a conjunct that hangs off the verb instead never
+    overlaps its sibling.
+    """
+
+    excluded = {
+        token.index
+        for sibling in siblings
+        if sibling.index != complement.index and _is_descendant(document, sibling, complement)
+        for token in document.subtree(sibling)
+    }
+    return [token for token in document.subtree(complement) if token.index not in excluded]
+
+
+def _is_descendant(document: Document, token: Token, ancestor: Token) -> bool:
+    return any(
+        member.index == token.index
+        for member in document.subtree(ancestor)
+        if member.index != ancestor.index
+    )
+
+
+def _state_claim_predicates(document: Document) -> Iterable[tuple[Token, list[Token], str]]:
+    """Linking predicates that assert a state, with their normalized states."""
+
+    for predicate in document:
+        if predicate.pos not in {"VERB", "AUX"}:
+            continue
+        if not _subject_tokens(document, predicate):
+            continue
+        complements = _predicate_complements(document, predicate)
+        if not complements:
+            continue
+        states = sorted(
+            {
+                _normalize_target_tokens(_complement_tokens(document, complement, complements))
+                for complement in complements
+            }
+        )
+        target = ",".join(state for state in states if state and state != "none")
+        if not target:
+            continue
+        yield predicate, complements, target
+
+
+def _state_claims(document: Document, claims: list[tuple[int, int, str]]) -> set[int]:
+    """Extract what a text asserts a thing *is*, not only what it does.
+
+    "The fix is complete and fail-closed" commits the author to a state. Without
+    this the copula yields no claim at all, and rewriting it to "is incomplete
+    and fail-open" compares equivalent -- a false certification of meaning that
+    the coverage guard cannot catch whenever any other sentence parses cleanly.
+    """
+
+    claimed: set[int] = set()
+    for predicate, complements, target in _state_claim_predicates(document):
+        start = min([predicate.start, *(token.start for token in complements)])
+        end = max([predicate.end, *(token.end for token in complements)])
+        polarity = _predicate_polarity(document, predicate)
+        _add_claim(
+            claims,
+            start,
+            end,
+            _normalize_subject_tokens(document, _subject_tokens(document, predicate)),
+            _resolve_action(predicate),
+            target,
+            _predicate_modality(document, predicate),
+            polarity,
+            _predicate_status(document, predicate, polarity),
+        )
+        claimed.add(predicate.index)
+    return claimed
+
+
 def _semantic_claim_signatures(document: Document, concepts: Iterable[ConceptSpan]) -> list[str]:
     concept_list = list(concepts)
     claims: list[tuple[int, int, str]] = []
-    _generic_claims(document, concept_list, set(), claims)
+    state_predicates = _state_claims(document, claims)
+    _generic_claims(document, concept_list, state_predicates, claims)
     _status_claims(document, claims)
     unique = sorted(set(claims), key=lambda item: (item[0], item[1], item[2]))
     return [signature for _, _, signature in unique]
@@ -1504,6 +1627,8 @@ def _coverage(document: Document, items: list[dict[str, JsonValue]]) -> JsonValu
                 covered.add(sentence.index)
                 break
     for predicate in _claim_predicates(document):
+        covered.add(document.sentence_of(predicate).index)
+    for predicate, _, _ in _state_claim_predicates(document):
         covered.add(document.sentence_of(predicate).index)
 
     uncovered: list[JsonValue] = []

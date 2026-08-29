@@ -82,19 +82,37 @@ element is reported as `unresolved` rather than assumed to match, because two
 texts that both fail to parse would otherwise compare equal and certify a
 meaning nobody read. `unresolved` costs a rewrite that should have been
 accepted; a false `equivalent` certifies a rewrite that changed what the text
-commits to. Only the second is a safety failure, and
-`tests/test_meaning_equivalence.py` asserts it never happens.
+commits to. Only the second is a safety failure.
+
+A text is committed to what it asserts a thing *is*, not only to what it says
+should be done, so a linking verb with a predicate complement is extracted as a
+state claim: "the fix is complete and fail-closed" records `complete` and
+`fail close` against that subject. Coordinated complements attach
+inconsistently — sometimes under the first complement, sometimes under the verb
+— so both attachment points are collected, and a conjunct with its own subject
+or finite tense is left to the ordinary claim extractor instead of being
+absorbed.
+
+That extraction closed a real false `equivalent`. Before it, "the fix is
+complete and fail-closed" and "the fix is incomplete and fail-open" compared
+equivalent on live text. The held-out corpus did not catch it: its copular pair
+failed the coverage guard for an unrelated reason, so the hole was masked
+behind an `unresolved` verdict and recorded as a conservative gap. A corpus
+that scores well is evidence, not proof — a gap in the corpus can hide a gap in
+the gate. `tests/test_meaning_equivalence.py` asserts no meaning change in the
+corpus is ever reported `equivalent`, and that assertion covers the documented
+gaps too, but it can only speak for the pairs it contains.
 
 Generalisation is measured against a held-out corpus of 32 pairs
 (`tests/fixtures/meaning-equivalence-corpus.json`) authored from governance
 semantics rather than from any profile or shipped fixture. Answering "changed"
 for every pair scores 16/32, so the changed-pair count alone proves nothing; the
 equivalent-pair count is what separates a semantic gate from a lookup table.
-The gate currently resolves 24/32 with zero false `equivalent` verdicts. The
-eight it does not resolve are listed in the corpus under `known_gaps` with the
-linguistic reason for each, and are recorded as strict expected failures so a
-gap that gets fixed forces the win to be acknowledged rather than silently
-absorbed.
+The eight pairs the gate does not resolve are listed in the corpus under
+`known_gaps` with the linguistic reason for each, and are recorded as strict
+expected failures so a gap that gets fixed forces the win to be acknowledged
+rather than silently absorbed. Every listed gap answers `unresolved` or
+`changed`, never `equivalent`.
 
 ### 3. Analyze language
 

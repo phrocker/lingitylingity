@@ -218,14 +218,14 @@
     }
   ],
   "known_gaps": {
-    "eq-deferral-hold-off": "Particle deferral ('hold off on X') is not yet resolved to the same operator as 'defer X', and the parser mis-tags the sentence-initial 'Defer'. Reported unresolved.",
-    "eq-nominal-gate": "A nominalized complement ('require closure of X') is not yet aligned with the finite subordinate clause that states the same gate ('require that X be closed'). Reported changed.",
-    "eq-authority-direction": "Converse relations are not modelled: an obligation stated from the actor side ('a human must approve X') is not yet aligned with the same obligation stated from the object side ('X requires human approval'). Reported changed.",
-    "eq-order-preserved": "An ordering constraint stated as a subordinate 'after' clause is not yet aligned with the same constraint stated as a 'before' clause. Reported unresolved.",
-    "eq-jargon-removed": "A hyphenated attributive modifier ('repository-evidenced topology') is not yet aligned with the relative clause that unpacks it ('topology that the repository evidences'). Reported changed.",
     "ch-action-swapped": "Both actions are sentence-initial imperatives that the parser tags as nouns, so neither side yields a claim to compare. Reported unresolved.",
     "ch-scope-narrowed": "Quantifier scope ('all' versus 'some') is not yet part of the claim signature, and 'Close all ...' is mis-tagged. Reported unresolved.",
-    "ch-gate-removed": "A copular predicate adjective ('X is optional') is not yet extracted as a claim, so removing a gate that way leaves nothing to compare. Reported unresolved."
+    "eq-authority-direction": "Converse relations are not modelled: an obligation stated from the actor side ('a human must approve X') is not yet aligned with the same obligation stated from the object side ('X requires human approval'). Reported changed.",
+    "eq-deferral-hold-off": "Particle deferral ('hold off on X') is not yet resolved to the same operator as 'defer X', and the parser mis-tags the sentence-initial 'Defer'. Reported unresolved.",
+    "eq-jargon-removed": "A hyphenated attributive modifier ('repository-evidenced topology') is not yet aligned with the relative clause that unpacks it ('topology that the repository evidences'). Reported changed.",
+    "eq-nominal-gate": "A nominalized complement ('require closure of X') is not yet aligned with the finite subordinate clause that states the same gate ('require that X be closed'). Reported changed.",
+    "eq-order-preserved": "An ordering constraint stated as a subordinate 'after' clause is not yet aligned with the same constraint stated as a 'before' clause. Reported unresolved.",
+    "eq-provisional-status": "Directive framing ('Treat X as a provisional baseline') is not aligned with predicative framing ('X is a provisional baseline'). Only the predicative side yields a state claim, so the gate sees an assertion the source did not make. Reported changed."
   },
   "known_gaps_note": "Documented extractor gaps, kept in the corpus rather than deleted so the score stays honest. Every gap is conservative: the gate answers 'unresolved' or 'changed', never 'equivalent'. tests/test_meaning_equivalence.py asserts that each entry still fails, still fails conservatively, and is removed once fixed."
 }
