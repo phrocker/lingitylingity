@@ -98,13 +98,13 @@ Every finding carries a rule ID, severity, character location, observed value,
 threshold, and remediation. Overlapping spans within a dimension are
 de-duplicated so a single defect is not penalised twice.
 
-Rules read sentence structure rather than surface strings, so detection
-generalises to unseen wording. They inspect predicates, subjects, auxiliaries,
-negation, and modifier chains. The parse is part of the analysis contract, so
-Lingity pins the pipeline to `en_core_web_sm` at an exact version and loads it
-fail-closed. It records the parser name, version, runtime, and digest as
-`linguistic_model` inside the hashed artifact. `verify` refuses any artifact
-produced by a different pipeline instead of silently re-analysing it.
+Rules read sentence structure — predicates, subjects, auxiliaries, negation,
+and modifier chains — rather than matching surface strings, so detection
+generalises to unseen wording. Because the parse is part of the analysis
+contract, the pipeline is pinned: `en_core_web_sm` at an exact version, loaded
+fail-closed. Its name, version, runtime, and digest are recorded as
+`linguistic_model` inside the hashed artifact, and `verify` refuses any
+artifact produced by a different pipeline instead of silently re-analysing it.
 
 The Human Readability Index weights those six dimensions and converts each
 dimension's deducted points into a score with a half-life decay, so worse text
@@ -129,11 +129,11 @@ hold:
 - no new high-severity finding appears,
 - and no semantic-drift challenge raised material doubt.
 
-Lingity never accepts a regression, never accepts a tie, and never accepts an
-unresolved meaning comparison. When nothing qualifies, it returns the source
-text unchanged together with the reasons every candidate failed. It rejects a
-candidate that scores a perfect 100 but drops a protected claim. A higher score
-never buys a change in meaning.
+A regression is never accepted, a tie is never accepted, and an unresolved
+meaning comparison is never accepted. When nothing qualifies, the source text is
+returned unchanged together with the reasons every candidate failed. A candidate
+that scores a perfect 100 but drops a protected claim is rejected; a higher
+score never buys a change in meaning.
 
 Rejections are actionable. Every verdict carries `protected_delta`, naming the
 exact elements dropped, introduced, or left unresolved, so the next attempt can
@@ -148,21 +148,20 @@ accepted False   68.17 -> 89.59
   MISSING order:sequence:earlier=govern recommendation;later=target architecture return human decision
 ```
 
-The gate compares meaning as propositions rather than as wording. It parses
-each sentence into a claim signature: action, actor, target, modality,
-polarity, and status. It also records the ordering relations between claims.
-"Close the findings before sign-off" therefore agrees with "sign-off happens
-only after the findings are closed". "Approve" and "ratify" do not agree. The
-gate reads linking verbs as state claims. "The fix is complete and
-fail-closed" therefore disagrees with "the fix is incomplete and fail-open".
-No profile contains protected sentence patterns.
+Meaning is compared as propositions, not wording. Sentences are parsed into
+claim signatures — action, actor, target, modality, polarity, status — plus
+ordering relations, so "close the findings before sign-off" and "sign-off
+happens only after the findings are closed" agree while "approve" and "ratify"
+do not. Linking verbs are read as state claims, so "the fix is complete and
+fail-closed" and "the fix is incomplete and fail-open" disagree. No profile
+contains protected sentence patterns.
 
-A held-out corpus of 32 pairs measures how well the gate generalises. It shares
-no wording with any profile or fixture. The corpus documents the eight pairs
-the gate does not resolve, with the linguistic reason for each. Every one of
-them answers `unresolved` or `changed` rather than `equivalent`. The corpus is
-evidence, not proof: it once masked a false `equivalent` on copular text behind
-an unrelated coverage failure. Treat a passing corpus as a floor.
+Generalisation is measured against a held-out corpus of 32 pairs that shares no
+wording with any profile or fixture; the eight pairs the gate does not resolve
+are documented in the corpus with the linguistic reason for each, and every one
+of them answers `unresolved` or `changed` rather than `equivalent`. The corpus
+is evidence, not proof: it once masked a false `equivalent` on copular text
+behind an unrelated coverage failure. Treat a passing corpus as a floor.
 
 Providers are transports, never authorities:
 

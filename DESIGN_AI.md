@@ -62,61 +62,57 @@ Deterministic extraction identifies elements that a candidate must preserve:
 - quoted text, code spans, URLs, and citations
 - profile-defined terminology
 
-The gate compares meaning as propositions rather than as wording. It parses
-each sentence into a claim signature: action, actor, target, modality,
-polarity, and status. It also records the ordering relations between claims.
-Two texts are equivalent when their signatures match, so "close the findings
-before sign-off" and "sign-off happens only after the findings are closed"
-agree, while "approve" and "ratify" do not.
-
+Meaning is compared as propositions, not as wording. Each sentence is parsed
+into claim signatures — action, actor, target, modality, polarity, and status —
+plus ordering relations between them. Two texts are equivalent when their
+signatures match, so "close the findings before sign-off" and "sign-off happens
+only after the findings are closed" agree, while "approve" and "ratify" do not.
 Profiles carry no protected sentence patterns. An earlier revision matched
-protected concepts against literal phrases copied from the test fixture. The
-fixture passed, but the gate understood nothing. Those patterns were removed
-and the gate rebuilt on the parse.
+protected concepts against literal phrases copied from the test fixture, which
+made the fixture pass without the gate understanding anything; those patterns
+were removed and the gate rebuilt on the parse.
 
 The comparison is deliberately directional. Naming an actor the source left
 unnamed is a permitted specification and is reported under `specified` —
 otherwise the remediation `LING-AGENCY-001` itself recommends would be
 rejected. Dropping or swapping a named actor stays a violation.
 
-The gate is fail-closed. When a sentence yields no proposition and no protected
-element, the gate reports `unresolved` rather than assuming a match. Two texts
-that both fail to parse would otherwise compare equal and certify a meaning
-nobody read. An `unresolved` verdict costs a rewrite that the gate should have
-accepted. A false `equivalent` certifies a rewrite that changed what the text
+The gate is fail-closed. A sentence that yields no proposition and no protected
+element is reported as `unresolved` rather than assumed to match, because two
+texts that both fail to parse would otherwise compare equal and certify a
+meaning nobody read. `unresolved` costs a rewrite that should have been
+accepted; a false `equivalent` certifies a rewrite that changed what the text
 commits to. Only the second is a safety failure.
 
 A text is committed to what it asserts a thing *is*, not only to what it says
-should be done. The gate therefore reads a linking verb and its complement as a
-state claim. "The fix is complete and fail-closed" records `complete` and
-`fail close` against the fix.
-
-Coordinated complements attach inconsistently. The second complement sometimes
-hangs off the first and sometimes off the verb, so the gate collects both
-attachment points. A conjunct with its own subject or its own tense belongs to
-the ordinary claim extractor, and the gate leaves it there.
+should be done, so a linking verb with a predicate complement is extracted as a
+state claim: "the fix is complete and fail-closed" records `complete` and
+`fail close` against that subject. Coordinated complements attach
+inconsistently — sometimes under the first complement, sometimes under the verb
+— so both attachment points are collected, and a conjunct with its own subject
+or finite tense is left to the ordinary claim extractor instead of being
+absorbed.
 
 That extraction closed a real false `equivalent`. Before it, "the fix is
 complete and fail-closed" and "the fix is incomplete and fail-open" compared
-equivalent on live text. The held-out corpus did not catch it. Its copular pair
-failed the coverage guard for an unrelated reason, so an `unresolved` verdict
-masked the hole and we recorded it as a conservative gap. A corpus that scores
-well is evidence, not proof: a gap in the corpus can hide a gap in the gate.
-`tests/test_meaning_equivalence.py` asserts that the corpus never reports a
-meaning change as `equivalent`, and that assertion covers the documented gaps
-too. It can still speak only for the pairs it contains.
+equivalent on live text. The held-out corpus did not catch it: its copular pair
+failed the coverage guard for an unrelated reason, so the hole was masked
+behind an `unresolved` verdict and recorded as a conservative gap. A corpus
+that scores well is evidence, not proof — a gap in the corpus can hide a gap in
+the gate. `tests/test_meaning_equivalence.py` asserts no meaning change in the
+corpus is ever reported `equivalent`, and that assertion covers the documented
+gaps too, but it can only speak for the pairs it contains.
 
-A held-out corpus of 32 pairs
-(`tests/fixtures/meaning-equivalence-corpus.json`) measures how well the gate
-generalises. Its pairs come from governance semantics rather than from any
-profile or shipped fixture. Answering "changed" for every pair scores 16/32, so
-the changed-pair count alone proves nothing. The equivalent-pair count is what
-separates a semantic gate from a lookup table.
-
-The corpus lists the eight pairs the gate does not resolve under `known_gaps`,
-with the linguistic reason for each. Each gap is a strict expected failure, so
-fixing one forces the win into the open rather than absorbing it silently.
-Every listed gap answers `unresolved` or `changed`, never `equivalent`.
+Generalisation is measured against a held-out corpus of 32 pairs
+(`tests/fixtures/meaning-equivalence-corpus.json`) authored from governance
+semantics rather than from any profile or shipped fixture. Answering "changed"
+for every pair scores 16/32, so the changed-pair count alone proves nothing; the
+equivalent-pair count is what separates a semantic gate from a lookup table.
+The eight pairs the gate does not resolve are listed in the corpus under
+`known_gaps` with the linguistic reason for each, and are recorded as strict
+expected failures so a gap that gets fixed forces the win to be acknowledged
+rather than silently absorbed. Every listed gap answers `unresolved` or
+`changed`, never `equivalent`.
 
 ### 3. Analyze language
 
@@ -137,12 +133,13 @@ and remediation. Initial metrics are:
 Dependency parsing may be used, but the parser package and model digest become
 part of the reproducibility contract.
 
-The implementation takes that option. A dependency parse produces every signal
-above, so detection depends on sentence structure instead of wording. The
-loader pins the parser package to an exact model version and fails closed. It
-records the parser name, version, runtime, and digest as `linguistic_model`
-inside the hashed analysis artifact. Verification rejects an artifact produced
-by a different pipeline rather than re-analysing it under new assumptions.
+The implementation takes that option: every signal above is computed from a
+dependency parse rather than surface pattern matching, so detection depends on
+sentence structure instead of wording. The parser package is pinned to an exact
+model version and loaded fail-closed, and its name, version, runtime, and
+digest are recorded as `linguistic_model` inside the hashed analysis artifact.
+Verification rejects an artifact produced by a different pipeline rather than
+re-analysing it under new assumptions.
 
 ## Scoring
 
@@ -193,13 +190,13 @@ The model must return structured output:
 
 The runtime ignores self-reported preservation claims when deciding acceptance.
 
-A rejected candidate comes back with `protected_delta`, which names the exact
-elements that the rewrite dropped, introduced, or left unresolved. A verdict
-that only says "meaning changed" gives a caller nothing to act on. Naming the
-elements is what lets an iterative loop converge instead of guessing. A
-candidate that scores higher but drops governed content is rejected on that
-evidence. The fixture in `tests/fixtures/recommended-decision.json` keeps such a
-rewrite as `unfaithful_rewrite` for exactly this reason.
+A rejected candidate is returned with `protected_delta`, naming the exact
+elements that were dropped, introduced, or left unresolved. A verdict that only
+says "meaning changed" cannot be acted on; naming the elements is what lets an
+iterative loop converge instead of guessing. A candidate that scores higher but
+drops governed content is rejected on that evidence — the fixture in
+`tests/fixtures/recommended-decision.json` keeps such a rewrite as
+`unfaithful_rewrite` for exactly this reason.
 
 Iteration stops deterministically when:
 
