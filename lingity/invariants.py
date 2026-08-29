@@ -994,13 +994,45 @@ def _is_declarative_main_predicate(document: Document, token: Token) -> bool:
     rewrite that drops it drops governed content, so the assertion has to enter
     the signature even though it carries no modal, no negation and no
     imperative inflection.
+
+    Finiteness can sit on an auxiliary instead of the main verb: "the critical
+    path is completing security evidence" is exactly as assertive as "the
+    critical path completes security evidence". Reading only the main verb's
+    tag would leave every progressive and perfect sentence unextracted, and an
+    unextracted sentence is one a rewrite can silently change.
     """
 
-    if token.tag not in {"VBZ", "VBD", "VBP"}:
-        return False
     if token.dep not in {"ROOT", "conj", "ccomp", "advcl"}:
         return False
-    return any(child.dep in {"nsubj", "nsubjpass"} for child in document.children(token))
+    if not any(child.dep in {"nsubj", "nsubjpass"} for child in document.children(token)):
+        return False
+    if token.tag in {"VBZ", "VBD", "VBP"}:
+        return True
+    if token.tag not in {"VBG", "VBN"} or not _has_finite_auxiliary(document, token):
+        return False
+    return not _is_modality_carrier(document, token)
+
+
+def _is_modality_carrier(document: Document, token: Token) -> bool:
+    """"is required to verify" states one obligation, not two events.
+
+    A passive participle whose complement is an infinitival clause supplies the
+    modality of that clause; the modal reader already folds it into the inner
+    predicate. Recording it again as its own assertion would make "is required
+    to verify X" disagree with "must verify X".
+    """
+
+    children = document.children(token)
+    return any(child.dep == "auxpass" for child in children) and any(
+        child.dep == "xcomp" for child in children
+    )
+
+
+def _has_finite_auxiliary(document: Document, token: Token) -> bool:
+    return any(
+        child.dep in {"aux", "auxpass"} and child.tag in {"VBZ", "VBD", "VBP"}
+        for child in document.children(token)
+    )
 
 
 def _structural_claim_has_imperative_form(token: Token) -> bool:
