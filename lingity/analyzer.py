@@ -1247,11 +1247,12 @@ def analyze_text(text: str, profile: Profile | None = None) -> dict[str, JsonVal
     blocks = segmentation.blocks
     readable = prose_spans(blocks)
     document = parse(text, spans=readable)
+    flattened = tuple(span for group in readable for span in group)
     # An identifier written as code is a name a rewrite must not change, so a
     # finding wholly inside one reports a defect no candidate may fix. The scan
     # is per block: a code span cannot cross one, and an unmatched backtick
     # would otherwise protect everything up to the next backtick anywhere.
-    protected_spans = opaque_spans(blocks) + inline_code_spans(text, readable)
+    protected_spans = opaque_spans(blocks) + inline_code_spans(text, flattened)
     sentence_records, findings = _analyze_sentences(document, selected_profile)
 
     hidden_agency_findings = _hidden_agency_findings(document, selected_profile)
@@ -1324,6 +1325,7 @@ def analyze_text(text: str, profile: Profile | None = None) -> dict[str, JsonVal
             "blocks": cast(dict[str, JsonValue], block_counts(blocks)),
             "analyzed_characters": sum(end - start for start, end in document.spans),
             "unresolved_lines": segmentation.unresolved_lines,
+            "uncovered_lines": segmentation.uncovered_lines,
         },
         "source": {
             "text": text,

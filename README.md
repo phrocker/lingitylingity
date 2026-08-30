@@ -102,11 +102,17 @@ and a table row cannot register as one long sentence. An identifier written
 inside a code span is a name a rewrite must not change, so a finding falling
 wholly inside one is dropped.
 
+Each block is parsed as one unit, so a sentence wrapped across two source lines
+stays one sentence and neither the wrap point nor the line-ending style changes
+a score.
+
 Block structure comes from `markdown-it-py`, which is CommonMark compliant and
 tested against the specification's own suite. The parser is part of the analysis
 contract exactly as the linguistic model is: its identity is published in every
 artifact under `ingest`, and a major-version change is refused rather than
-silently re-segmented. `verify` replays the segmentation.
+silently re-segmented. The artifact also publishes `unresolved_lines` and
+`uncovered_lines`, so text that left the analysis is counted rather than lost in
+silence. `verify` replays the segmentation.
 
 Every finding carries a rule ID, severity, character location, observed value,
 threshold, and remediation. Overlapping spans within a dimension are

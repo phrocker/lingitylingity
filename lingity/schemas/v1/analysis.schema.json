@@ -234,7 +234,8 @@
         "parser",
         "blocks",
         "analyzed_characters",
-        "unresolved_lines"
+        "unresolved_lines",
+        "uncovered_lines"
       ],
       "properties": {
         "mode": {
@@ -271,6 +272,10 @@
           }
         },
         "unresolved_lines": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "uncovered_lines": {
           "type": "integer",
           "minimum": 0
         }

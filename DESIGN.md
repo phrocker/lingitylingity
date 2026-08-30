@@ -94,12 +94,43 @@ departed from it. The matcher demanded three hyphens in a table delimiter cell
 where GFM requires one, so `-- | --` is now a table. Indented code blocks and
 setext headings are now recognised, and both were previously unreachable.
 
-Ingest publishes `unresolved_lines`. The parser reports a block's content with
-its container markers removed, so ingest locates each line of that content back
-in the source. A line it cannot locate keeps its markers rather than being
-dropped, because dropping it would remove it from the score in silence while
-keeping a marker only adds a token the rules can see. The count makes the
-difference visible either way.
+### One block is one parse unit
+
+The parser reports a block's content with its container markers removed, so
+ingest locates each line of that content back in the source. A wrapped list item
+and a blockquote paragraph therefore arrive as several source ranges separated
+by markup.
+
+Those ranges are parsed together as one unit. An earlier revision compared the
+gap between them against a literal newline and split the block whenever the gap
+held anything else, so "- The reviewer must close every\n  finding before
+sign-off." became two fragments and scored as two sentences. Where an author
+wrapped a line, and whether the file used CRLF, then changed the score. Whatever
+separates the lines of a single block is markup by construction, so ingest no
+longer inspects it.
+
+A sentence therefore reads as parsed rather than as sliced from the source. A
+sentence spanning a join would otherwise display the markup between its lines.
+
+### Nothing may leave the analysis uncounted
+
+Ingest publishes two counts.
+
+`unresolved_lines` counts content ingest could not locate in the source. Such a
+line keeps its markers rather than being dropped, because dropping it removes it
+from the score in silence while keeping a marker only adds a token the rules can
+see and report.
+
+`uncovered_lines` counts non-blank source lines that no block claims. A token
+type this module does not handle would otherwise remove its lines from the
+analysis without raising anything, and enumerating token types only protects the
+ones somebody remembered. Counting what no block covers catches every construct
+at once.
+
+Raw HTML blocks are the case that found this. CommonMark emits them as
+`html_block`, and text inside one is markup this project does not parse, so an
+HTML block is opaque and appears in the artifact's block counts. It is excluded
+visibly rather than silently.
 
 One divergence is recorded rather than patched. `markdown-it-py` consumes an ATX
 heading line containing a pipe as a table header when a delimiter row follows

@@ -251,10 +251,12 @@ def test_a_spaced_thematic_break_is_not_a_list_item() -> None:
 def test_every_blockquote_marker_stays_out_of_the_parse() -> None:
     source = "> The owner must act.\n> The reviewer must confirm.\n"
     blocks = segment(source)
-    assert [block.kind for block in blocks] == ["blockquote", "blockquote"]
-    for block in blocks:
-        assert ">" not in source[block.content_start : block.content_end]
+    assert [block.kind for block in blocks] == ["blockquote"]
     parsed = parse(source, spans=prose_spans(blocks))
+    assert [sentence.text for sentence in parsed.sentences] == [
+        "The owner must act.",
+        "The reviewer must confirm.",
+    ]
     for sentence in parsed.sentences:
         assert ">" not in sentence.text
 
@@ -361,7 +363,8 @@ def test_a_code_span_cannot_cross_a_block() -> None:
     """An unmatched backtick must not protect everything up to the next one."""
     source = "The collector reads ` on every response.\n\nThe owner reads ` the log.\n"
     blocks = segment(source)
-    assert inline_code_spans(source, prose_spans(blocks)) == ()
+    flattened = tuple(span for group in prose_spans(blocks) for span in group)
+    assert inline_code_spans(source, flattened) == ()
     # Scanned across the whole source the two stray backticks pair up.
     assert len(inline_code_spans(source)) == 1
 
@@ -379,3 +382,87 @@ def test_a_code_span_cannot_cross_a_block() -> None:
 def test_a_heading_is_not_a_table_header() -> None:
     source = "# Owner | Status\n--- | ---\nThe owner must act.\n"
     assert [block.kind for block in segment(source)] == ["heading", "prose"]
+
+
+# Where an author wrapped a line must not change a score.
+
+
+def test_a_wrapped_list_item_stays_one_sentence() -> None:
+    source = "- The reviewer must close every\n  finding before sign-off.\n"
+    blocks = segment(source)
+    assert [block.kind for block in blocks] == ["list_item"]
+    parsed = parse(source, spans=prose_spans(blocks))
+    assert [sentence.text for sentence in parsed.sentences] == [
+        "The reviewer must close every finding before sign-off."
+    ]
+
+
+def test_wrapping_does_not_change_the_score() -> None:
+    wrapped = "- The reviewer must close every\n  finding before sign-off.\n"
+    flat = "- The reviewer must close every finding before sign-off.\n"
+    assert analyze_text(wrapped)["score"] == analyze_text(flat)["score"]
+
+
+def test_a_crlf_line_ending_does_not_change_the_score() -> None:
+    """The gap between wrapped lines is markup, whatever the line ending."""
+    unix = "- The reviewer must close every\n  finding before sign-off.\n"
+    windows = unix.replace("\n", "\r\n")
+    assert analyze_text(windows)["score"] == analyze_text(unix)["score"]
+
+
+def test_a_block_bounds_its_markers_even_though_its_content_does_not() -> None:
+    source = "### Required actions ###\n"
+    heading = segment(source)[0]
+    assert source[heading.start : heading.end] == "### Required actions ###"
+    assert source[heading.content_start : heading.content_end] == "Required actions"
+
+
+def test_a_list_item_block_bounds_its_marker() -> None:
+    source = "- the ticket\n"
+    item = segment(source)[0]
+    assert source[item.start : item.end] == "- the ticket"
+    assert source[item.content_start : item.content_end] == "the ticket"
+
+
+# Nothing may leave the analysis without being counted.
+
+
+def test_a_raw_html_block_is_opaque_and_visible() -> None:
+    source = "<div>\nThe owner must act.\n</div>\n\nThe reviewer must confirm.\n"
+    segmentation = segment_source(source)
+    assert [block.kind for block in segmentation.blocks] == ["html", "prose"]
+    assert segmentation.uncovered_lines == 0
+    counts = block_counts(segmentation.blocks)
+    assert counts["html"] == 1
+
+
+def test_no_line_of_the_repository_documents_goes_uncounted() -> None:
+    for name in ("README.md", "DESIGN.md"):
+        source = Path(__file__).resolve().parents[1].joinpath(name).read_text(
+            encoding="utf-8"
+        )
+        segmentation = segment_source(source)
+        assert segmentation.uncovered_lines == 0, name
+        assert segmentation.unresolved_lines == 0, name
+
+
+def test_the_artifact_publishes_what_no_block_claimed() -> None:
+    ingest = cast(dict[str, JsonValue], analyze_text(TABLE_DOCUMENT)["ingest"])
+    assert ingest["uncovered_lines"] == 0
+
+
+def test_the_cli_reports_a_parser_failure_without_a_traceback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from lingity import markdown as markdown_module
+    from lingity.cli import main
+
+    source = tmp_path / "source.md"
+    source.write_text("The owner must act.\n", encoding="utf-8")
+
+    def refuse() -> object:
+        raise MarkdownParserError("pinned parser unavailable")
+
+    monkeypatch.setattr(markdown_module, "_parser", refuse)
+    assert main(["analyze", str(source), "--output", str(tmp_path / "out.json")]) == 2
+    assert "pinned parser unavailable" in capsys.readouterr().err

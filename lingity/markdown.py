@@ -50,17 +50,23 @@ BlockKind = Literal[
     "table",
     "code",
     "rule",
+    "html",
 ]
 
 PROSE_KINDS: frozenset[str] = frozenset({"prose", "heading", "list_item", "blockquote"})
 """Kinds whose content the analyzer reads as prose."""
 
-OPAQUE_KINDS: frozenset[str] = frozenset({"table", "code", "rule"})
+OPAQUE_KINDS: frozenset[str] = frozenset({"table", "code", "rule", "html"})
 """Kinds that carry structure or literals rather than sentences."""
 
 _CONTAINER_OPEN = {"blockquote_open": "blockquote", "list_item_open": "list_item"}
 _CONTAINER_CLOSE = frozenset({"blockquote_close", "list_item_close"})
-_OPAQUE_TOKENS = {"fence": "code", "code_block": "code", "hr": "rule"}
+_OPAQUE_TOKENS = {
+    "fence": "code",
+    "code_block": "code",
+    "hr": "rule",
+    "html_block": "html",
+}
 _SEARCH_WINDOW = 3
 
 
@@ -82,10 +88,26 @@ class Block:
     end: int
     content_start: int
     content_end: int
+    content_spans: tuple[tuple[int, int], ...] = ()
+    """The readable pieces of this block, in source order.
+
+    A wrapped list item or a blockquote paragraph is one block whose lines the
+    container's markers separate in the source. The pieces are parsed as a
+    single unit, so where an author wrapped a line cannot change a sentence
+    boundary and therefore cannot change a score.
+    """
 
     @property
     def is_prose(self) -> bool:
         return self.kind in PROSE_KINDS
+
+    @property
+    def readable(self) -> tuple[tuple[int, int], ...]:
+        if self.content_spans:
+            return self.content_spans
+        if self.content_start < self.content_end:
+            return ((self.content_start, self.content_end),)
+        return ()
 
 
 @dataclass(frozen=True)
@@ -94,6 +116,14 @@ class Segmentation:
 
     blocks: tuple[Block, ...]
     unresolved_lines: int
+    uncovered_lines: int
+    """Non-blank source lines that no block claims.
+
+    A token type this module does not handle would otherwise remove its lines
+    from the analysis without raising anything. Counting what no block covers
+    catches that for every construct at once, rather than for the ones somebody
+    remembered to enumerate.
+    """
 
 
 @lru_cache(maxsize=1)
@@ -190,27 +220,24 @@ def _content_spans(
     return spans, unresolved
 
 
-def _merge_contiguous(text: str, spans: list[tuple[int, int]]) -> list[tuple[int, int]]:
-    """Join spans that a single newline separates.
-
-    A paragraph's lines are contiguous in the source and become one block. A
-    blockquote's are not, because its markers sit between them, so each line
-    stays its own block and no marker reaches the parser.
-    """
-    merged: list[tuple[int, int]] = []
-    for span in spans:
-        if merged and text[merged[-1][1] : span[0]] == "\n":
-            merged[-1] = (merged[-1][0], span[1])
-            continue
-        merged.append(span)
-    return merged
+def _uncovered(text: str, bounds: list[tuple[int, int]], blocks: list[Block]) -> int:
+    covered = bytearray(len(bounds))
+    for block in blocks:
+        for index, (start, end) in enumerate(bounds):
+            if block.start < end + 1 and start <= block.end:
+                covered[index] = 1
+    return sum(
+        1
+        for index, (start, end) in enumerate(bounds)
+        if not covered[index] and text[start:end].strip()
+    )
 
 
 def segment_source(text: str) -> Segmentation:
     """Classify ``text`` into contiguous blocks without modifying it."""
     bounds = _line_bounds(text)
     if not bounds:
-        return Segmentation((), 0)
+        return Segmentation((), 0, 0)
 
     blocks: list[Block] = []
     containers: list[str] = []
@@ -239,7 +266,8 @@ def segment_source(text: str) -> Segmentation:
             if opaque == "rule":
                 blocks.append(Block("rule", span[0], span[1], span[1], span[1]))
             else:
-                blocks.append(Block("code", span[0], span[1], span[0], span[1]))
+                kind_opaque: BlockKind = "code" if opaque == "code" else "html"
+                blocks.append(Block(kind_opaque, span[0], span[1], span[0], span[1]))
             continue
         if kind_name in _CONTAINER_OPEN:
             containers.append(_CONTAINER_OPEN[kind_name])
@@ -264,19 +292,26 @@ def segment_source(text: str) -> Segmentation:
         else:
             kind = "prose"
 
+        span = _mapped_span(bounds, token)
         spans, missed = _content_spans(text, token, bounds)
         unresolved += missed
         if not spans:
-            span = _mapped_span(bounds, token)
-            if span is not None and kind == "heading":
+            if span is not None:
                 # An empty heading such as "###" carries no readable content.
                 blocks.append(Block(kind, span[0], span[1], span[1], span[1]))
             continue
-        for start, end in _merge_contiguous(text, spans):
-            blocks.append(Block(kind, start, end, start, end))
+        # One inline token is one logical block. Whatever separates its lines in
+        # the source is container markup the parser already stripped, so the
+        # pieces are recorded together rather than compared against a literal
+        # separator. A wrapped line and a CRLF line ending are then identical.
+        start = span[0] if span is not None else spans[0][0]
+        end = span[1] if span is not None else spans[-1][1]
+        blocks.append(
+            Block(kind, start, end, spans[0][0], spans[-1][1], tuple(spans))
+        )
 
     blocks.sort(key=lambda block: (block.start, block.end))
-    return Segmentation(tuple(blocks), unresolved)
+    return Segmentation(tuple(blocks), unresolved, _uncovered(text, bounds, blocks))
 
 
 def segment(text: str) -> tuple[Block, ...]:
@@ -284,12 +319,16 @@ def segment(text: str) -> tuple[Block, ...]:
     return segment_source(text).blocks
 
 
-def prose_spans(blocks: tuple[Block, ...]) -> tuple[tuple[int, int], ...]:
-    """Return the readable spans, in source order, that the analyzer may parse."""
+def prose_spans(
+    blocks: tuple[Block, ...],
+) -> tuple[tuple[tuple[int, int], ...], ...]:
+    """Return the readable spans the analyzer may parse, grouped by block.
+
+    Each group is one logical block. The parser reads a group as a single unit,
+    so a sentence wrapped across two source lines stays one sentence.
+    """
     return tuple(
-        (block.content_start, block.content_end)
-        for block in blocks
-        if block.is_prose and block.content_start < block.content_end
+        block.readable for block in blocks if block.is_prose and block.readable
     )
 
 

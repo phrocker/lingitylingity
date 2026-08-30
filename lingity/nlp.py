@@ -209,25 +209,59 @@ def model_fingerprint() -> dict[str, str]:
     }
 
 
-def parse(text: str, spans: Sequence[tuple[int, int]] | None = None) -> Document:
+def parse(
+    text: str, spans: Sequence[Sequence[tuple[int, int]]] | None = None
+) -> Document:
     """Parse ``text`` into sentences and dependency-annotated tokens.
 
-    ``spans`` restricts the parse to the listed character ranges and parses
-    each range on its own, so a sentence can never run across a structural
-    boundary such as a heading, a table row, or a fenced code block. Offsets
-    stay relative to ``text``, so a finding still locates itself in the source
-    the author wrote. Passing ``None`` parses the whole text as one range.
+    ``spans`` restricts the parse to the listed groups of character ranges. Each
+    group is parsed as one unit and each group separately, so a sentence can
+    never run across a structural boundary such as a heading or a table, while a
+    sentence wrapped across two source lines of the same block stays one
+    sentence. The pieces of a group are joined by a single space, because what
+    separates them in the source is container markup.
+
+    Offsets stay relative to ``text``, so a finding still locates itself in the
+    source the author wrote. Passing ``None`` parses the whole text as one group.
     """
     pipeline = load_pipeline()
     if spans is None:
-        segments: tuple[tuple[int, int], ...] = ((0, len(text)),)
+        groups: tuple[tuple[tuple[int, int], ...], ...] = (((0, len(text)),),)
     else:
-        segments = tuple((start, end) for start, end in spans if text[start:end].strip())
+        groups = tuple(
+            tuple((start, end) for start, end in group if text[start:end].strip())
+            for group in spans
+        )
 
     tokens: list[Token] = []
     sentences: list[Sentence] = []
-    for offset, limit in segments:
-        doc = pipeline(text[offset:limit])
+    for group in groups:
+        if not group:
+            continue
+        # Build the parse unit and the map back to source offsets. A token never
+        # straddles a join, because the join is a space and the tokenizer splits
+        # on whitespace.
+        parts: list[str] = []
+        placement: list[tuple[int, int, int]] = []
+        cursor = 0
+        for start, end in group:
+            piece = text[start:end]
+            if parts:
+                parts.append(" ")
+                cursor += 1
+            placement.append((cursor, cursor + len(piece), start))
+            parts.append(piece)
+            cursor += len(piece)
+        chunk = "".join(parts)
+
+        def to_source(index: int, placement: list[tuple[int, int, int]] = placement) -> int:
+            for chunk_start, chunk_end, source_start in placement:
+                if chunk_start <= index < chunk_end:
+                    return source_start + (index - chunk_start)
+            last_start, last_end, last_source = placement[-1]
+            return last_source + (last_end - last_start)
+
+        doc = pipeline(chunk)
         base = len(tokens)
         sentence_base = len(sentences)
 
@@ -254,12 +288,13 @@ def parse(text: str, spans: Sequence[tuple[int, int]] | None = None) -> Document
                 translate[local_index] = latest
 
         for token in doc:
+            start = to_source(token.idx)
             tokens.append(
                 Token(
                     index=base + token.i,
                     text=token.text,
-                    start=offset + token.idx,
-                    end=offset + token.idx + len(token.text),
+                    start=start,
+                    end=start + len(token.text),
                     lemma=token.lemma_.lower(),
                     pos=token.pos_,
                     tag=token.tag_,
@@ -278,14 +313,15 @@ def parse(text: str, spans: Sequence[tuple[int, int]] | None = None) -> Document
             if not kept:
                 continue
             span_tokens = tuple(tokens[base + token.i] for token in kept)
-            start = span_tokens[0].start
-            end = span_tokens[-1].end
+            # The sentence reads as parsed, not as sliced from the source: a
+            # sentence spanning a join would otherwise show the markup between
+            # its lines.
             sentences.append(
                 Sentence(
                     index=len(sentences),
-                    text=text[start:end],
-                    start=start,
-                    end=end,
+                    text=chunk[kept[0].idx : kept[-1].idx + len(kept[-1].text)],
+                    start=span_tokens[0].start,
+                    end=span_tokens[-1].end,
                     tokens=span_tokens,
                     root=base + span.root.i,
                 )
@@ -295,5 +331,5 @@ def parse(text: str, spans: Sequence[tuple[int, int]] | None = None) -> Document
         text=text,
         sentences=tuple(sentences),
         tokens=tuple(tokens),
-        spans=segments,
+        spans=tuple(span for group in groups for span in group),
     )

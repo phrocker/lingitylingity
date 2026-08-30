@@ -16,6 +16,7 @@ from jsonschema.exceptions import SchemaError, ValidationError
 from lingity.analyzer import analyze_text
 from lingity.critique import CritiqueError, build_critique
 from lingity.improve import ImprovementError, improve_text, judge_candidate
+from lingity.markdown import MarkdownParserError
 from lingity.nlp import LinguisticModelError, model_fingerprint
 from lingity.profiles import SCHEMA_DIR, canonical_json, load_profile
 from lingity.providers import (
@@ -33,6 +34,7 @@ CLI_ERRORS = (
     SchemaError,
     ValidationError,
     LinguisticModelError,
+    MarkdownParserError,
     CritiqueError,
     ImprovementError,
     ProviderError,
@@ -89,7 +91,7 @@ def _analyze(args: argparse.Namespace) -> int:
         result = analyze_text(text, load_profile(cast(str, args.profile)))
         Draft202012Validator(_schema("analysis.schema.json")).validate(result)
         _write_json(result, output)
-    except (OSError, TypeError, ValueError, json.JSONDecodeError, SchemaError, ValidationError, LinguisticModelError) as exc:
+    except (OSError, TypeError, ValueError, json.JSONDecodeError, SchemaError, ValidationError, LinguisticModelError, MarkdownParserError) as exc:
         print(f"lingity analyze failed: {exc}", file=sys.stderr)
         return 2
     return 0
@@ -148,7 +150,7 @@ def _verify(args: argparse.Namespace) -> int:
         }
         Draft202012Validator(_schema("verification.schema.json")).validate(verification)
         _write_json(verification, output)
-    except (OSError, TypeError, ValueError, json.JSONDecodeError, SchemaError, ValidationError, LinguisticModelError) as exc:
+    except (OSError, TypeError, ValueError, json.JSONDecodeError, SchemaError, ValidationError, LinguisticModelError, MarkdownParserError) as exc:
         print(f"lingity verify failed: {exc}", file=sys.stderr)
         return 2
     return 0
