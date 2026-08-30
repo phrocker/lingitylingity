@@ -112,6 +112,15 @@ Noun stacking findings are reported under the `morphology` dimension and voice
 findings under `agency`, so the score always resolves to the six weighted
 dimensions.
 
+Lingity reads Markdown structure before it parses prose. Headings, list items,
+blockquotes, and paragraphs carry prose. Fenced code, table rows, and thematic
+breaks do not, so the analyzer never reads them. Each prose block parses on its
+own, so a heading cannot glue itself onto the paragraph beneath it and a table
+row cannot register as one long sentence. An identifier written inside a code
+span is a name a rewrite must not change, so a finding falling wholly inside
+one is dropped. The artifact publishes the segmentation under `ingest`, and
+`verify` replays it.
+
 Every finding carries a rule ID, severity, character location, observed value,
 threshold, and remediation. Overlapping spans within a dimension are
 de-duplicated so a single defect is not penalised twice.

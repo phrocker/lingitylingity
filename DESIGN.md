@@ -48,6 +48,31 @@ The run records:
 - analyzer and linguistic-model versions
 - requested provider/model parameters
 - maximum attempts and minimum required improvement
+- the Markdown segmentation of the source
+
+Lingity scores prose, and a Markdown document also carries structure that is
+not prose. Reading that structure as prose glues a heading onto the paragraph
+beneath it, parses a table row as one long sentence, and reports an identifier
+written as code as a noun stack. The score then measures the markup instead of
+the writing.
+
+Ingest therefore classifies the source into blocks before any parse, and never
+alters it. Headings, list items, blockquotes, and paragraphs carry prose.
+Fenced code, table rows, and thematic breaks do not, so the analyzer never
+reads them. Each prose block parses on its own, so a sentence cannot run across
+a structural boundary. Every block records offsets into the original text, so a
+finding still locates itself in the document the author wrote.
+
+An identifier written inside a code span is a name that a rewrite must not
+change, so a finding falling wholly inside one reports a defect that no
+candidate may fix. Ingest drops those findings.
+
+Segmentation is line-based and pure, so an analysis stays reproducible from the
+source alone. The artifact publishes the result under `ingest`, and `verify`
+replays it. Ingest deliberately does not parse indented code blocks, setext
+headings, nested-list depth, or raw HTML blocks. A thematic break and a setext
+underline both classify as a rule and carry no prose, which keeps both out of
+the parse without requiring ingest to resolve the ambiguity between them.
 
 ### 2. Protect meaning
 

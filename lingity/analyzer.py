@@ -7,6 +7,13 @@ from collections import Counter, defaultdict
 from typing import Iterable, cast
 
 from lingity.invariants import extract_protected, source_sha256
+from lingity.markdown import (
+    block_counts,
+    inline_code_spans,
+    opaque_spans,
+    prose_spans,
+    segment,
+)
 from lingity.models import Finding, JsonValue, Location
 from lingity.nlp import Document, Sentence, Token, model_fingerprint, parse
 from lingity.profiles import Profile, canonical_json, load_profile
@@ -776,11 +783,16 @@ def _acronym_tokens(tokens: Iterable[Token], allowed: frozenset[str], defined: s
     return matches
 
 
-def _paragraph_spans(text: str) -> list[tuple[int, int]]:
+def _encloses(spans: tuple[tuple[int, int], ...], start: int, end: int) -> bool:
+    return any(span_start <= start and end <= span_end for span_start, span_end in spans)
+
+
+def _paragraph_spans_within(text: str, limit_start: int, limit_end: int) -> list[tuple[int, int]]:
     spans: list[tuple[int, int]] = []
     start: int | None = None
-    position = 0
-    for line in text.splitlines(keepends=True):
+    position = limit_start
+    region = text[limit_start:limit_end]
+    for line in region.splitlines(keepends=True):
         line_start = position
         line_end = position + len(line)
         content = line.rstrip("\r\n")
@@ -792,10 +804,29 @@ def _paragraph_spans(text: str) -> list[tuple[int, int]]:
             start = None
         position = line_end
     if start is not None:
-        spans.append((start, len(text)))
-    if not spans and text.strip():
-        spans.append((len(text) - len(text.lstrip()), len(text.rstrip())))
+        spans.append((start, limit_end))
+    if not spans and region.strip():
+        leading = len(region) - len(region.lstrip())
+        trailing = len(region.rstrip())
+        spans.append((limit_start + leading, limit_start + trailing))
     return [(start, end) for start, end in spans if start < end]
+
+
+def _paragraph_spans(
+    text: str, spans: tuple[tuple[int, int], ...] = ()
+) -> list[tuple[int, int]]:
+    """Locate paragraphs, restricted to the ranges the analyzer parsed as prose.
+
+    Without the restriction a Markdown table or a fenced code block counts as a
+    paragraph, and the paragraph-length rule then reports the markup rather
+    than the writing.
+    """
+    if not spans:
+        return _paragraph_spans_within(text, 0, len(text))
+    collected: list[tuple[int, int]] = []
+    for start, end in spans:
+        collected.extend(_paragraph_spans_within(text, start, end))
+    return collected
 
 
 def _abbreviation_findings(document: Document, profile: Profile) -> list[Finding]:
@@ -823,7 +854,7 @@ def _abbreviation_findings(document: Document, profile: Profile) -> list[Finding
                 min(12.0, (len(matches) - max_sentence) * 3.0),
             )
         )
-    for paragraph_start, paragraph_end in _paragraph_spans(document.text):
+    for paragraph_start, paragraph_end in _paragraph_spans(document.text, document.spans):
         if _overlaps(paragraph_start, paragraph_end, sentence_spans):
             continue
         matches = _acronym_tokens(
@@ -852,7 +883,7 @@ def _abbreviation_findings(document: Document, profile: Profile) -> list[Finding
 def _paragraph_findings(document: Document, profile: Profile) -> list[Finding]:
     findings: list[Finding] = []
     threshold = int(profile.thresholds["max_paragraph_words"])
-    for start, end in _paragraph_spans(document.text):
+    for start, end in _paragraph_spans(document.text, document.spans):
         count = sum(1 for token in document.tokens if start <= token.start and token.end <= end and token.is_word)
         if count <= threshold:
             continue
@@ -1280,7 +1311,11 @@ def analyze_text(text: str, profile: Profile | None = None) -> dict[str, JsonVal
     if not text.strip():
         raise ValueError("Input text must not be empty")
     selected_profile = profile or load_profile()
-    document = parse(text)
+    blocks = segment(text)
+    document = parse(text, spans=prose_spans(blocks))
+    # An identifier written as code is a name a rewrite must not change, so a
+    # finding wholly inside one reports a defect no candidate may fix.
+    protected_spans = opaque_spans(blocks) + inline_code_spans(text)
     sentence_records, findings = _analyze_sentences(document, selected_profile)
 
     hidden_agency_findings = _hidden_agency_findings(document, selected_profile)
@@ -1335,6 +1370,11 @@ def analyze_text(text: str, profile: Profile | None = None) -> dict[str, JsonVal
     findings.extend(_redundancy_findings(document, selected_profile))
     findings.extend(_duplicated_recommendation_findings(document, selected_profile))
     findings.extend(_qualifier_findings(document, selected_profile))
+    findings = [
+        finding
+        for finding in findings
+        if not _encloses(protected_spans, finding.location.start, finding.location.end)
+    ]
     findings = _dedupe_findings(findings)
 
     result: dict[str, JsonValue] = {
@@ -1342,6 +1382,11 @@ def analyze_text(text: str, profile: Profile | None = None) -> dict[str, JsonVal
         "analyzer_version": ANALYZER_VERSION,
         "linguistic_model": cast(dict[str, JsonValue], model_fingerprint()),
         "profile": selected_profile.reference(),
+        "ingest": {
+            "mode": "markdown",
+            "blocks": cast(dict[str, JsonValue], block_counts(blocks)),
+            "analyzed_characters": sum(end - start for start, end in document.spans),
+        },
         "source": {
             "text": text,
             "sha256": source_sha256(text),
