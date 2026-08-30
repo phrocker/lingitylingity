@@ -231,8 +231,10 @@
       "additionalProperties": false,
       "required": [
         "mode",
+        "parser",
         "blocks",
-        "analyzed_characters"
+        "analyzed_characters",
+        "unresolved_lines"
       ],
       "properties": {
         "mode": {
@@ -249,6 +251,26 @@
           }
         },
         "analyzed_characters": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "parser": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "version"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            }
+          }
+        },
+        "unresolved_lines": {
           "type": "integer",
           "minimum": 0
         }

@@ -57,22 +57,57 @@ written as code as a noun stack. The score then measures the markup instead of
 the writing.
 
 Ingest therefore classifies the source into blocks before any parse, and never
-alters it. Headings, list items, blockquotes, and paragraphs carry prose.
-Fenced code, table rows, and thematic breaks do not, so the analyzer never
+alters it. Headings, list items, blockquotes, and paragraphs carry prose. Fenced
+code, indented code, tables, and thematic breaks do not, so the analyzer never
 reads them. Each prose block parses on its own, so a sentence cannot run across
 a structural boundary. Every block records offsets into the original text, so a
 finding still locates itself in the document the author wrote.
 
 An identifier written inside a code span is a name that a rewrite must not
 change, so a finding falling wholly inside one reports a defect that no
-candidate may fix. Ingest drops those findings.
+candidate may fix. Ingest drops those findings. That scan runs inside each prose
+block rather than across the source: a code span cannot cross a block, and an
+unmatched backtick would otherwise pair with one in an unrelated block and
+protect every finding between them.
 
-Segmentation is line-based and pure, so an analysis stays reproducible from the
-source alone. The artifact publishes the result under `ingest`, and `verify`
-replays it. Ingest deliberately does not parse indented code blocks, setext
-headings, nested-list depth, or raw HTML blocks. A thematic break and a setext
-underline both classify as a rule and carry no prose, which keeps both out of
-the parse without requiring ingest to resolve the ambiguity between them.
+### The parser is part of the contract
+
+An earlier revision recognised Markdown with hand-written patterns. Review found
+six divergences from the specification in about fifty lines, and every one
+failed in silence, because a block wrongly marked opaque is never scored and
+never reported. Markdown is a specification. Hand-maintaining a subset of one
+repeats the mistake this project already recorded about protected-concept phrase
+lists, where a fixture passed while nothing understood anything.
+
+Block structure therefore comes from `markdown-it-py`, which is CommonMark
+compliant and tested against the specification's own suite. Ingest decides only
+which block kinds carry prose and where their content sits in the source. The
+parser is pinned and fingerprinted exactly as the linguistic model is: every
+artifact publishes its name and version under `ingest`, and a major-version
+change raises `MarkdownParserError` rather than silently re-segmenting.
+
+Only CommonMark and GFM tables are enabled. Every additional rule changes what
+counts as prose, and therefore what a score means.
+
+Delegating adopted the specification wherever the hand-written matcher had
+departed from it. The matcher demanded three hyphens in a table delimiter cell
+where GFM requires one, so `-- | --` is now a table. Indented code blocks and
+setext headings are now recognised, and both were previously unreachable.
+
+Ingest publishes `unresolved_lines`. The parser reports a block's content with
+its container markers removed, so ingest locates each line of that content back
+in the source. A line it cannot locate keeps its markers rather than being
+dropped, because dropping it would remove it from the score in silence while
+keeping a marker only adds a token the rules can see. The count makes the
+difference visible either way.
+
+One divergence is recorded rather than patched. `markdown-it-py` consumes an ATX
+heading line containing a pipe as a table header when a delimiter row follows
+it, where cmark-gfm builds a table header only from an open paragraph. Patching
+the parser from outside would restore the hand-written matching this section
+exists to remove, so `tests/test_markdown.py` pins the divergence as a strict
+expected failure, and a parser upgrade that fixes it forces the win into the
+open.
 
 ### 2. Protect meaning
 

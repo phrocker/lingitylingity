@@ -2,16 +2,22 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import cast
+
+import pytest
 
 from lingity.analyzer import analyze_text
 from lingity.markdown import (
     Block,
+    MarkdownParserError,
     block_counts,
     inline_code_spans,
     opaque_spans,
+    parser_fingerprint,
     prose_spans,
     segment,
+    segment_source,
 )
 from lingity.models import JsonValue
 from lingity.nlp import parse
@@ -261,11 +267,115 @@ def test_a_delimiter_row_counts_only_beneath_its_header() -> None:
     assert any("The owner must act" in sentence.text for sentence in parsed.sentences)
 
 
-def test_a_two_hyphen_row_is_not_a_table_delimiter() -> None:
+def test_a_two_hyphen_row_is_a_table_delimiter_per_gfm() -> None:
+    """The hand-written matcher demanded three hyphens. GFM requires one.
+
+    Delegating to the parser means adopting the specification, including where
+    the earlier implementation was deliberately stricter than it. Any renderer
+    shows this as a table, so it is markup rather than prose.
+    """
     source = "Owner | Status\n-- | --\nThe owner must act.\n"
-    assert not [block for block in segment(source) if block.kind == "table"]
+    assert [block.kind for block in segment(source)] == ["table"]
 
 
 def test_a_real_table_is_still_detected() -> None:
     source = "| Owner | Status |\n| --- | --- |\n| platform team | open |\n"
     assert [block.kind for block in segment(source)] == ["table"]
+
+
+# The parser is part of the analysis contract, as the linguistic model is.
+
+
+def test_an_indented_code_block_is_opaque() -> None:
+    """CommonMark covers it. The hand-written segmenter did not."""
+    source = "The owner must act.\n\n    indented = code\n\nThe reviewer confirms.\n"
+    blocks = segment(source)
+    assert [block.kind for block in blocks] == ["prose", "code", "prose"]
+    parsed = parse(source, spans=prose_spans(blocks))
+    for sentence in parsed.sentences:
+        assert "indented = code" not in sentence.text
+
+
+def test_a_setext_heading_is_a_heading() -> None:
+    """Also unreachable for the hand-written segmenter, which called it a rule."""
+    source = "Required actions\n===\n\nThe owner must act.\n"
+    assert [block.kind for block in segment(source)] == ["heading", "prose"]
+
+
+def test_nested_list_items_each_carry_their_own_content() -> None:
+    source = "- outer item\n  - inner item\n"
+    blocks = segment(source)
+    assert [block.kind for block in blocks] == ["list_item", "list_item"]
+    for block in blocks:
+        assert not source[block.content_start : block.content_end].lstrip().startswith("-")
+
+
+def test_the_parser_identity_is_published() -> None:
+    fingerprint = parser_fingerprint()
+    assert fingerprint["name"] == "markdown-it-py"
+    assert fingerprint["version"].startswith("3.")
+
+
+def test_the_artifact_publishes_the_parser_and_its_confidence() -> None:
+    ingest = cast(dict[str, JsonValue], analyze_text(TABLE_DOCUMENT)["ingest"])
+    assert ingest["parser"] == parser_fingerprint()
+    assert ingest["unresolved_lines"] == 0
+
+
+def test_content_is_located_for_every_line_of_the_repository_documents() -> None:
+    """A line the segmenter cannot locate keeps its markers, so it must be rare."""
+    for name in ("README.md", "DESIGN.md"):
+        source = Path(__file__).resolve().parents[1].joinpath(name).read_text(
+            encoding="utf-8"
+        )
+        assert segment_source(source).unresolved_lines == 0, name
+
+
+def test_a_wrong_parser_major_version_is_refused(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import markdown_it
+
+    from lingity import markdown as markdown_module
+
+    markdown_module._parser.cache_clear()
+    monkeypatch.setattr(markdown_it, "__version__", "4.0.0")
+    try:
+        with pytest.raises(MarkdownParserError):
+            markdown_module._parser()
+    finally:
+        markdown_module._parser.cache_clear()
+
+
+def test_an_escaped_backtick_opens_no_span() -> None:
+    text = r"Read \`X-Business-Use-Case-Usage\` today."
+    assert inline_code_spans(text) == ()
+
+
+def test_an_escaped_backtick_does_not_suppress_a_finding() -> None:
+    escaped = r"The collector reads \`X-Business-Use-Case-Usage\` on every response."
+    assert "LING-COMPOUND-DEPTH-001" in _rule_ids(escaped)
+
+
+def test_a_code_span_cannot_cross_a_block() -> None:
+    """An unmatched backtick must not protect everything up to the next one."""
+    source = "The collector reads ` on every response.\n\nThe owner reads ` the log.\n"
+    blocks = segment(source)
+    assert inline_code_spans(source, prose_spans(blocks)) == ()
+    # Scanned across the whole source the two stray backticks pair up.
+    assert len(inline_code_spans(source)) == 1
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "markdown-it-py diverges from cmark-gfm: an ATX heading line containing "
+        "a pipe is consumed as a table header when the next line is a delimiter "
+        "row. cmark-gfm builds a table header only from an open paragraph, so it "
+        "yields a heading plus a paragraph. Pinned strictly so a parser upgrade "
+        "that fixes it forces the win into the open."
+    ),
+)
+def test_a_heading_is_not_a_table_header() -> None:
+    source = "# Owner | Status\n--- | ---\nThe owner must act.\n"
+    assert [block.kind for block in segment(source)] == ["heading", "prose"]
