@@ -42,10 +42,11 @@ source text
   -> accept, iterate, reject, or require human review
 ```
 
-Two profiles ship. `architecture-review` reads recommendations, ADR summaries,
+Three profiles ship. `architecture-review` reads recommendations, ADR summaries,
 findings, risks, and review decisions that must remain precise while reading
 like professional human communication. `product-strategy` reads need
 statements, value propositions, positioning, and go-to-market plans.
+`resume-review` reads resume and CV accomplishment bullets.
 
 A strategy document fails differently from an architecture review. It claims
 something unfalsifiable, or it claims it without naming who acts, so
@@ -63,6 +64,23 @@ The difference is measurable. On the same hyped paragraph,
 `architecture-review` scores 88.65 and reports no jargon at all, while
 `product-strategy` scores 69.53 and reports five jargon findings. Neither
 profile penalises prose that names a number, an actor, and a limit.
+
+A resume fails differently again. A bullet drops its subject by convention, so
+`resume-review` sets `allow_implied_first_person`: a directive that carries no
+subject at all is read as the author rather than as missing agency. The reading
+is narrow on purpose. It suppresses the missing-subject finding and nothing
+else, so "Must be completed before the release" still reports both
+`LING-AGENCY-001` and `LING-PASSIVE-001` — a resume written in the passive
+hides the work, which is the defect this profile exists to find.
+
+Without the threshold the actor rule taxes the wrong lines. "Cut checkout
+latency from 1.2 seconds to 300 milliseconds" reports `LING-ACTOR-001` under
+both prose profiles, while "Responsible for the migration of the reporting
+platform" reports nothing at all under either. The measured effect on a six
+bullet resume: `architecture-review` scores the weak version 91.56 and the
+strong version 94.95, `product-strategy` scores them 89.44 and 93.69, and
+`resume-review` scores them 66.43 and 100.00. Only the third profile ranks the
+two documents the way a reader would.
 
 ## CLI
 

@@ -1,0 +1,1236 @@
+{
+  "a number of": {
+    "classification": "unquantified quantity",
+    "rule": "bureaucratic_phrases",
+    "variants": [
+      {
+        "examples": [
+          "Shipped a number of releases.",
+          "The writer shipped a number of releases.",
+          "They ran a number of releases last year.",
+          "We reviewed a number of reports."
+        ],
+        "lemma": "a number of"
+      }
+    ]
+  },
+  "a variety of": {
+    "classification": "unquantified quantity",
+    "rule": "bureaucratic_phrases",
+    "variants": [
+      {
+        "examples": [
+          "Shipped a variety of releases.",
+          "The writer shipped a variety of releases.",
+          "They ran a variety of releases last year.",
+          "We reviewed a variety of reports."
+        ],
+        "lemma": "a variety of"
+      }
+    ]
+  },
+  "a wide range of": {
+    "classification": "unquantified quantity",
+    "rule": "bureaucratic_phrases",
+    "variants": [
+      {
+        "examples": [
+          "Shipped a wide range of releases.",
+          "The writer shipped a wide range of releases.",
+          "They ran a wide range of releases last year.",
+          "We reviewed a wide range of reports."
+        ],
+        "lemma": "a wide range of"
+      }
+    ]
+  },
+  "accountable for": {
+    "classification": "agentless responsibility",
+    "rule": "hidden_agency",
+    "variants": [
+      {
+        "examples": [
+          "Accountable for the release.",
+          "I am accountable for the release.",
+          "The writer was accountable for the release last year.",
+          "They were accountable for the release.",
+          "Was accountable for the release.",
+          "We are accountable for the release this year."
+        ],
+        "lemma": "accountable for"
+      }
+    ]
+  },
+  "aim of": {
+    "classification": "role wrapper",
+    "rule": "indirect_predicates",
+    "variants": [
+      {
+        "examples": [
+          "In that job the aim of the writer was to reduce cost.",
+          "The aim of that team was to reduce cost.",
+          "The aim of the engineer is to reduce cost.",
+          "The aim of the review is to reduce cost."
+        ],
+        "lemma": "aim of"
+      }
+    ]
+  },
+  "assisted with": {
+    "classification": "unspecified support",
+    "rule": "weak_verbs",
+    "variants": [
+      {
+        "examples": [
+          "Assisted with the release.",
+          "I am assisted with the release.",
+          "The writer was assisted with the release last year.",
+          "They were assisted with the release.",
+          "Was assisted with the release.",
+          "We are assisted with the release this year."
+        ],
+        "lemma": "assist with"
+      }
+    ]
+  },
+  "bring to the table": {
+    "classification": "office idiom",
+    "rule": "jargon",
+    "variants": [
+      {
+        "examples": [
+          "Every reader expects bring to the table from us.",
+          "Our bring to the table impresses readers.",
+          "The reader relies on bring to the table.",
+          "The writer is bring to the table the release.",
+          "The writer is bring to the table.",
+          "The writer will bring to the table this year.",
+          "We bring to the table the release every month.",
+          "We list bring to the table in the summary."
+        ],
+        "lemma": "bring to the table"
+      }
+    ]
+  },
+  "charged with": {
+    "classification": "assigned without an agent",
+    "rule": "hidden_agency",
+    "variants": [
+      {
+        "examples": [
+          "Charged with the release.",
+          "I am charged with the release.",
+          "The writer was charged with the release last year.",
+          "They were charged with the release.",
+          "Was charged with the release.",
+          "We are charged with the release this year."
+        ],
+        "lemma": "charge with"
+      }
+    ]
+  },
+  "consistently": {
+    "classification": "hollow intensifier",
+    "rule": "filler_phrases",
+    "variants": [
+      {
+        "examples": [
+          "Improved the release consistently.",
+          "The release was consistently improved.",
+          "The writer consistently improved the release.",
+          "They consistently improved the report.",
+          "We consistently improved the release."
+        ],
+        "lemma": "consistently"
+      }
+    ]
+  },
+  "contributed to": {
+    "classification": "unspecified support",
+    "rule": "weak_verbs",
+    "variants": [
+      {
+        "examples": [
+          "Contributed to the release.",
+          "I am contributed to the release.",
+          "The writer was contributed to the release last year.",
+          "They were contributed to the release.",
+          "Was contributed to the release.",
+          "We are contributed to the release this year."
+        ],
+        "lemma": "contribute to"
+      }
+    ]
+  },
+  "detail-oriented": {
+    "classification": "self-description cliche",
+    "rule": "jargon",
+    "variants": [
+      {
+        "examples": [
+          "Every reader expects detail-oriented from us.",
+          "Our detail-oriented impresses readers.",
+          "The reader relies on detail-oriented.",
+          "The writer is detail-oriented the release.",
+          "The writer is detail-oriented.",
+          "The writer will detail-oriented this year.",
+          "We detail-oriented the release every month.",
+          "We list detail-oriented in the summary."
+        ],
+        "lemma": "detail orient"
+      }
+    ]
+  },
+  "duties included": {
+    "classification": "duty list",
+    "rule": "hidden_agency",
+    "variants": [
+      {
+        "examples": [
+          "Duties included the release.",
+          "In that role my duties included the release.",
+          "My duties included the release.",
+          "The duties included the release and the report."
+        ],
+        "lemma": "duty include"
+      }
+    ]
+  },
+  "dynamic professional": {
+    "classification": "self-description cliche",
+    "rule": "jargon",
+    "variants": [
+      {
+        "examples": [
+          "Every reader expects dynamic professional from us.",
+          "Our dynamic professional impresses readers.",
+          "The reader relies on dynamic professional.",
+          "The writer is dynamic professional the release.",
+          "The writer is dynamic professional.",
+          "The writer will dynamic professional this year.",
+          "We dynamic professional the release every month.",
+          "We list dynamic professional in the summary."
+        ],
+        "lemma": "dynamic professional"
+      }
+    ]
+  },
+  "effectively": {
+    "classification": "hollow intensifier",
+    "rule": "filler_phrases",
+    "variants": [
+      {
+        "examples": [
+          "Improved the release effectively.",
+          "The release was effectively improved.",
+          "The writer effectively improved the release.",
+          "They effectively improved the report.",
+          "We effectively improved the release."
+        ],
+        "lemma": "effectively"
+      }
+    ]
+  },
+  "efficiently": {
+    "classification": "hollow intensifier",
+    "rule": "filler_phrases",
+    "variants": [
+      {
+        "examples": [
+          "Improved the release efficiently.",
+          "The release was efficiently improved.",
+          "The writer efficiently improved the release.",
+          "They efficiently improved the report.",
+          "We efficiently improved the release."
+        ],
+        "lemma": "efficiently"
+      }
+    ]
+  },
+  "engaged in": {
+    "classification": "unspecified participation",
+    "rule": "weak_verbs",
+    "variants": [
+      {
+        "examples": [
+          "Engaged in the release.",
+          "I am engaged in the release.",
+          "The writer was engaged in the release last year.",
+          "They were engaged in the release.",
+          "Was engaged in the release.",
+          "We are engaged in the release this year."
+        ],
+        "lemma": "engage in"
+      }
+    ]
+  },
+  "excellent communication skills": {
+    "classification": "unfalsifiable credential",
+    "rule": "jargon",
+    "variants": [
+      {
+        "examples": [
+          "Every reader expects excellent communication skills from us.",
+          "Our excellent communication skills impresses readers.",
+          "The reader relies on excellent communication skills.",
+          "The writer is excellent communication skills the release.",
+          "The writer is excellent communication skills.",
+          "The writer will excellent communication skills this year.",
+          "We excellent communication skills the release every month.",
+          "We list excellent communication skills in the summary."
+        ],
+        "lemma": "excellent communication skill"
+      }
+    ]
+  },
+  "exposure to": {
+    "classification": "claimed acquaintance",
+    "rule": "weak_verbs",
+    "variants": [
+      {
+        "examples": [
+          "Exposure to the release.",
+          "Had exposure to the release.",
+          "I have exposure to the release.",
+          "The writer had exposure to the release last year.",
+          "They had exposure to the release.",
+          "We have exposure to the release."
+        ],
+        "lemma": "exposure to"
+      }
+    ]
+  },
+  "extensive experience": {
+    "classification": "unfalsifiable credential",
+    "rule": "jargon",
+    "variants": [
+      {
+        "examples": [
+          "Every reader expects extensive experience from us.",
+          "Our extensive experience impresses readers.",
+          "The reader relies on extensive experience.",
+          "The writer is extensive experience the release.",
+          "The writer is extensive experience.",
+          "The writer will extensive experience this year.",
+          "We extensive experience the release every month.",
+          "We list extensive experience in the summary."
+        ],
+        "lemma": "extensive experience"
+      }
+    ]
+  },
+  "familiar with": {
+    "classification": "claimed acquaintance",
+    "rule": "weak_verbs",
+    "variants": [
+      {
+        "examples": [
+          "Familiar with the release.",
+          "Had familiar with the release.",
+          "I have familiar with the release.",
+          "The writer had familiar with the release last year.",
+          "They had familiar with the release.",
+          "We have familiar with the release."
+        ],
+        "lemma": "familiar with"
+      }
+    ]
+  },
+  "focus of": {
+    "classification": "role wrapper",
+    "rule": "indirect_predicates",
+    "variants": [
+      {
+        "examples": [
+          "In that job the focus of the writer was to reduce cost.",
+          "The focus of that team was to reduce cost.",
+          "The focus of the engineer is to reduce cost.",
+          "The focus of the review is to reduce cost."
+        ],
+        "lemma": "focus of"
+      }
+    ]
+  },
+  "function of": {
+    "classification": "role wrapper",
+    "rule": "indirect_predicates",
+    "variants": [
+      {
+        "examples": [
+          "In that job the function of the writer was to reduce cost.",
+          "The function of that team was to reduce cost.",
+          "The function of the engineer is to reduce cost.",
+          "The function of the review is to reduce cost."
+        ],
+        "lemma": "function of"
+      }
+    ]
+  },
+  "go the extra mile": {
+    "classification": "office idiom",
+    "rule": "jargon",
+    "variants": [
+      {
+        "examples": [
+          "Every reader expects go the extra mile from us.",
+          "Our go the extra mile impresses readers.",
+          "The reader relies on go the extra mile.",
+          "The writer is go the extra mile the release.",
+          "The writer is go the extra mile.",
+          "The writer will go the extra mile this year.",
+          "We go the extra mile the release every month.",
+          "We list go the extra mile in the summary."
+        ],
+        "lemma": "go the extra mile"
+      }
+    ]
+  },
+  "go-getter": {
+    "classification": "self-description cliche",
+    "rule": "jargon",
+    "variants": [
+      {
+        "examples": [
+          "Every reader expects go-getter from us.",
+          "Our go-getter impresses readers.",
+          "The reader relies on go-getter.",
+          "The writer is go-getter the release.",
+          "The writer is go-getter.",
+          "The writer will go-getter this year.",
+          "We go-getter the release every month.",
+          "We list go-getter in the summary."
+        ],
+        "lemma": "go getter"
+      }
+    ]
+  },
+  "greatly": {
+    "classification": "hollow intensifier",
+    "rule": "filler_phrases",
+    "variants": [
+      {
+        "examples": [
+          "Improved the release greatly.",
+          "The release was greatly improved.",
+          "The writer greatly improved the release.",
+          "They greatly improved the report.",
+          "We greatly improved the release."
+        ],
+        "lemma": "greatly"
+      }
+    ]
+  },
+  "guru": {
+    "classification": "job title inflation",
+    "rule": "jargon",
+    "variants": [
+      {
+        "examples": [
+          "Every reader expects guru from us.",
+          "Our guru impresses readers.",
+          "The reader relies on guru.",
+          "The writer is guru the release.",
+          "The writer is guru.",
+          "The writer will guru this year.",
+          "We guru the release every month.",
+          "We list guru in the summary."
+        ],
+        "lemma": "guru"
+      }
+    ]
+  },
+  "hard worker": {
+    "classification": "self-description cliche",
+    "rule": "jargon",
+    "variants": [
+      {
+        "examples": [
+          "Every reader expects hard worker from us.",
+          "Our hard worker impresses readers.",
+          "The reader relies on hard worker.",
+          "The writer is hard worker the release.",
+          "The writer is hard worker.",
+          "The writer will hard worker this year.",
+          "We hard worker the release every month.",
+          "We list hard worker in the summary."
+        ],
+        "lemma": "hard worker"
+      }
+    ]
+  },
+  "helped to": {
+    "classification": "unspecified support",
+    "rule": "weak_verbs",
+    "variants": [
+      {
+        "examples": [
+          "Helped to deliver the release.",
+          "I helped to deliver the release.",
+          "The writer helped to deliver the release.",
+          "They helped to deliver the release.",
+          "We helped to deliver the release last year."
+        ],
+        "lemma": "help to"
+      }
+    ]
+  },
+  "highly motivated": {
+    "classification": "self-description cliche",
+    "rule": "jargon",
+    "variants": [
+      {
+        "examples": [
+          "The writer will highly motivated this year.",
+          "We highly motivated the release every month."
+        ],
+        "lemma": "highly motivate"
+      },
+      {
+        "examples": [
+          "Every reader expects highly motivated from us.",
+          "Our highly motivated impresses readers.",
+          "The reader relies on highly motivated.",
+          "The writer is highly motivated the release.",
+          "The writer is highly motivated.",
+          "We list highly motivated in the summary."
+        ],
+        "lemma": "highly motivated"
+      }
+    ]
+  },
+  "hit the ground running": {
+    "classification": "office idiom",
+    "rule": "jargon",
+    "variants": [
+      {
+        "examples": [
+          "Every reader expects hit the ground running from us.",
+          "The reader relies on hit the ground running.",
+          "The writer is hit the ground running the release.",
+          "The writer is hit the ground running.",
+          "The writer will hit the ground running this year.",
+          "We hit the ground running the release every month.",
+          "We list hit the ground running in the summary."
+        ],
+        "lemma": "hit the ground run"
+      },
+      {
+        "examples": [
+          "Our hit the ground running impresses readers."
+        ],
+        "lemma": "hit the ground running"
+      }
+    ]
+  },
+  "in a timely manner": {
+    "classification": "wordy connector",
+    "rule": "bureaucratic_phrases",
+    "variants": [
+      {
+        "examples": [
+          "Shipped the release in a timely manner.",
+          "The writer shipped the release in a timely manner.",
+          "They ran the release in a timely manner.",
+          "We reviewed the report in a timely manner."
+        ],
+        "lemma": "in a timely manner"
+      }
+    ]
+  },
+  "in charge of": {
+    "classification": "agentless responsibility",
+    "rule": "hidden_agency",
+    "variants": [
+      {
+        "examples": [
+          "I am in charge of the release.",
+          "In charge of the release.",
+          "The writer was in charge of the release last year.",
+          "They were in charge of the release.",
+          "Was in charge of the release.",
+          "We are in charge of the release this year."
+        ],
+        "lemma": "in charge of"
+      }
+    ]
+  },
+  "in order to": {
+    "classification": "wordy connector",
+    "rule": "bureaucratic_phrases",
+    "variants": [
+      {
+        "examples": [
+          "In order to reduce cost, the writer shipped the release.",
+          "The writer shipped the release in order to reduce cost.",
+          "They rewrote the report in order to reduce cost.",
+          "We shipped the release in order to reduce cost."
+        ],
+        "lemma": "in order to"
+      }
+    ]
+  },
+  "involved in": {
+    "classification": "unspecified participation",
+    "rule": "weak_verbs",
+    "variants": [
+      {
+        "examples": [
+          "I am involved in the release.",
+          "Involved in the release.",
+          "The writer was involved in the release last year.",
+          "They were involved in the release.",
+          "Was involved in the release.",
+          "We are involved in the release this year."
+        ],
+        "lemma": "involve in"
+      }
+    ]
+  },
+  "it is my responsibility to": {
+    "classification": "impersonal role statement",
+    "rule": "indirect_predicates",
+    "variants": [
+      {
+        "examples": [
+          "Every reader agrees it is my responsibility to reduce cost.",
+          "It is my responsibility to reduce cost.",
+          "The reader knows it is my responsibility to reduce cost.",
+          "The report says it is my responsibility to reduce cost."
+        ],
+        "lemma": "it be my responsibility to"
+      }
+    ]
+  },
+  "it is possible to": {
+    "classification": "impersonal role statement",
+    "rule": "indirect_predicates",
+    "variants": [
+      {
+        "examples": [
+          "Every reader agrees it is possible to reduce cost.",
+          "It is possible to reduce cost.",
+          "The reader knows it is possible to reduce cost.",
+          "The report says it is possible to reduce cost."
+        ],
+        "lemma": "it be possible to"
+      }
+    ]
+  },
+  "it was my responsibility to": {
+    "classification": "impersonal role statement",
+    "rule": "indirect_predicates",
+    "variants": [
+      {
+        "examples": [
+          "Every reader agrees it was my responsibility to reduce cost.",
+          "It was my responsibility to reduce cost.",
+          "The reader knows it was my responsibility to reduce cost.",
+          "The report says it was my responsibility to reduce cost."
+        ],
+        "lemma": "it be my responsibility to"
+      }
+    ]
+  },
+  "it was possible to": {
+    "classification": "impersonal role statement",
+    "rule": "indirect_predicates",
+    "variants": [
+      {
+        "examples": [
+          "Every reader agrees it was possible to reduce cost.",
+          "It was possible to reduce cost.",
+          "The reader knows it was possible to reduce cost.",
+          "The report says it was possible to reduce cost."
+        ],
+        "lemma": "it be possible to"
+      }
+    ]
+  },
+  "ninja": {
+    "classification": "job title inflation",
+    "rule": "jargon",
+    "variants": [
+      {
+        "examples": [
+          "Every reader expects ninja from us.",
+          "Our ninja impresses readers.",
+          "The reader relies on ninja.",
+          "The writer is ninja the release.",
+          "The writer is ninja.",
+          "The writer will ninja this year.",
+          "We list ninja in the summary.",
+          "We ninja the release every month."
+        ],
+        "lemma": "ninja"
+      }
+    ]
+  },
+  "numerous": {
+    "classification": "unquantified quantity",
+    "rule": "filler_phrases",
+    "variants": [
+      {
+        "examples": [
+          "Shipped numerous releases.",
+          "The writer shipped numerous releases.",
+          "They ran numerous releases last year.",
+          "We reviewed numerous reports."
+        ],
+        "lemma": "numerous"
+      }
+    ]
+  },
+  "on a daily basis": {
+    "classification": "wordy connector",
+    "rule": "bureaucratic_phrases",
+    "variants": [
+      {
+        "examples": [
+          "Shipped the release on a daily basis.",
+          "The writer shipped the release on a daily basis.",
+          "They ran the release on a daily basis.",
+          "We reviewed the report on a daily basis."
+        ],
+        "lemma": "on a daily basis"
+      }
+    ]
+  },
+  "on a regular basis": {
+    "classification": "wordy connector",
+    "rule": "bureaucratic_phrases",
+    "variants": [
+      {
+        "examples": [
+          "Shipped the release on a regular basis.",
+          "The writer shipped the release on a regular basis.",
+          "They ran the release on a regular basis.",
+          "We reviewed the report on a regular basis."
+        ],
+        "lemma": "on a regular basis"
+      }
+    ]
+  },
+  "outside the box": {
+    "classification": "office idiom",
+    "rule": "jargon",
+    "variants": [
+      {
+        "examples": [
+          "Every reader expects outside the box from us.",
+          "Our outside the box impresses readers.",
+          "The reader relies on outside the box.",
+          "The writer is outside the box the release.",
+          "The writer is outside the box.",
+          "The writer will outside the box this year.",
+          "We list outside the box in the summary.",
+          "We outside the box the release every month."
+        ],
+        "lemma": "outside the box"
+      }
+    ]
+  },
+  "participated in": {
+    "classification": "unspecified participation",
+    "rule": "weak_verbs",
+    "variants": [
+      {
+        "examples": [
+          "I am participated in the release.",
+          "Participated in the release.",
+          "The writer was participated in the release last year.",
+          "They were participated in the release.",
+          "Was participated in the release.",
+          "We are participated in the release this year."
+        ],
+        "lemma": "participate in"
+      }
+    ]
+  },
+  "passionate about": {
+    "classification": "self-description cliche",
+    "rule": "jargon",
+    "variants": [
+      {
+        "examples": [
+          "Every reader expects passionate about from us.",
+          "Our passionate about impresses readers.",
+          "The reader relies on passionate about.",
+          "The writer is passionate about the release.",
+          "The writer is passionate about.",
+          "The writer will passionate about this year.",
+          "We list passionate about in the summary.",
+          "We passionate about the release every month."
+        ],
+        "lemma": "passionate about"
+      }
+    ]
+  },
+  "people person": {
+    "classification": "self-description cliche",
+    "rule": "jargon",
+    "variants": [
+      {
+        "examples": [
+          "Every reader expects people person from us.",
+          "Our people person impresses readers.",
+          "The reader relies on people person.",
+          "The writer is people person the release.",
+          "The writer is people person.",
+          "The writer will people person this year.",
+          "We list people person in the summary.",
+          "We people person the release every month."
+        ],
+        "lemma": "people person"
+      }
+    ]
+  },
+  "proactively": {
+    "classification": "hollow intensifier",
+    "rule": "filler_phrases",
+    "variants": [
+      {
+        "examples": [
+          "Improved the release proactively.",
+          "The release was proactively improved.",
+          "The writer proactively improved the release.",
+          "They proactively improved the report.",
+          "We proactively improved the release."
+        ],
+        "lemma": "proactively"
+      }
+    ]
+  },
+  "responsibilities included": {
+    "classification": "duty list",
+    "rule": "hidden_agency",
+    "variants": [
+      {
+        "examples": [
+          "In that role my responsibilities included the release.",
+          "My responsibilities included the release.",
+          "Responsibilities included the release.",
+          "The responsibilities included the release and the report."
+        ],
+        "lemma": "responsibility include"
+      }
+    ]
+  },
+  "responsible for": {
+    "classification": "agentless responsibility",
+    "rule": "hidden_agency",
+    "variants": [
+      {
+        "examples": [
+          "I am responsible for the release.",
+          "Responsible for the release.",
+          "The writer was responsible for the release last year.",
+          "They were responsible for the release.",
+          "Was responsible for the release.",
+          "We are responsible for the release this year."
+        ],
+        "lemma": "responsible for"
+      }
+    ]
+  },
+  "results driven": {
+    "classification": "self-description cliche",
+    "rule": "jargon",
+    "variants": [
+      {
+        "examples": [
+          "Every reader expects results driven from us.",
+          "Our results driven impresses readers.",
+          "The reader relies on results driven.",
+          "The writer is results driven the release.",
+          "The writer is results driven.",
+          "We list results driven in the summary.",
+          "We results driven the release every month."
+        ],
+        "lemma": "result drive"
+      },
+      {
+        "examples": [
+          "The writer will results driven this year."
+        ],
+        "lemma": "results drive"
+      }
+    ]
+  },
+  "results-driven": {
+    "classification": "self-description cliche",
+    "rule": "jargon",
+    "variants": [
+      {
+        "examples": [
+          "Every reader expects results-driven from us.",
+          "Our results-driven impresses readers.",
+          "The reader relies on results-driven.",
+          "The writer is results-driven the release.",
+          "The writer is results-driven.",
+          "The writer will results-driven this year.",
+          "We list results-driven in the summary.",
+          "We results-driven the release every month."
+        ],
+        "lemma": "result drive"
+      }
+    ]
+  },
+  "rockstar": {
+    "classification": "job title inflation",
+    "rule": "jargon",
+    "variants": [
+      {
+        "examples": [
+          "Every reader expects rockstar from us.",
+          "Our rockstar impresses readers.",
+          "The reader relies on rockstar.",
+          "The writer is rockstar the release.",
+          "The writer is rockstar.",
+          "The writer will rockstar this year.",
+          "We list rockstar in the summary.",
+          "We rockstar the release every month."
+        ],
+        "lemma": "rockstar"
+      }
+    ]
+  },
+  "role of": {
+    "classification": "role wrapper",
+    "rule": "indirect_predicates",
+    "variants": [
+      {
+        "examples": [
+          "In that job the role of the writer was to reduce cost.",
+          "The role of that team was to reduce cost.",
+          "The role of the engineer is to reduce cost.",
+          "The role of the review is to reduce cost."
+        ],
+        "lemma": "role of"
+      }
+    ]
+  },
+  "seamlessly": {
+    "classification": "hollow intensifier",
+    "rule": "filler_phrases",
+    "variants": [
+      {
+        "examples": [
+          "Improved the release seamlessly.",
+          "The release was seamlessly improved.",
+          "The writer seamlessly improved the release.",
+          "They seamlessly improved the report.",
+          "We seamlessly improved the release."
+        ],
+        "lemma": "seamlessly"
+      }
+    ]
+  },
+  "seasoned professional": {
+    "classification": "self-description cliche",
+    "rule": "jargon",
+    "variants": [
+      {
+        "examples": [
+          "The writer is seasoned professional the release.",
+          "The writer is seasoned professional.",
+          "The writer will seasoned professional this year.",
+          "We list seasoned professional in the summary.",
+          "We seasoned professional the release every month."
+        ],
+        "lemma": "season professional"
+      },
+      {
+        "examples": [
+          "Every reader expects seasoned professional from us.",
+          "Our seasoned professional impresses readers.",
+          "The reader relies on seasoned professional."
+        ],
+        "lemma": "seasoned professional"
+      }
+    ]
+  },
+  "self-starter": {
+    "classification": "self-description cliche",
+    "rule": "jargon",
+    "variants": [
+      {
+        "examples": [
+          "Every reader expects self-starter from us.",
+          "Our self-starter impresses readers.",
+          "The reader relies on self-starter.",
+          "The writer is self-starter the release.",
+          "The writer is self-starter.",
+          "The writer will self-starter this year.",
+          "We list self-starter in the summary.",
+          "We self-starter the release every month."
+        ],
+        "lemma": "self starter"
+      }
+    ]
+  },
+  "several": {
+    "classification": "unquantified quantity",
+    "rule": "filler_phrases",
+    "variants": [
+      {
+        "examples": [
+          "Shipped several releases.",
+          "The writer shipped several releases.",
+          "They ran several releases last year.",
+          "We reviewed several reports."
+        ],
+        "lemma": "several"
+      }
+    ]
+  },
+  "significantly": {
+    "classification": "hollow intensifier",
+    "rule": "filler_phrases",
+    "variants": [
+      {
+        "examples": [
+          "Improved the release significantly.",
+          "The release was significantly improved.",
+          "The writer significantly improved the release.",
+          "They significantly improved the report.",
+          "We significantly improved the release."
+        ],
+        "lemma": "significantly"
+      }
+    ]
+  },
+  "strong work ethic": {
+    "classification": "unfalsifiable credential",
+    "rule": "jargon",
+    "variants": [
+      {
+        "examples": [
+          "Every reader expects strong work ethic from us.",
+          "Our strong work ethic impresses readers.",
+          "The reader relies on strong work ethic.",
+          "The writer is strong work ethic the release.",
+          "The writer is strong work ethic.",
+          "The writer will strong work ethic this year.",
+          "We list strong work ethic in the summary.",
+          "We strong work ethic the release every month."
+        ],
+        "lemma": "strong work ethic"
+      }
+    ]
+  },
+  "substantially": {
+    "classification": "hollow intensifier",
+    "rule": "filler_phrases",
+    "variants": [
+      {
+        "examples": [
+          "Improved the release substantially.",
+          "The release was substantially improved.",
+          "The writer substantially improved the release.",
+          "They substantially improved the report.",
+          "We substantially improved the release."
+        ],
+        "lemma": "substantially"
+      }
+    ]
+  },
+  "successfully": {
+    "classification": "hollow intensifier",
+    "rule": "filler_phrases",
+    "variants": [
+      {
+        "examples": [
+          "Improved the release successfully.",
+          "The release was successfully improved.",
+          "The writer successfully improved the release.",
+          "They successfully improved the report.",
+          "We successfully improved the release."
+        ],
+        "lemma": "successfully"
+      }
+    ]
+  },
+  "superstar": {
+    "classification": "job title inflation",
+    "rule": "jargon",
+    "variants": [
+      {
+        "examples": [
+          "Every reader expects superstar from us.",
+          "Our superstar impresses readers.",
+          "The reader relies on superstar.",
+          "The writer is superstar the release.",
+          "The writer is superstar.",
+          "The writer will superstar this year.",
+          "We list superstar in the summary.",
+          "We superstar the release every month."
+        ],
+        "lemma": "superstar"
+      }
+    ]
+  },
+  "tasked with": {
+    "classification": "assigned without an agent",
+    "rule": "hidden_agency",
+    "variants": [
+      {
+        "examples": [
+          "I am tasked with the release.",
+          "Tasked with the release.",
+          "The writer was tasked with the release last year.",
+          "They were tasked with the release.",
+          "Was tasked with the release.",
+          "We are tasked with the release this year."
+        ],
+        "lemma": "task with"
+      }
+    ]
+  },
+  "team player": {
+    "classification": "self-description cliche",
+    "rule": "jargon",
+    "variants": [
+      {
+        "examples": [
+          "Every reader expects team player from us.",
+          "Our team player impresses readers.",
+          "The reader relies on team player.",
+          "The writer is team player the release.",
+          "The writer is team player.",
+          "The writer will team player this year.",
+          "We list team player in the summary.",
+          "We team player the release every month."
+        ],
+        "lemma": "team player"
+      }
+    ]
+  },
+  "thought leader": {
+    "classification": "unfalsifiable credential",
+    "rule": "jargon",
+    "variants": [
+      {
+        "examples": [
+          "The writer is thought leader the release.",
+          "The writer is thought leader.",
+          "We thought leader the release every month."
+        ],
+        "lemma": "think leader"
+      },
+      {
+        "examples": [
+          "Every reader expects thought leader from us.",
+          "Our thought leader impresses readers.",
+          "The reader relies on thought leader.",
+          "The writer will thought leader this year.",
+          "We list thought leader in the summary."
+        ],
+        "lemma": "thought leader"
+      }
+    ]
+  },
+  "took part in": {
+    "classification": "unspecified participation",
+    "rule": "weak_verbs",
+    "variants": [
+      {
+        "examples": [
+          "I am took part in the release.",
+          "The writer was took part in the release last year.",
+          "They were took part in the release.",
+          "Took part in the release.",
+          "Was took part in the release.",
+          "We are took part in the release this year."
+        ],
+        "lemma": "take part in"
+      }
+    ]
+  },
+  "track record": {
+    "classification": "unfalsifiable credential",
+    "rule": "jargon",
+    "variants": [
+      {
+        "examples": [
+          "Every reader expects track record from us.",
+          "Our track record impresses readers.",
+          "The reader relies on track record.",
+          "The writer is track record the release.",
+          "The writer is track record.",
+          "The writer will track record this year.",
+          "We list track record in the summary.",
+          "We track record the release every month."
+        ],
+        "lemma": "track record"
+      }
+    ]
+  },
+  "various": {
+    "classification": "unquantified quantity",
+    "rule": "filler_phrases",
+    "variants": [
+      {
+        "examples": [
+          "Shipped various releases.",
+          "The writer shipped various releases.",
+          "They ran various releases last year.",
+          "We reviewed various reports."
+        ],
+        "lemma": "various"
+      }
+    ]
+  },
+  "wear many hats": {
+    "classification": "office idiom",
+    "rule": "jargon",
+    "variants": [
+      {
+        "examples": [
+          "Every reader expects wear many hats from us.",
+          "Our wear many hats impresses readers.",
+          "The reader relies on wear many hats.",
+          "The writer is wear many hats the release.",
+          "The writer is wear many hats.",
+          "The writer will wear many hats this year.",
+          "We list wear many hats in the summary.",
+          "We wear many hats the release every month."
+        ],
+        "lemma": "wear many hat"
+      }
+    ]
+  },
+  "worked on": {
+    "classification": "unspecified support",
+    "rule": "weak_verbs",
+    "variants": [
+      {
+        "examples": [
+          "I am worked on the release.",
+          "The writer was worked on the release last year.",
+          "They were worked on the release.",
+          "Was worked on the release.",
+          "We are worked on the release this year.",
+          "Worked on the release."
+        ],
+        "lemma": "work on"
+      }
+    ]
+  },
+  "working knowledge of": {
+    "classification": "claimed acquaintance",
+    "rule": "weak_verbs",
+    "variants": [
+      {
+        "examples": [
+          "Had working knowledge of the release.",
+          "I have working knowledge of the release.",
+          "The writer had working knowledge of the release last year.",
+          "They had working knowledge of the release.",
+          "We have working knowledge of the release.",
+          "Working knowledge of the release."
+        ],
+        "lemma": "work knowledge of"
+      }
+    ]
+  }
+}

@@ -239,13 +239,20 @@ by a different pipeline rather than re-analysing it under new assumptions.
 
 A profile carries the weights, thresholds, and vocabulary for one kind of
 document. The analyzer is shared; the profile decides what counts as a defect
-and how much it costs. Two profiles ship, and a project may install more.
+and how much it costs. Three profiles ship, and a project may install more.
 
 `architecture-review` reads review decisions. `product-strategy` reads need
 statements, value propositions, and positioning. The second weights agency and
 lexical clarity at 25 each and structure at 8, because a strategy document
 mostly fails by claiming something unfalsifiable or by claiming it without
 naming who acts.
+
+`resume-review` reads accomplishment bullets. It weights agency at 30,
+morphology at 25, and redundancy at 20, and structure at 2, because a document
+that is already a bullet list has almost no structure left to get wrong, while
+every line is a claim about who did what. It scores prose clarity only: it does
+not judge a candidate, detect exaggeration, or read personal data, and its
+vocabulary and fixtures name no employer, product, or person.
 
 ### A profile can require a recognised actor
 
@@ -259,10 +266,65 @@ A profile may now set `require_responsible_actor`. Under that threshold a
 directive clears the rule only when its subject is an actor the profile
 recognises. `architecture-review` does not set it and behaves as before.
 
-`product-strategy` stores no protected phrases, and declares an empty
-`protected_concepts` array. `architecture-review` still carries one governance
-entry from before the phrase matching was removed. Protection belongs to the
-meaning gate, which reads claim signatures from the parse.
+`product-strategy` and `resume-review` store no protected phrases, and declare
+an empty `protected_concepts` array. `architecture-review` still carries one
+governance entry from before the phrase matching was removed. Protection belongs
+to the meaning gate, which reads claim signatures from the parse.
+
+### A profile can read an absent subject as the author
+
+"Led migration of forty services" has no subject, by convention rather than by
+evasion. A profile may set `allow_implied_first_person`, and under it a
+directive that carries no subject at all is read as the work of the author
+instead of as missing agency. `architecture-review` and `product-strategy` do
+not set it and behave as before.
+
+The rule this corrects was not failing the way it looked. `LING-ACTOR-001`
+reports a directive, and a directive is an obligation auxiliary or an
+imperative, so it never fired on "Led migration of forty services" at all: the
+pinned parser tags that leading `Led` as a past participle and reads the whole
+line as a noun phrase with no verb head. What it did fire on was "Cut checkout
+latency from 1.2 seconds to 300 milliseconds", because a leading `Cut` tags as a
+base-form verb and therefore as an imperative. The rule was taxing the bullets
+that read best and clearing the ones that hid the work, and which of the two a
+bullet got depended on how the tagger guessed at a sentence-initial verb.
+
+The permission is deliberately narrow: it reaches only the clause whose subject
+is missing, so it can suppress `LING-ACTOR-001` and nothing else. Passive voice
+is reported from a separate pass, and stays reported. "Must be completed before
+the release" carries no subject either, and still raises both
+`LING-AGENCY-001` and `LING-PASSIVE-001`, because a resume written in the
+passive hides the work rather than omitting a subject the genre always omits.
+An impersonal subject is not an absent one, so "It should improve the runbook"
+still fails the actor rule.
+
+`resume-review` sets `require_responsible_actor` as well, and keeps a
+deliberately sparse actor list. The author is implied, so the terms that matter
+are the ones a bullet can name as a beneficiary: team, customer, user, client,
+and stakeholder. "The platform should own the runbook" therefore reports
+`LING-ACTOR-001` and "The team should own the runbook" does not.
+
+Three of the profile's limits are gaps rather than features, and are recorded
+here so that none of them reads as a promise.
+
+`max_qualifiers_per_sentence` is 0, but `LING-QUALIFIER-001` requires at least
+two qualifier tokens in a sentence before it consults the threshold at all, so a
+single unquantified hedge is not reported by that rule. The profile routes this
+genre's hollow intensifiers through `LING-FILLER-001` instead, which fires per
+occurrence, and keeps `qualifiers` as a disjoint list so nothing is counted
+twice.
+
+The phrase `help to` overlaps the structural weak verb rule whenever the
+following verb takes a nominalization as its object, so "helped to deliver
+numerous enhancements" is reported twice. The analyzer deduplicates findings on
+exact spans and these two spans differ. The phrase is kept because dropping it
+would silence "helped to migrate the platform", which the structural rule does
+not see, and changing the deduplication would change the other two profiles.
+
+Six bullets opening with the same verb are not reported as repetition unless
+that verb's lemma is at least seven characters long, which is what
+`LING-REDUNDANCY-001` counts. "Coordinate" is reported; "lead" and "manage" are
+not, however often either is repeated.
 
 Lingity does not detect a benefit asserted without a mechanism. The
 `purpose_markers` groups name a `mechanism` category, but the analyzer reads
@@ -301,6 +363,26 @@ six carriers, and four phrases are role-dependent and store more than one lemma.
 The carriers are uniform rather than idiomatic, so a recorded sentence
 demonstrates that a rule fires, not that the phrasing is one an author would
 write.
+
+`resume-review` extends the same method to every phrase rule it authors rather
+than to jargon alone: jargon, weak verbs, hidden agency, bureaucratic phrases,
+filler phrases, and indirect predicates. Its 71 phrases are exercised against
+carriers chosen for each family's grammar — a buzzword across subject, object,
+prepositional object, complement, and verb positions; a verbal construction
+across tense, person, and the subjectless bullet form — and
+`tests/fixtures/resume-review-phrases.json` records every lemma that fired
+beside every carrier it fired in. 76 lemmas cover the 71 phrases across 428
+carrier sentences. 27 lemmas differ from the surface spelling, "duties included"
+storing as "duty include" and "detail-oriented" as "detail orient", and five
+phrases are role-dependent and store more than one: "thought leader" produces
+both "thought leader" and "think leader", and "results driven" both "result
+drive" and "results drive".
+
+None of those lists were derived by eye. Each phrase was substituted into its
+carriers, the carriers were parsed, and the lemma sequence was read off the
+tokens the phrase covers. A separate check then confirms that every stored lemma
+raises its rule, with the right user-visible classification, on every carrier
+recorded against it.
 
 A test asserts that the fixture and the profile cover exactly the same lemma
 set, so a phrase added without a demonstration fails the suite, and a reader who
