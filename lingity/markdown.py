@@ -221,16 +221,24 @@ def _content_spans(
 
 
 def _uncovered(text: str, bounds: list[tuple[int, int]], blocks: list[Block]) -> int:
-    covered = bytearray(len(bounds))
-    for block in blocks:
-        for index, (start, end) in enumerate(bounds):
-            if block.start < end + 1 and start <= block.end:
-                covered[index] = 1
-    return sum(
-        1
-        for index, (start, end) in enumerate(bounds)
-        if not covered[index] and text[start:end].strip()
-    )
+    """Count non-blank lines that no block claims.
+
+    Blocks and lines are both ordered, so one forward sweep answers this. The
+    earlier pass compared every line against every block, which degrades
+    quadratically on a document of many one-line list items.
+    """
+    ordered = sorted(blocks, key=lambda block: (block.start, block.end))
+    count = 0
+    index = 0
+    for start, end in bounds:
+        if not text[start:end].strip():
+            continue
+        while index < len(ordered) and ordered[index].end < start:
+            index += 1
+        if index < len(ordered) and ordered[index].start <= end:
+            continue
+        count += 1
+    return count
 
 
 def segment_source(text: str) -> Segmentation:

@@ -466,3 +466,69 @@ def test_the_cli_reports_a_parser_failure_without_a_traceback(
     monkeypatch.setattr(markdown_module, "_parser", refuse)
     assert main(["analyze", str(source), "--output", str(tmp_path / "out.json")]) == 2
     assert "pinned parser unavailable" in capsys.readouterr().err
+
+
+# Grouped spans must not leak between coordinate systems or past a rule.
+
+
+def test_a_code_span_may_open_and_close_on_different_lines() -> None:
+    """A block is scanned whole, so a wrapped code span is still protected."""
+    source = "The collector reads `\nX-Business-Use-Case-Usage\n` on every response.\n"
+    groups = prose_spans(segment(source))
+    extents = tuple((group[0][0], group[-1][1]) for group in groups)
+    spans = inline_code_spans(source, extents)
+    assert len(spans) == 1
+    assert source[spans[0][0] : spans[0][1]].strip("`").strip() == (
+        "X-Business-Use-Case-Usage"
+    )
+    assert "LING-COMPOUND-DEPTH-001" not in _rule_ids(source)
+
+
+def test_an_observed_phrase_spanning_a_join_is_not_corrupted() -> None:
+    """Sentence text is chunk-indexed; source offsets must never slice it.
+
+    A sentence joined from two source lines has the container's markers removed,
+    so every source offset inside it is shifted by an amount that varies across
+    the sentence. Slicing with one would report a phrase off by those bytes.
+    """
+    source = "- The team must act in order\n  to close the finding.\n"
+    findings = cast(list[dict[str, JsonValue]], analyze_text(source)["findings"])
+    observed = [
+        cast(dict[str, JsonValue], finding["observed_value"])["phrase"]
+        for finding in findings
+        if finding["rule_id"] in {"LING-FILLER-001", "LING-BUREAUCRACY-001"}
+    ]
+    assert observed
+    assert set(observed) == {"in order to"}
+
+
+def _long_blockquote_body() -> str:
+    return (
+        "the reviewer must close every finding and publish the remediation date "
+        "before the owner approves the change "
+    ) * 6
+
+
+def test_wrapping_cannot_evade_the_paragraph_rule() -> None:
+    """Each line of a wrapped block was counted as its own paragraph."""
+    body = _long_blockquote_body()
+    wrapped = "".join(f"> {word}\n" for word in body.split(" ") if word)
+    one_line = "> " + body.strip() + "\n"
+    assert len(body.split()) > 90
+    for document in (wrapped, one_line):
+        rules = [
+            finding["rule_id"]
+            for finding in cast(
+                list[dict[str, JsonValue]], analyze_text(document)["findings"]
+            )
+        ]
+        assert rules.count("LING-STRUCTURE-001") == 1
+
+
+def test_many_one_line_items_are_still_fully_covered() -> None:
+    """The uncovered sweep walks blocks and lines once each, in order."""
+    source = "".join(f"- item number {index} must ship.\n" for index in range(400))
+    segmentation = segment_source(source)
+    assert len(segmentation.blocks) == 400
+    assert segmentation.uncovered_lines == 0
+    assert segmentation.unresolved_lines == 0

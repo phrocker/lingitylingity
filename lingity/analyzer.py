@@ -197,7 +197,7 @@ def _is_verb_head(document: Document, sentence: Sentence, token: Token) -> bool:
     if token.pos != "VERB" or token.dep in {"aux", "auxpass", "amod", "acomp"}:
         return False
     subject = _subject_of(document, token)
-    if subject is not None and "," in sentence.text[subject.end - sentence.start : token.start - sentence.start]:
+    if subject is not None and "," in sentence.between(subject, token):
         return subject.pos in {"PRON", "PROPN"} or _lemma(subject) in _profile_actor_like_subjects()
     return True
 
@@ -347,7 +347,7 @@ def _hyphenated_terms(sentence: Sentence) -> list[tuple[int, int, str, int]]:
         if len(parts) > 1:
             start = tokens[index].start
             end = tokens[cursor].end
-            text = sentence.text[start - sentence.start : end - sentence.start].lower()
+            text = sentence.excerpt(tokens[index], tokens[cursor]).lower()
             result.append((start, end, text, len(parts)))
             index = cursor + 1
         else:
@@ -431,7 +431,7 @@ def _phrase_matches(sentence: Sentence, phrase: str) -> list[tuple[int, int, str
             continue
         start = words[index].start
         end = words[index + width - 1].end
-        matches.append((start, end, sentence.text[start - sentence.start : end - sentence.start]))
+        matches.append((start, end, sentence.excerpt(words[index], words[index + width - 1])))
     return matches
 
 
@@ -813,21 +813,37 @@ def _paragraph_spans_within(text: str, limit_start: int, limit_end: int) -> list
     return [(start, end) for start, end in spans if start < end]
 
 
-def _paragraph_spans(
-    text: str, spans: tuple[tuple[int, int], ...] = ()
-) -> list[tuple[int, int]]:
-    """Locate paragraphs, restricted to the ranges the analyzer parsed as prose.
+def _paragraph_units(document: Document) -> list[tuple[tuple[int, int], ...]]:
+    """Return one entry per paragraph, each holding the ranges it occupies.
 
-    Without the restriction a Markdown table or a fenced code block counts as a
-    paragraph, and the paragraph-length rule then reports the markup rather
-    than the writing.
+    Restricting to parsed prose keeps a Markdown table or a fenced code block
+    from counting as a paragraph. Keeping each block's ranges together keeps a
+    wrapped paragraph counting as one paragraph: it reaches the analyzer as one
+    range per source line, and treating each line separately would let wrapping
+    slip past every paragraph threshold.
     """
-    if not spans:
-        return _paragraph_spans_within(text, 0, len(text))
-    collected: list[tuple[int, int]] = []
-    for start, end in spans:
-        collected.extend(_paragraph_spans_within(text, start, end))
-    return collected
+    if not document.groups:
+        return [
+            ((start, end),)
+            for start, end in _paragraph_spans_within(document.text, 0, len(document.text))
+        ]
+    units: list[tuple[tuple[int, int], ...]] = []
+    for group in document.groups:
+        if len(group) == 1:
+            start, end = group[0]
+            units.extend(
+                ((inner_start, inner_end),)
+                for inner_start, inner_end in _paragraph_spans_within(
+                    document.text, start, end
+                )
+            )
+            continue
+        units.append(group)
+    return units
+
+
+def _in_unit(unit: tuple[tuple[int, int], ...], token: Token) -> bool:
+    return any(start <= token.start and token.end <= end for start, end in unit)
 
 
 def _abbreviation_findings(document: Document, profile: Profile) -> list[Finding]:
@@ -855,11 +871,12 @@ def _abbreviation_findings(document: Document, profile: Profile) -> list[Finding
                 min(12.0, (len(matches) - max_sentence) * 3.0),
             )
         )
-    for paragraph_start, paragraph_end in _paragraph_spans(document.text, document.spans):
+    for unit in _paragraph_units(document):
+        paragraph_start, paragraph_end = unit[0][0], unit[-1][1]
         if _overlaps(paragraph_start, paragraph_end, sentence_spans):
             continue
         matches = _acronym_tokens(
-            (token for token in document.tokens if paragraph_start <= token.start and token.end <= paragraph_end),
+            (token for token in document.tokens if _in_unit(unit, token)),
             allowed,
             defined,
         )
@@ -884,8 +901,9 @@ def _abbreviation_findings(document: Document, profile: Profile) -> list[Finding
 def _paragraph_findings(document: Document, profile: Profile) -> list[Finding]:
     findings: list[Finding] = []
     threshold = int(profile.thresholds["max_paragraph_words"])
-    for start, end in _paragraph_spans(document.text, document.spans):
-        count = sum(1 for token in document.tokens if start <= token.start and token.end <= end and token.is_word)
+    for unit in _paragraph_units(document):
+        start, end = unit[0][0], unit[-1][1]
+        count = sum(1 for token in document.tokens if _in_unit(unit, token) and token.is_word)
         if count <= threshold:
             continue
         findings.append(
@@ -1316,7 +1334,10 @@ def analyze_text(text: str, profile: Profile | None = None) -> dict[str, JsonVal
     blocks = segmentation.blocks
     readable = prose_spans(blocks)
     document = parse(text, spans=readable)
-    flattened = tuple(span for group in readable for span in group)
+    # Scan each block's whole source extent, not its pieces: a code span may
+    # open on one line of a block and close on the next. The extent stops at the
+    # block boundary, so an unmatched backtick still cannot reach another block.
+    flattened = tuple((group[0][0], group[-1][1]) for group in readable if group)
     # An identifier written as code is a name a rewrite must not change, so a
     # finding wholly inside one reports a defect no candidate may fix. The scan
     # is per block: a code span cannot cross one, and an unmatched backtick

@@ -57,6 +57,12 @@ class Token:
     is_stop: bool
     is_punct: bool
     sentence_index: int
+    chunk_start: int = 0
+    """Offset of this token inside the parse unit that produced it.
+
+    A block's lines are joined before parsing, so a source offset cannot index
+    into ``Sentence.text``. Positions within a sentence are measured here.
+    """
 
     @property
     def lower(self) -> str:
@@ -76,10 +82,30 @@ class Sentence:
     end: int
     tokens: tuple[Token, ...]
     root: int
+    chunk_start: int = 0
+    """Offset of this sentence inside the parse unit that produced it."""
 
     @property
     def words(self) -> tuple[Token, ...]:
         return tuple(token for token in self.tokens if token.is_word)
+
+    def excerpt(self, first: Token, last: Token) -> str:
+        """Return the sentence text from ``first`` through ``last`` inclusive.
+
+        Callers must not slice ``text`` with source offsets. A sentence spanning
+        a wrapped line is joined from several source ranges, so the markers
+        between them shift every source offset by an amount that varies within
+        the sentence.
+        """
+        start = first.chunk_start - self.chunk_start
+        end = last.chunk_start - self.chunk_start + len(last.text)
+        return self.text[start:end]
+
+    def between(self, first: Token, second: Token) -> str:
+        """Return the sentence text lying between ``first`` and ``second``."""
+        start = first.chunk_start - self.chunk_start + len(first.text)
+        end = second.chunk_start - self.chunk_start
+        return self.text[start:end]
 
 
 @dataclass(frozen=True)
@@ -91,6 +117,13 @@ class Document:
     tokens: tuple[Token, ...]
     spans: tuple[tuple[int, int], ...] = ()
     """The character ranges of ``text`` that were parsed as prose."""
+    groups: tuple[tuple[tuple[int, int], ...], ...] = ()
+    """The same ranges, still grouped into the blocks they came from.
+
+    Paragraph-level rules must read these rather than ``spans``. A wrapped
+    paragraph reaches ``spans`` as one range per source line, and counting each
+    line as its own paragraph lets wrapping evade every paragraph threshold.
+    """
 
     def token(self, index: int) -> Token:
         return self.tokens[index]
@@ -306,6 +339,7 @@ def parse(
                     is_stop=token.is_stop,
                     is_punct=token.is_punct,
                     sentence_index=translate[provisional[token.i]],
+                    chunk_start=token.idx,
                 )
             )
 
@@ -324,6 +358,7 @@ def parse(
                     end=span_tokens[-1].end,
                     tokens=span_tokens,
                     root=base + span.root.i,
+                    chunk_start=kept[0].idx,
                 )
             )
 
@@ -332,4 +367,5 @@ def parse(
         sentences=tuple(sentences),
         tokens=tuple(tokens),
         spans=tuple(span for group in groups for span in group),
+        groups=groups,
     )
