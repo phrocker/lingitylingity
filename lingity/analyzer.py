@@ -493,10 +493,57 @@ def _directive_marker(document: Document, sentence: Sentence) -> tuple[str, int,
     return None
 
 
+def _directive_subjects(document: Document, verb: Token) -> list[Token]:
+    """Return the subjects of ``verb`` itself, not of every clause around it.
+
+    A conjunct inherits its subject from the verb it joins, so "the team must
+    review and must publish" carries one subject across both. Coordinated
+    subjects are included, because naming either actor names an actor.
+    """
+    current = verb
+    seen: set[int] = set()
+    while True:
+        subjects = [
+            child for child in document.children(current) if child.dep in SUBJECT_DEPS
+        ]
+        if subjects:
+            coordinated = [
+                grandchild
+                for subject in subjects
+                for grandchild in document.children(subject)
+                if grandchild.dep == "conj"
+            ]
+            return subjects + coordinated
+        if current.dep != "conj" or current.head == current.index:
+            return []
+        head = document.head_of(current)
+        if head.index in seen:
+            return []
+        seen.add(head.index)
+        current = head
+
+
 def _has_responsible_actor(
-    document: Document, sentence: Sentence, profile: Profile, strict: bool = False
+    document: Document,
+    sentence: Sentence,
+    profile: Profile,
+    strict: bool = False,
+    verb: Token | None = None,
 ) -> bool:
     actor_terms = _profile_words(profile, "actor_terms")
+    if strict and verb is not None:
+        # Only the directive's own subject can be its actor. A subject belonging
+        # to a surrounding clause names somebody who is speaking, not acting:
+        # in "customers say the market should prioritise retention" the market
+        # is still the one told to act.
+        for token in _directive_subjects(document, verb):
+            if _lemma(token) in actor_terms:
+                return True
+            if token.pos == "PRON" and _lemma(token) not in IMPERSONAL_SUBJECTS:
+                return True
+            if token.pos == "PROPN" or token.entity_type in {"ORG", "PERSON"}:
+                return True
+        return False
     for token in sentence.tokens:
         if token.dep in SUBJECT_DEPS and _lemma(token) in actor_terms:
             return True
@@ -523,7 +570,7 @@ def _actor_action_findings(document: Document, profile: Profile, agency_spans: l
         # "the market should prioritise retention" reports nothing and a
         # profile's choice of actor terms decides nothing.
         strict = bool(profile.thresholds.get("require_responsible_actor", 0))
-        if _has_responsible_actor(document, sentence, profile, strict):
+        if _has_responsible_actor(document, sentence, profile, strict, verb):
             continue
         if not strict and _has_overt_subject(document, verb):
             continue

@@ -79,19 +79,19 @@ def _jargon_fixture() -> dict[str, dict[str, Any]]:
     return cast(dict[str, dict[str, Any]], json.loads(path.read_text(encoding="utf-8")))
 
 
-def _fixture_cases() -> list[tuple[str, str, str]]:
+def _fixture_cases() -> list[tuple[str, str, tuple[str, ...]]]:
     return [
-        (surface, variant["lemma"], variant["example"])
+        (surface, variant["lemma"], tuple(variant["examples"]))
         for surface, entry in sorted(_jargon_fixture().items())
         for variant in entry["variants"]
     ]
 
 
 @pytest.mark.parametrize(
-    "surface,lemma,example", _fixture_cases(), ids=lambda value: str(value)[:40]
+    "surface,lemma,examples", _fixture_cases(), ids=lambda value: str(value)[:40]
 )
-def test_every_jargon_variant_fires_on_its_example(
-    surface: str, lemma: str, example: str
+def test_every_jargon_variant_fires_on_every_recorded_example(
+    surface: str, lemma: str, examples: tuple[str, ...]
 ) -> None:
     """A stored phrase that never matches is a rule nobody enforces.
 
@@ -103,18 +103,20 @@ def test_every_jargon_variant_fires_on_its_example(
     is pinned to a natural sentence that provably raises the finding.
     """
     strategy = load_profile("product-strategy")
-    findings = cast(
-        list[dict[str, JsonValue]], analyze_text(example, strategy)["findings"]
-    )
-    observed = [
-        cast(dict[str, JsonValue], finding["observed_value"])
-        for finding in findings
-        if finding["rule_id"] == "LING-JARGON-001"
-    ]
     classification = _jargon_fixture()[surface]["classification"]
-    # Assert the pair, not just the rule id: moving a phrase into the wrong
-    # user-visible category would otherwise leave this test green.
-    assert {"phrase": surface, "classification": classification} in observed
+    assert examples
+    for example in examples:
+        findings = cast(
+            list[dict[str, JsonValue]], analyze_text(example, strategy)["findings"]
+        )
+        observed = [
+            cast(dict[str, JsonValue], finding["observed_value"])
+            for finding in findings
+            if finding["rule_id"] == "LING-JARGON-001"
+        ]
+        # Assert the pair, not just the rule id: moving a phrase into the wrong
+        # user-visible category would otherwise leave this test green.
+        assert {"phrase": surface, "classification": classification} in observed, example
 
 
 def test_the_fixture_covers_every_jargon_phrase_in_the_profile(
@@ -125,7 +127,7 @@ def test_the_fixture_covers_every_jargon_phrase_in_the_profile(
         for phrases in cast(dict[str, list[str]], strategy.rules["jargon"]).values()
         for phrase in phrases
     }
-    covered = {lemma for _surface, lemma, _example in _fixture_cases()}
+    covered = {lemma for _surface, lemma, _examples in _fixture_cases()}
     assert stored == covered
 
 
@@ -174,6 +176,29 @@ def test_a_named_actor_clears_the_same_directive(strategy: Profile) -> None:
 def test_a_named_entity_elsewhere_is_not_the_actor(strategy: Profile) -> None:
     """The directive's subject decides, not any organisation in the sentence."""
     assert "LING-ACTOR-001" in _rule_ids("The market should sell to Acme.", strategy)
+
+
+def test_a_surrounding_clause_subject_is_not_the_actor(strategy: Profile) -> None:
+    """Somebody reporting the directive is not the one told to act."""
+    assert "LING-ACTOR-001" in _rule_ids(
+        "Customers say the market should prioritize retention.", strategy
+    )
+
+
+def test_the_directives_own_subject_still_clears_it(strategy: Profile) -> None:
+    assert "LING-ACTOR-001" not in _rule_ids(
+        "Customers say the team should prioritize retention.", strategy
+    )
+
+
+def test_a_coordinated_subject_names_an_actor(strategy: Profile) -> None:
+    """Naming either actor names an actor, in either order."""
+    assert "LING-ACTOR-001" not in _rule_ids(
+        "The team and the market should prioritize retention.", strategy
+    )
+    assert "LING-ACTOR-001" not in _rule_ids(
+        "The market and the team should prioritize retention.", strategy
+    )
 
 
 def test_the_stricter_gate_is_opt_in() -> None:
