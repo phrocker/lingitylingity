@@ -153,18 +153,32 @@ and how much it costs. Two profiles ship, and a project may install more.
 `architecture-review` reads review decisions. `product-strategy` reads need
 statements, value propositions, and positioning. The second weights agency and
 lexical clarity at 25 each and structure at 8, because a strategy document
-mostly fails by claiming something unfalsifiable, by claiming it without an
-actor, or by asserting a benefit with no mechanism behind it.
+mostly fails by claiming something unfalsifiable or by claiming it without
+naming who acts.
 
-`product-strategy` deliberately omits "market", "industry", and "space" from
-its actor terms. A sentence whose only actor is the market names nobody who can
-act, and the agency rules must keep reporting it.
+### A profile can require a recognised actor
 
-A profile stores no protected phrases. An earlier revision of
-`architecture-review` matched protected concepts against literal phrases, the
-fixture passed, and the gate understood nothing. `product-strategy` therefore
-declares an empty `protected_concepts` array and leaves protection to the
+`product-strategy` omits "market", "industry", and "space" from its actor terms.
+That omission decided nothing on its own. `LING-ACTOR-001` cleared a directive
+whenever the verb carried any overt subject, so "the market should prioritise
+retention" reported nothing and the profile's choice of actor terms never
+reached the rule.
+
+A profile may now set `require_responsible_actor`. Under that threshold a
+directive clears the rule only when its subject is an actor the profile
+recognises. `architecture-review` does not set it and behaves as before.
+
+`product-strategy` stores no protected phrases, and declares an empty
+`protected_concepts` array. `architecture-review` still carries one governance
+entry from before the phrase matching was removed. Protection belongs to the
 meaning gate, which reads claim signatures from the parse.
+
+Lingity does not detect a benefit asserted without a mechanism. The
+`purpose_markers` groups name a `mechanism` category, but the analyzer reads
+those groups only to report a sentence that mixes more than two purposes. It
+never reports an absent one. "Customers save ten hours each week" therefore
+passes, and a rule that reports it would be new analyzer work rather than
+profile vocabulary.
 
 ### Phrases are stored as lemmas, and a lemma is not the surface word
 

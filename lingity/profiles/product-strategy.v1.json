@@ -42,7 +42,8 @@
     "max_inline_list_items": 3,
     "max_sentence_purposes": 2,
     "max_qualifiers_per_sentence": 1,
-    "max_compound_parts": 3
+    "max_compound_parts": 3,
+    "require_responsible_actor": 1
   },
   "rules": {
     "nominalization_suffixes": [

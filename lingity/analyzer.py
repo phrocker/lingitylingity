@@ -13,7 +13,7 @@ from lingity.profiles import Profile, canonical_json, load_profile
 from lingity.scoring import calculate_hri
 from lingity.text import line_column
 
-ANALYZER_VERSION = "1.2.0"
+ANALYZER_VERSION = "1.3.0"
 
 RULE_DIMENSIONS = {
     "LING-SENTENCE-001": "sentence_load",
@@ -512,7 +512,14 @@ def _actor_action_findings(document: Document, profile: Profile, agency_spans: l
         if marker is None:
             continue
         label, _start, _end, verb = marker
-        if _has_overt_subject(document, verb) or _has_responsible_actor(document, sentence, profile):
+        if _has_responsible_actor(document, sentence, profile):
+            continue
+        # A profile may require that the subject of a directive be an actor the
+        # profile recognises. Without it, any overt noun satisfies the rule, so
+        # "the market should prioritise retention" reports nothing and a
+        # profile's choice of actor terms decides nothing.
+        strict = bool(profile.thresholds.get("require_responsible_actor", 0))
+        if not strict and _has_overt_subject(document, verb):
             continue
         if _overlaps(sentence.start, sentence.end, agency_spans):
             continue

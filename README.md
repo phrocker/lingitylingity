@@ -47,12 +47,17 @@ findings, risks, and review decisions that must remain precise while reading
 like professional human communication. `product-strategy` reads need
 statements, value propositions, positioning, and go-to-market plans.
 
-A strategy document fails differently from an architecture review. Its common
-defects are an unfalsifiable claim, a claim with no actor, and a benefit
-asserted without a mechanism, so `product-strategy` weights agency and lexical
-clarity highest and structure lowest. It also treats "the market", "the
-industry", and "the space" as non-actors, because a sentence whose only actor
-is the market names nobody who can act.
+A strategy document fails differently from an architecture review. It claims
+something unfalsifiable, or it claims it without naming who acts, so
+`product-strategy` weights agency and lexical clarity highest and structure
+lowest.
+
+It also sets `require_responsible_actor`. Under that threshold a directive must
+name an actor the profile recognises, rather than any noun at all, and
+`product-strategy` omits "market", "industry", and "space" from its actor
+terms. "The market should prioritize retention" therefore reports
+`LING-ACTOR-001`, because a sentence whose only actor is the market names
+nobody who can act.
 
 The difference is measurable. On the same hyped paragraph,
 `architecture-review` scores 88.65 and reports no jargon at all, while

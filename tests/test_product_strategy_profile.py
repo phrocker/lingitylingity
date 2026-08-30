@@ -88,7 +88,17 @@ def test_every_jargon_phrase_fires_on_its_example(surface: str) -> None:
     """
     entry = _jargon_fixture()[surface]
     strategy = load_profile("product-strategy")
-    assert "LING-JARGON-001" in _rule_ids(entry["example"], strategy)
+    findings = cast(
+        list[dict[str, JsonValue]], analyze_text(entry["example"], strategy)["findings"]
+    )
+    observed = [
+        cast(dict[str, JsonValue], finding["observed_value"])
+        for finding in findings
+        if finding["rule_id"] == "LING-JARGON-001"
+    ]
+    # Assert the pair, not just the rule id: moving a phrase into the wrong
+    # user-visible category would otherwise leave this test green.
+    assert {"phrase": surface, "classification": entry["classification"]} in observed
 
 
 def test_the_fixture_covers_every_jargon_phrase_in_the_profile(
@@ -115,6 +125,42 @@ def test_the_market_is_not_an_actor(strategy: Profile) -> None:
     actors = cast(list[str], strategy.rules["actor_terms"])
     for absent in ("market", "industry", "space", "ecosystem"):
         assert absent not in actors
+
+
+def test_a_market_only_directive_is_reported(strategy: Profile) -> None:
+    """Omitting a term from actor_terms must change what the analyzer reports.
+
+    Before `require_responsible_actor`, any overt subject cleared the rule, so
+    the omission above decided nothing and this profile's actor list was
+    decoration.
+    """
+    assert "LING-ACTOR-001" in _rule_ids("The market should prioritize retention.", strategy)
+    assert "LING-ACTOR-001" in _rule_ids("The industry should adopt the standard.", strategy)
+
+
+def test_a_named_actor_clears_the_same_directive(strategy: Profile) -> None:
+    assert "LING-ACTOR-001" not in _rule_ids("The team should prioritize retention.", strategy)
+    assert "LING-ACTOR-001" not in _rule_ids("The vendor should publish the limit.", strategy)
+
+
+def test_the_stricter_gate_is_opt_in() -> None:
+    """architecture-review does not set the threshold, so it must not change."""
+    architecture = load_profile("architecture-review")
+    assert "require_responsible_actor" not in architecture.thresholds
+    assert "LING-ACTOR-001" not in _rule_ids(
+        "The market should prioritize retention.", architecture
+    )
+
+
+def test_a_benefit_without_a_mechanism_is_not_detected(strategy: Profile) -> None:
+    """Documents a gap rather than a feature.
+
+    The purpose_markers groups name a mechanism category, but the analyzer
+    reads those groups only to report a sentence mixing more than two purposes.
+    It never reports an absent one. This test fails the day that changes, which
+    is the point.
+    """
+    assert _rule_ids("Customers save ten hours each week.", strategy) == set()
 
 
 def test_a_named_role_is_an_actor(strategy: Profile) -> None:
@@ -149,7 +195,7 @@ def test_it_catches_hype_that_the_architecture_profile_certifies() -> None:
 
 def test_specific_prose_survives_the_profile(strategy: Profile) -> None:
     """Naming a number, an actor, and a limit must not be penalised."""
-    assert _score(SPECIFIC, strategy) >= 95.0
+    assert _score(SPECIFIC, strategy) == 100.0
 
 
 def test_analysis_is_deterministic_under_the_profile(strategy: Profile) -> None:
