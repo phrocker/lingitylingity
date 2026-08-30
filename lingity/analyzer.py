@@ -11,8 +11,9 @@ from lingity.markdown import (
     block_counts,
     inline_code_spans,
     opaque_spans,
+    parser_fingerprint,
     prose_spans,
-    segment,
+    segment_source,
 )
 from lingity.models import Finding, JsonValue, Location
 from lingity.nlp import Document, Sentence, Token, model_fingerprint, parse
@@ -20,7 +21,7 @@ from lingity.profiles import Profile, canonical_json, load_profile
 from lingity.scoring import calculate_hri
 from lingity.text import line_column
 
-ANALYZER_VERSION = "1.3.0"
+ANALYZER_VERSION = "1.4.0"
 
 RULE_DIMENSIONS = {
     "LING-SENTENCE-001": "sentence_load",
@@ -1311,11 +1312,16 @@ def analyze_text(text: str, profile: Profile | None = None) -> dict[str, JsonVal
     if not text.strip():
         raise ValueError("Input text must not be empty")
     selected_profile = profile or load_profile()
-    blocks = segment(text)
-    document = parse(text, spans=prose_spans(blocks))
+    segmentation = segment_source(text)
+    blocks = segmentation.blocks
+    readable = prose_spans(blocks)
+    document = parse(text, spans=readable)
+    flattened = tuple(span for group in readable for span in group)
     # An identifier written as code is a name a rewrite must not change, so a
-    # finding wholly inside one reports a defect no candidate may fix.
-    protected_spans = opaque_spans(blocks) + inline_code_spans(text)
+    # finding wholly inside one reports a defect no candidate may fix. The scan
+    # is per block: a code span cannot cross one, and an unmatched backtick
+    # would otherwise protect everything up to the next backtick anywhere.
+    protected_spans = opaque_spans(blocks) + inline_code_spans(text, flattened)
     sentence_records, findings = _analyze_sentences(document, selected_profile)
 
     hidden_agency_findings = _hidden_agency_findings(document, selected_profile)
@@ -1384,8 +1390,11 @@ def analyze_text(text: str, profile: Profile | None = None) -> dict[str, JsonVal
         "profile": selected_profile.reference(),
         "ingest": {
             "mode": "markdown",
+            "parser": cast(dict[str, JsonValue], parser_fingerprint()),
             "blocks": cast(dict[str, JsonValue], block_counts(blocks)),
             "analyzed_characters": sum(end - start for start, end in document.spans),
+            "unresolved_lines": segmentation.unresolved_lines,
+            "uncovered_lines": segmentation.uncovered_lines,
         },
         "source": {
             "text": text,
