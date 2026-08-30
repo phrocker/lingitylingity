@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          # Caches ~/.cache/pip, keyed on the interpreter and on the hash of
+          # pyproject.toml. That covers the pinned en_core_web_sm wheel too:
+          # pip stores direct-URL downloads in the same HTTP cache as any other
+          # wheel, so the 12.8 MB model is fetched once per dependency change
+          # rather than once per run.
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Restore NLTK corpora
+        id: nltk-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/nltk_data
+          # The key names the corpora it holds; keep it in step with the
+          # download below. The corpora are plain data files and do not depend
+          # on the interpreter, so both matrix legs share one entry.
+          key: nltk-${{ runner.os }}-wordnet-omw-1.4
+
+      - name: Install package and dev dependencies
+        # Installs the pinned en_core_web_sm 3.8.0 wheel declared in
+        # pyproject.toml. Deliberately not `python -m spacy download`, which
+        # resolves whatever model version is current at run time; lingity/nlp.py
+        # requires exactly 3.8.0 and fails closed on anything else.
+        run: python -m pip install -e '.[dev]'
+
+      - name: Download NLTK corpora
+        if: steps.nltk-cache.outputs.cache-hit != 'true'
+        run: python -m nltk.downloader wordnet omw-1.4
+
+      - name: Tests
+        run: python -m pytest
+
+      - name: Types
+        run: python -m mypy
+
+      - name: Byte-compile
+        run: python -m compileall -q lingity tests
