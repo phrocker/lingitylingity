@@ -29,10 +29,13 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           # Caches ~/.cache/pip, keyed on the interpreter and on the hash of
-          # pyproject.toml. That covers the pinned en_core_web_sm wheel too:
-          # pip stores direct-URL downloads in the same HTTP cache as any other
-          # wheel, so the 12.8 MB model is fetched once per dependency change
-          # rather than once per run.
+          # pyproject.toml, so wheels resolved from PyPI are restored instead of
+          # refetched. It does not cover the pinned en_core_web_sm wheel: that is
+          # a direct-URL dependency, and pip refetches it on every run even with
+          # the cache restored -- observed on a runner, where a warm run reports
+          # "Using cached" for every other wheel and "Downloading" for that one.
+          # At 12.8 MB pulled in about 0.2 s it does not earn a cache step of its
+          # own; the model is instead kept honest by being pinned.
           cache: pip
           cache-dependency-path: pyproject.toml
 
