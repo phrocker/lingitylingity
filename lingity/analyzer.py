@@ -21,7 +21,7 @@ from lingity.profiles import Profile, canonical_json, load_profile
 from lingity.scoring import calculate_hri
 from lingity.text import line_column
 
-ANALYZER_VERSION = "1.4.0"
+ANALYZER_VERSION = "1.5.0"
 
 RULE_DIMENSIONS = {
     "LING-SENTENCE-001": "sentence_load",
@@ -573,6 +573,20 @@ def _actor_action_findings(document: Document, profile: Profile, agency_spans: l
         if marker is None:
             continue
         label, _start, _end, verb = marker
+        # In some genres an absent subject is a convention rather than a defect.
+        # A resume bullet drops the subject on every line, so "Led the migration"
+        # names the author as surely as "I led the migration" does. A profile may
+        # therefore read a directive that carries no subject at all as the work
+        # of the author.
+        #
+        # The permission is deliberately narrow. It reaches only the clause whose
+        # subject is missing, so it can suppress LING-ACTOR-001 and nothing else.
+        # Passive voice is reported by LING-AGENCY-001 from a separate pass, and
+        # "was responsible for the migration" stays a finding: a resume written
+        # in the passive hides the work, which is what this reading exists to
+        # expose rather than excuse.
+        if bool(profile.thresholds.get("allow_implied_first_person", 0)) and not _directive_subjects(document, verb):
+            continue
         # A profile may require that the subject of a directive be an actor the
         # profile recognises. Without it, any overt noun satisfies the rule, so
         # "the market should prioritise retention" reports nothing and a
