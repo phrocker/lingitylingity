@@ -188,3 +188,84 @@ def test_thematic_breaks_carry_no_prose() -> None:
     rule_block = next(block for block in blocks if block.kind == "rule")
     assert rule_block.content_start == rule_block.content_end
     assert isinstance(rule_block, Block)
+
+
+# Regressions from review. Each of these silently dropped prose from the
+# analysis or leaked markup into it, and neither failure raises anything.
+
+
+def test_a_heading_keeps_a_trailing_hash_that_belongs_to_a_word() -> None:
+    source = "### Use C#\n"
+    heading = segment(source)[0]
+    assert source[heading.content_start : heading.content_end] == "Use C#"
+
+
+def test_a_heading_drops_a_whitespace_delimited_closing_sequence() -> None:
+    source = "### Required actions ###\n"
+    heading = segment(source)[0]
+    assert source[heading.content_start : heading.content_end] == "Required actions"
+
+
+def test_a_heading_with_no_title_carries_no_content() -> None:
+    blocks = segment("###\n")
+    assert blocks[0].kind == "heading"
+    assert blocks[0].content_start == blocks[0].content_end
+
+
+def test_a_short_fence_does_not_close_a_longer_one() -> None:
+    source = "````\nThe owner must act.\n```\nstill code\n````\n\nThe reviewer must confirm.\n"
+    parsed = parse(source, spans=prose_spans(segment(source)))
+    assert [sentence.text for sentence in parsed.sentences] == [
+        "The reviewer must confirm."
+    ]
+
+
+def test_an_info_string_does_not_close_a_fence() -> None:
+    source = "```\nfirst\n```python\nsecond\n```\n\nThe reviewer must confirm.\n"
+    parsed = parse(source, spans=prose_spans(segment(source)))
+    assert [sentence.text for sentence in parsed.sentences] == [
+        "The reviewer must confirm."
+    ]
+
+
+def test_a_tilde_fence_does_not_close_a_backtick_fence() -> None:
+    source = "```\nfirst\n~~~\nsecond\n```\n\nThe reviewer must confirm.\n"
+    parsed = parse(source, spans=prose_spans(segment(source)))
+    assert [sentence.text for sentence in parsed.sentences] == [
+        "The reviewer must confirm."
+    ]
+
+
+def test_a_spaced_thematic_break_is_not_a_list_item() -> None:
+    assert [block.kind for block in segment("* * *\n")] == ["rule"]
+    assert [block.kind for block in segment("- - -\n")] == ["rule"]
+    assert [block.kind for block in segment("* item\n")] == ["list_item"]
+
+
+def test_every_blockquote_marker_stays_out_of_the_parse() -> None:
+    source = "> The owner must act.\n> The reviewer must confirm.\n"
+    blocks = segment(source)
+    assert [block.kind for block in blocks] == ["blockquote", "blockquote"]
+    for block in blocks:
+        assert ">" not in source[block.content_start : block.content_end]
+    parsed = parse(source, spans=prose_spans(blocks))
+    for sentence in parsed.sentences:
+        assert ">" not in sentence.text
+
+
+def test_a_delimiter_row_counts_only_beneath_its_header() -> None:
+    source = "--- | ---\nThe owner must act before sign-off.\n"
+    blocks = segment(source)
+    assert not [block for block in blocks if block.kind == "table"]
+    parsed = parse(source, spans=prose_spans(blocks))
+    assert any("The owner must act" in sentence.text for sentence in parsed.sentences)
+
+
+def test_a_two_hyphen_row_is_not_a_table_delimiter() -> None:
+    source = "Owner | Status\n-- | --\nThe owner must act.\n"
+    assert not [block for block in segment(source) if block.kind == "table"]
+
+
+def test_a_real_table_is_still_detected() -> None:
+    source = "| Owner | Status |\n| --- | --- |\n| platform team | open |\n"
+    assert [block.kind for block in segment(source)] == ["table"]

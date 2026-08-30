@@ -41,11 +41,15 @@ OPAQUE_KINDS: frozenset[str] = frozenset({"table", "code", "rule"})
 """Kinds that carry structure or literals rather than sentences."""
 
 _FENCE = re.compile(r"^ {0,3}(?P<fence>`{3,}|~{3,})")
-_ATX = re.compile(r"^ {0,3}(?P<hashes>#{1,6})(?P<gap>\s+)(?P<title>.*?)(?P<trail>\s*#*\s*)$")
-_RULE = re.compile(r"^ {0,3}(?:-{3,}|\*{3,}|_{3,}|={3,})\s*$")
+_ATX = re.compile(
+    r"^ {0,3}(?P<hashes>#{1,6})(?:[ \t]+(?P<title>.*?))?(?:[ \t]+#+)?[ \t]*$"
+)
+_RULE = re.compile(
+    r"^ {0,3}(?:(?:-[ \t]*){3,}|(?:\*[ \t]*){3,}|(?:_[ \t]*){3,}|={3,}[ \t]*)$"
+)
 _MARKER = re.compile(r"^(?P<indent> *)(?P<marker>[-*+]|\d{1,9}[.)])(?P<gap> +)")
 _QUOTE = re.compile(r"^(?P<indent> {0,3})>(?P<gap> ?)")
-_TABLE_DELIM = re.compile(r"^ {0,3}\|?(?:\s*:?-{2,}:?\s*\|)+\s*:?-{2,}:?\s*\|?\s*$")
+_TABLE_DELIM = re.compile(r"^ {0,3}\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*$")
 
 
 @dataclass(frozen=True)
@@ -86,35 +90,66 @@ def _scan_lines(text: str) -> list[_Line]:
 
 
 def _fence_kinds(lines: list[_Line]) -> list[bool]:
-    """Mark every line that a fenced code block encloses, fences included."""
+    """Mark every line a fenced code block encloses, fences included.
+
+    A closing fence must repeat the opener's marker, run at least as long as
+    the opener, and carry no info string. Without all three, a ``` line closes
+    a ```` block and a ```python line inside one closes it early, after which
+    the remaining code is scored as prose.
+    """
     inside = False
-    opener = ""
+    marker = ""
+    width = 0
     flags: list[bool] = []
     for line in lines:
         match = _FENCE.match(line.text)
         if not inside:
             if match:
                 inside = True
-                opener = match.group("fence")[0] * 3
+                marker = match.group("fence")[0]
+                width = len(match.group("fence"))
                 flags.append(True)
                 continue
             flags.append(False)
             continue
         flags.append(True)
-        if match and match.group("fence").startswith(opener):
+        if not match:
+            continue
+        fence = match.group("fence")
+        closes = (
+            fence[0] == marker
+            and len(fence) >= width
+            and not line.text[match.end():].strip()
+        )
+        if closes:
             inside = False
     return flags
 
 
 def _table_flags(lines: list[_Line], fenced: list[bool]) -> list[bool]:
-    """Mark runs of pipe-bearing lines that a delimiter row confirms as a table."""
+    """Mark the rows of a GFM table.
+
+    The delimiter row counts only when it sits directly beneath the header row.
+    Accepting one anywhere in a pipe-bearing run hides every line of that run,
+    so a paragraph that merely contains a pipe would leave the analysis without
+    raising anything.
+    """
     flags = [False] * len(lines)
     index = 0
     while index < len(lines):
-        if fenced[index] or "|" not in lines[index].text:
+        header = lines[index]
+        if fenced[index] or "|" not in header.text or not header.text.strip():
             index += 1
             continue
-        run_end = index
+        delimiter = index + 1
+        if (
+            delimiter >= len(lines)
+            or fenced[delimiter]
+            or not _TABLE_DELIM.match(lines[delimiter].text)
+        ):
+            index += 1
+            continue
+        run_end = delimiter + 1
         while (
             run_end < len(lines)
             and not fenced[run_end]
@@ -122,10 +157,9 @@ def _table_flags(lines: list[_Line], fenced: list[bool]) -> list[bool]:
             and lines[run_end].text.strip()
         ):
             run_end += 1
-        if any(_TABLE_DELIM.match(lines[position].text) for position in range(index, run_end)):
-            for position in range(index, run_end):
-                flags[position] = True
-        index = max(run_end, index + 1)
+        for position in range(index, run_end):
+            flags[position] = True
+        index = run_end
     return flags
 
 
@@ -136,6 +170,8 @@ def _classify(line: _Line) -> tuple[BlockKind, int, int | None]:
         return "rule", line.end, line.end
     heading = _ATX.match(line.text)
     if heading:
+        if heading.group("title") is None:
+            return "heading", line.end, line.end
         return (
             "heading",
             line.start + heading.start("title"),
@@ -187,7 +223,9 @@ def segment(text: str) -> tuple[Block, ...]:
         else:
             kind, content_start, fixed_end = _classify(line)
 
-        opens_own_block = kind in {"heading", "list_item", "rule"}
+        # A blockquote opens its own block per line. Grouping them would leave
+        # every marker after the first inside the readable span.
+        opens_own_block = kind in {"heading", "list_item", "rule", "blockquote"}
         if open_kind is None or kind != open_kind or opens_own_block:
             close()
             open_kind = kind
