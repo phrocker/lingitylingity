@@ -144,6 +144,82 @@ records the parser name, version, runtime, and digest as `linguistic_model`
 inside the hashed analysis artifact. Verification rejects an artifact produced
 by a different pipeline rather than re-analysing it under new assumptions.
 
+## Profiles
+
+A profile carries the weights, thresholds, and vocabulary for one kind of
+document. The analyzer is shared; the profile decides what counts as a defect
+and how much it costs. Two profiles ship, and a project may install more.
+
+`architecture-review` reads review decisions. `product-strategy` reads need
+statements, value propositions, and positioning. The second weights agency and
+lexical clarity at 25 each and structure at 8, because a strategy document
+mostly fails by claiming something unfalsifiable or by claiming it without
+naming who acts.
+
+### A profile can require a recognised actor
+
+`product-strategy` omits "market", "industry", and "space" from its actor terms.
+That omission decided nothing on its own. `LING-ACTOR-001` cleared a directive
+whenever the verb carried any overt subject, so "the market should prioritise
+retention" reported nothing and the profile's choice of actor terms never
+reached the rule.
+
+A profile may now set `require_responsible_actor`. Under that threshold a
+directive clears the rule only when its subject is an actor the profile
+recognises. `architecture-review` does not set it and behaves as before.
+
+`product-strategy` stores no protected phrases, and declares an empty
+`protected_concepts` array. `architecture-review` still carries one governance
+entry from before the phrase matching was removed. Protection belongs to the
+meaning gate, which reads claim signatures from the parse.
+
+Lingity does not detect a benefit asserted without a mechanism. The
+`purpose_markers` groups name a `mechanism` category, but the analyzer reads
+those groups only to report a sentence that mixes more than two purposes. It
+never reports an absent one. "Customers save ten hours each week" therefore
+passes, and a rule that reports it would be new analyzer work rather than
+profile vocabulary.
+
+### Phrases are stored as lemmas, and a lemma is not the surface word
+
+The phrase rules match lemma sequences, so a phrase stored the way an author
+types it can silently fail to fire. Many entries are unaffected: "world class"
+lemmatises to itself. The failure appears wherever the lemma differs, and the
+pinned pipeline lemmatises "cutting edge" to "cut edge". A phrase list derived
+by eye therefore ships some rules that are dead, and a passing suite says
+nothing about it, because a rule that never matches breaks nothing.
+
+A lemma also depends on the grammatical role the phrase takes, which is the
+subtler trap. "Thought leadership" lemmatises to "thought leadership" as a
+subject and to "think leadership" after a copula, because the parser reads
+"thought" as a noun in one and a verb in the other. "Best in class" produces
+three forms across its roles. Pinning a phrase to a single carrier therefore
+ships a rule that fires in one construction and stays silent everywhere else,
+and an unnatural carrier pins the form that real prose never produces.
+
+Every jargon phrase in `product-strategy` is exercised against six carriers
+spanning subject, object, prepositional object, complement, and verb positions.
+Every distinct lemma that fires is stored, and
+`tests/fixtures/product-strategy-jargon.json` records each one beside every
+carrier it fired in.
+
+The guarantee the fixture provides is therefore narrow and exact: each stored
+lemma raises the finding on every sentence recorded against it, and no lemma is
+stored without at least one. 46 lemmas cover 41 phrases, 37 of them fire in all
+six carriers, and four phrases are role-dependent and store more than one lemma.
+The carriers are uniform rather than idiomatic, so a recorded sentence
+demonstrates that a rule fires, not that the phrasing is one an author would
+write.
+
+A test asserts that the fixture and the profile cover exactly the same lemma
+set, so a phrase added without a demonstration fails the suite, and a reader who
+"corrects" a lemma back to its surface spelling fails it too.
+
+One phrase was dropped rather than shipped. The pinned pipeline lemmatises
+"force multiplier" to "force multipli", which matches correctly but reads as a
+typo, so a future reader would repair it and silence the rule. A phrase that
+cannot be stored legibly is not worth the maintenance hazard.
+
 ## Scoring
 
 The score is an explanation aid, not the acceptance authority.

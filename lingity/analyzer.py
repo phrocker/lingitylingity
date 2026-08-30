@@ -13,7 +13,7 @@ from lingity.profiles import Profile, canonical_json, load_profile
 from lingity.scoring import calculate_hri
 from lingity.text import line_column
 
-ANALYZER_VERSION = "1.2.0"
+ANALYZER_VERSION = "1.3.0"
 
 RULE_DIMENSIONS = {
     "LING-SENTENCE-001": "sentence_load",
@@ -493,8 +493,57 @@ def _directive_marker(document: Document, sentence: Sentence) -> tuple[str, int,
     return None
 
 
-def _has_responsible_actor(document: Document, sentence: Sentence, profile: Profile) -> bool:
+def _directive_subjects(document: Document, verb: Token) -> list[Token]:
+    """Return the subjects of ``verb`` itself, not of every clause around it.
+
+    A conjunct inherits its subject from the verb it joins, so "the team must
+    review and must publish" carries one subject across both. Coordinated
+    subjects are included, because naming either actor names an actor.
+    """
+    current = verb
+    seen: set[int] = set()
+    while True:
+        subjects = [
+            child for child in document.children(current) if child.dep in SUBJECT_DEPS
+        ]
+        if subjects:
+            coordinated = [
+                grandchild
+                for subject in subjects
+                for grandchild in document.children(subject)
+                if grandchild.dep == "conj"
+            ]
+            return subjects + coordinated
+        if current.dep != "conj" or current.head == current.index:
+            return []
+        head = document.head_of(current)
+        if head.index in seen:
+            return []
+        seen.add(head.index)
+        current = head
+
+
+def _has_responsible_actor(
+    document: Document,
+    sentence: Sentence,
+    profile: Profile,
+    strict: bool = False,
+    verb: Token | None = None,
+) -> bool:
     actor_terms = _profile_words(profile, "actor_terms")
+    if strict and verb is not None:
+        # Only the directive's own subject can be its actor. A subject belonging
+        # to a surrounding clause names somebody who is speaking, not acting:
+        # in "customers say the market should prioritise retention" the market
+        # is still the one told to act.
+        for token in _directive_subjects(document, verb):
+            if _lemma(token) in actor_terms:
+                return True
+            if token.pos == "PRON" and _lemma(token) not in IMPERSONAL_SUBJECTS:
+                return True
+            if token.pos == "PROPN" or token.entity_type in {"ORG", "PERSON"}:
+                return True
+        return False
     for token in sentence.tokens:
         if token.dep in SUBJECT_DEPS and _lemma(token) in actor_terms:
             return True
@@ -502,6 +551,10 @@ def _has_responsible_actor(document: Document, sentence: Sentence, profile: Prof
             return True
         if token.dep in SUBJECT_DEPS and token.pos == "PROPN":
             return True
+    if strict:
+        # A named organisation elsewhere in the sentence does not perform the
+        # directive. "The market should sell to Acme" still names nobody who acts.
+        return False
     return any(token.pos == "PROPN" and token.entity_type in {"ORG", "PERSON"} for token in sentence.tokens)
 
 
@@ -512,7 +565,14 @@ def _actor_action_findings(document: Document, profile: Profile, agency_spans: l
         if marker is None:
             continue
         label, _start, _end, verb = marker
-        if _has_overt_subject(document, verb) or _has_responsible_actor(document, sentence, profile):
+        # A profile may require that the subject of a directive be an actor the
+        # profile recognises. Without it, any overt noun satisfies the rule, so
+        # "the market should prioritise retention" reports nothing and a
+        # profile's choice of actor terms decides nothing.
+        strict = bool(profile.thresholds.get("require_responsible_actor", 0))
+        if _has_responsible_actor(document, sentence, profile, strict, verb):
+            continue
+        if not strict and _has_overt_subject(document, verb):
             continue
         if _overlaps(sentence.start, sentence.end, agency_spans):
             continue
@@ -884,6 +944,12 @@ def _list_suitability_findings(document: Document, profile: Profile) -> list[Fin
     return findings
 
 
+def _join_labels(labels: list[str]) -> str:
+    if len(labels) == 1:
+        return labels[0]
+    return f"{', '.join(labels[:-1])} and {labels[-1]}"
+
+
 def _mixed_purpose_findings(document: Document, profile: Profile) -> list[Finding]:
     findings: list[Finding] = []
     purpose_markers = cast(dict[str, list[str]], profile.rules["purpose_markers"])
@@ -903,7 +969,10 @@ def _mixed_purpose_findings(document: Document, profile: Profile) -> list[Findin
                 _location(document.text, sentence.start, sentence.end, sentence.index),
                 {"purposes": cast(list[JsonValue], purposes), "count": len(purposes)},
                 threshold,
-                "Separate the decision, remediation work, evidence, and exit criteria into distinct sentences or bullets.",
+                # Name the purposes this profile actually matched. Naming a fixed
+                # set sends a strategy author guidance about exit criteria.
+                f"Separate the {_join_labels(purposes)} statements into distinct "
+                "sentences or bullets.",
                 min(14.0, (len(purposes) - threshold) * 4.0),
             )
         )

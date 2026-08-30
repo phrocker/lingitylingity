@@ -42,9 +42,27 @@ source text
   -> accept, iterate, reject, or require human review
 ```
 
-The first target profile is `architecture-review`: recommendations, ADR
-summaries, findings, risks, and review decisions that must remain precise while
-reading like professional human communication.
+Two profiles ship. `architecture-review` reads recommendations, ADR summaries,
+findings, risks, and review decisions that must remain precise while reading
+like professional human communication. `product-strategy` reads need
+statements, value propositions, positioning, and go-to-market plans.
+
+A strategy document fails differently from an architecture review. It claims
+something unfalsifiable, or it claims it without naming who acts, so
+`product-strategy` weights agency and lexical clarity highest and structure
+lowest.
+
+It also sets `require_responsible_actor`. Under that threshold a directive must
+name an actor the profile recognises, rather than any noun at all, and
+`product-strategy` omits "market", "industry", and "space" from its actor
+terms. "The market should prioritize retention" therefore reports
+`LING-ACTOR-001`, because a sentence whose only actor is the market names
+nobody who can act.
+
+The difference is measurable. On the same hyped paragraph,
+`architecture-review` scores 88.65 and reports no jargon at all, while
+`product-strategy` scores 69.53 and reports five jargon findings. Neither
+profile penalises prose that names a number, an actor, and a limit.
 
 ## CLI
 

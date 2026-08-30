@@ -1,0 +1,683 @@
+{
+  "best in class": {
+    "classification": "unfalsifiable superlative",
+    "variants": [
+      {
+        "examples": [
+          "The plan will best in class this quarter."
+        ],
+        "lemma": "best in class"
+      },
+      {
+        "examples": [
+          "Our best in class attracts buyers.",
+          "The product is best in class.",
+          "Every buyer expects best in class from us."
+        ],
+        "lemma": "good in class"
+      },
+      {
+        "examples": [
+          "We ship best in class to customers.",
+          "The team relies on best in class."
+        ],
+        "lemma": "well in class"
+      }
+    ]
+  },
+  "best of breed": {
+    "classification": "unfalsifiable superlative",
+    "variants": [
+      {
+        "examples": [
+          "Our best of breed attracts buyers.",
+          "The team relies on best of breed.",
+          "The product is best of breed.",
+          "Every buyer expects best of breed from us."
+        ],
+        "lemma": "good of breed"
+      },
+      {
+        "examples": [
+          "We ship best of breed to customers.",
+          "The plan will best of breed this quarter."
+        ],
+        "lemma": "well of breed"
+      }
+    ]
+  },
+  "boil the ocean": {
+    "classification": "consultant abstraction",
+    "variants": [
+      {
+        "examples": [
+          "Our boil the ocean attracts buyers.",
+          "We ship boil the ocean to customers.",
+          "The team relies on boil the ocean.",
+          "The product is boil the ocean.",
+          "The plan will boil the ocean this quarter.",
+          "Every buyer expects boil the ocean from us."
+        ],
+        "lemma": "boil the ocean"
+      }
+    ]
+  },
+  "bulletproof": {
+    "classification": "unfalsifiable superlative",
+    "variants": [
+      {
+        "examples": [
+          "Our bulletproof attracts buyers.",
+          "We ship bulletproof to customers.",
+          "The team relies on bulletproof.",
+          "The product is bulletproof.",
+          "The plan will bulletproof this quarter.",
+          "Every buyer expects bulletproof from us."
+        ],
+        "lemma": "bulletproof"
+      }
+    ]
+  },
+  "core competency": {
+    "classification": "consultant abstraction",
+    "variants": [
+      {
+        "examples": [
+          "Our core competency attracts buyers.",
+          "We ship core competency to customers.",
+          "The team relies on core competency.",
+          "The product is core competency.",
+          "The plan will core competency this quarter.",
+          "Every buyer expects core competency from us."
+        ],
+        "lemma": "core competency"
+      }
+    ]
+  },
+  "cutting edge": {
+    "classification": "unfalsifiable superlative",
+    "variants": [
+      {
+        "examples": [
+          "Our cutting edge attracts buyers.",
+          "We ship cutting edge to customers.",
+          "The team relies on cutting edge.",
+          "The product is cutting edge.",
+          "The plan will cutting edge this quarter.",
+          "Every buyer expects cutting edge from us."
+        ],
+        "lemma": "cut edge"
+      }
+    ]
+  },
+  "differentiated offering": {
+    "classification": "vague differentiator",
+    "variants": [
+      {
+        "examples": [
+          "The plan will differentiated offering this quarter."
+        ],
+        "lemma": "differentiate offer"
+      },
+      {
+        "examples": [
+          "Our differentiated offering attracts buyers.",
+          "We ship differentiated offering to customers.",
+          "The team relies on differentiated offering.",
+          "The product is differentiated offering.",
+          "Every buyer expects differentiated offering from us."
+        ],
+        "lemma": "differentiate offering"
+      }
+    ]
+  },
+  "frictionless": {
+    "classification": "unfalsifiable superlative",
+    "variants": [
+      {
+        "examples": [
+          "Our frictionless attracts buyers.",
+          "We ship frictionless to customers.",
+          "The team relies on frictionless.",
+          "The product is frictionless.",
+          "The plan will frictionless this quarter.",
+          "Every buyer expects frictionless from us."
+        ],
+        "lemma": "frictionless"
+      }
+    ]
+  },
+  "game changer": {
+    "classification": "unfalsifiable superlative",
+    "variants": [
+      {
+        "examples": [
+          "Our game changer attracts buyers.",
+          "We ship game changer to customers.",
+          "The team relies on game changer.",
+          "The product is game changer.",
+          "The plan will game changer this quarter.",
+          "Every buyer expects game changer from us."
+        ],
+        "lemma": "game changer"
+      }
+    ]
+  },
+  "game changing": {
+    "classification": "unfalsifiable superlative",
+    "variants": [
+      {
+        "examples": [
+          "Our game changing attracts buyers.",
+          "We ship game changing to customers.",
+          "The team relies on game changing.",
+          "The product is game changing.",
+          "The plan will game changing this quarter.",
+          "Every buyer expects game changing from us."
+        ],
+        "lemma": "game change"
+      }
+    ]
+  },
+  "growth hack": {
+    "classification": "growth cliche",
+    "variants": [
+      {
+        "examples": [
+          "Our growth hack attracts buyers.",
+          "We ship growth hack to customers.",
+          "The team relies on growth hack.",
+          "The product is growth hack.",
+          "The plan will growth hack this quarter.",
+          "Every buyer expects growth hack from us."
+        ],
+        "lemma": "growth hack"
+      }
+    ]
+  },
+  "hockey stick": {
+    "classification": "growth cliche",
+    "variants": [
+      {
+        "examples": [
+          "Our hockey stick attracts buyers.",
+          "We ship hockey stick to customers.",
+          "The team relies on hockey stick.",
+          "The product is hockey stick.",
+          "The plan will hockey stick this quarter.",
+          "Every buyer expects hockey stick from us."
+        ],
+        "lemma": "hockey stick"
+      }
+    ]
+  },
+  "holistic solution": {
+    "classification": "consultant abstraction",
+    "variants": [
+      {
+        "examples": [
+          "Our holistic solution attracts buyers.",
+          "We ship holistic solution to customers.",
+          "The team relies on holistic solution.",
+          "The product is holistic solution.",
+          "The plan will holistic solution this quarter.",
+          "Every buyer expects holistic solution from us."
+        ],
+        "lemma": "holistic solution"
+      }
+    ]
+  },
+  "industry leading": {
+    "classification": "unfalsifiable superlative",
+    "variants": [
+      {
+        "examples": [
+          "Our industry leading attracts buyers.",
+          "We ship industry leading to customers.",
+          "The team relies on industry leading.",
+          "The product is industry leading.",
+          "The plan will industry leading this quarter.",
+          "Every buyer expects industry leading from us."
+        ],
+        "lemma": "industry lead"
+      }
+    ]
+  },
+  "land and expand": {
+    "classification": "growth cliche",
+    "variants": [
+      {
+        "examples": [
+          "Our land and expand attracts buyers.",
+          "We ship land and expand to customers.",
+          "The team relies on land and expand.",
+          "The product is land and expand.",
+          "The plan will land and expand this quarter.",
+          "Every buyer expects land and expand from us."
+        ],
+        "lemma": "land and expand"
+      }
+    ]
+  },
+  "low hanging fruit": {
+    "classification": "consultant abstraction",
+    "variants": [
+      {
+        "examples": [
+          "Our low hanging fruit attracts buyers.",
+          "We ship low hanging fruit to customers.",
+          "The team relies on low hanging fruit.",
+          "The product is low hanging fruit.",
+          "The plan will low hanging fruit this quarter.",
+          "Every buyer expects low hanging fruit from us."
+        ],
+        "lemma": "low hang fruit"
+      }
+    ]
+  },
+  "move the needle": {
+    "classification": "consultant abstraction",
+    "variants": [
+      {
+        "examples": [
+          "Our move the needle attracts buyers.",
+          "We ship move the needle to customers.",
+          "The team relies on move the needle.",
+          "The product is move the needle.",
+          "The plan will move the needle this quarter.",
+          "Every buyer expects move the needle from us."
+        ],
+        "lemma": "move the needle"
+      }
+    ]
+  },
+  "next generation": {
+    "classification": "unfalsifiable superlative",
+    "variants": [
+      {
+        "examples": [
+          "Our next generation attracts buyers.",
+          "We ship next generation to customers.",
+          "The team relies on next generation.",
+          "The product is next generation.",
+          "The plan will next generation this quarter.",
+          "Every buyer expects next generation from us."
+        ],
+        "lemma": "next generation"
+      }
+    ]
+  },
+  "operationalize": {
+    "classification": "consultant abstraction",
+    "variants": [
+      {
+        "examples": [
+          "Our operationalize attracts buyers.",
+          "We ship operationalize to customers.",
+          "The team relies on operationalize.",
+          "The product is operationalize.",
+          "The plan will operationalize this quarter.",
+          "Every buyer expects operationalize from us."
+        ],
+        "lemma": "operationalize"
+      }
+    ]
+  },
+  "paradigm shift": {
+    "classification": "consultant abstraction",
+    "variants": [
+      {
+        "examples": [
+          "Our paradigm shift attracts buyers.",
+          "We ship paradigm shift to customers.",
+          "The team relies on paradigm shift.",
+          "The product is paradigm shift.",
+          "The plan will paradigm shift this quarter.",
+          "Every buyer expects paradigm shift from us."
+        ],
+        "lemma": "paradigm shift"
+      }
+    ]
+  },
+  "rocket ship": {
+    "classification": "growth cliche",
+    "variants": [
+      {
+        "examples": [
+          "Our rocket ship attracts buyers.",
+          "We ship rocket ship to customers.",
+          "The team relies on rocket ship.",
+          "The product is rocket ship.",
+          "The plan will rocket ship this quarter.",
+          "Every buyer expects rocket ship from us."
+        ],
+        "lemma": "rocket ship"
+      }
+    ]
+  },
+  "seamless": {
+    "classification": "unfalsifiable superlative",
+    "variants": [
+      {
+        "examples": [
+          "Our seamless attracts buyers.",
+          "We ship seamless to customers.",
+          "The team relies on seamless.",
+          "The product is seamless.",
+          "The plan will seamless this quarter.",
+          "Every buyer expects seamless from us."
+        ],
+        "lemma": "seamless"
+      }
+    ]
+  },
+  "second to none": {
+    "classification": "unfalsifiable superlative",
+    "variants": [
+      {
+        "examples": [
+          "Our second to none attracts buyers.",
+          "We ship second to none to customers.",
+          "The team relies on second to none.",
+          "The product is second to none.",
+          "The plan will second to none this quarter.",
+          "Every buyer expects second to none from us."
+        ],
+        "lemma": "second to none"
+      }
+    ]
+  },
+  "secret sauce": {
+    "classification": "vague differentiator",
+    "variants": [
+      {
+        "examples": [
+          "Our secret sauce attracts buyers.",
+          "We ship secret sauce to customers.",
+          "The team relies on secret sauce.",
+          "The product is secret sauce.",
+          "The plan will secret sauce this quarter.",
+          "Every buyer expects secret sauce from us."
+        ],
+        "lemma": "secret sauce"
+      }
+    ]
+  },
+  "special sauce": {
+    "classification": "vague differentiator",
+    "variants": [
+      {
+        "examples": [
+          "Our special sauce attracts buyers.",
+          "We ship special sauce to customers.",
+          "The team relies on special sauce.",
+          "The product is special sauce.",
+          "The plan will special sauce this quarter.",
+          "Every buyer expects special sauce from us."
+        ],
+        "lemma": "special sauce"
+      }
+    ]
+  },
+  "state of the art": {
+    "classification": "unfalsifiable superlative",
+    "variants": [
+      {
+        "examples": [
+          "Our state of the art attracts buyers.",
+          "We ship state of the art to customers.",
+          "The team relies on state of the art.",
+          "The product is state of the art.",
+          "The plan will state of the art this quarter.",
+          "Every buyer expects state of the art from us."
+        ],
+        "lemma": "state of the art"
+      }
+    ]
+  },
+  "sticky product": {
+    "classification": "vague differentiator",
+    "variants": [
+      {
+        "examples": [
+          "Our sticky product attracts buyers.",
+          "We ship sticky product to customers.",
+          "The team relies on sticky product.",
+          "The product is sticky product.",
+          "The plan will sticky product this quarter.",
+          "Every buyer expects sticky product from us."
+        ],
+        "lemma": "sticky product"
+      }
+    ]
+  },
+  "strategic initiative": {
+    "classification": "consultant abstraction",
+    "variants": [
+      {
+        "examples": [
+          "Our strategic initiative attracts buyers.",
+          "We ship strategic initiative to customers.",
+          "The team relies on strategic initiative.",
+          "The product is strategic initiative.",
+          "The plan will strategic initiative this quarter.",
+          "Every buyer expects strategic initiative from us."
+        ],
+        "lemma": "strategic initiative"
+      }
+    ]
+  },
+  "supercharge": {
+    "classification": "growth cliche",
+    "variants": [
+      {
+        "examples": [
+          "Our supercharge attracts buyers.",
+          "We ship supercharge to customers.",
+          "The team relies on supercharge.",
+          "The product is supercharge.",
+          "The plan will supercharge this quarter.",
+          "Every buyer expects supercharge from us."
+        ],
+        "lemma": "supercharge"
+      }
+    ]
+  },
+  "synergy": {
+    "classification": "consultant abstraction",
+    "variants": [
+      {
+        "examples": [
+          "Our synergy attracts buyers.",
+          "We ship synergy to customers.",
+          "The team relies on synergy.",
+          "The product is synergy.",
+          "The plan will synergy this quarter.",
+          "Every buyer expects synergy from us."
+        ],
+        "lemma": "synergy"
+      }
+    ]
+  },
+  "thought leadership": {
+    "classification": "consultant abstraction",
+    "variants": [
+      {
+        "examples": [
+          "We ship thought leadership to customers.",
+          "The product is thought leadership.",
+          "The plan will thought leadership this quarter."
+        ],
+        "lemma": "think leadership"
+      },
+      {
+        "examples": [
+          "Our thought leadership attracts buyers.",
+          "The team relies on thought leadership.",
+          "Every buyer expects thought leadership from us."
+        ],
+        "lemma": "thought leadership"
+      }
+    ]
+  },
+  "turbocharge": {
+    "classification": "growth cliche",
+    "variants": [
+      {
+        "examples": [
+          "Our turbocharge attracts buyers.",
+          "We ship turbocharge to customers.",
+          "The team relies on turbocharge.",
+          "The product is turbocharge.",
+          "The plan will turbocharge this quarter.",
+          "Every buyer expects turbocharge from us."
+        ],
+        "lemma": "turbocharge"
+      }
+    ]
+  },
+  "turnkey": {
+    "classification": "unfalsifiable superlative",
+    "variants": [
+      {
+        "examples": [
+          "Our turnkey attracts buyers.",
+          "We ship turnkey to customers.",
+          "The team relies on turnkey.",
+          "The product is turnkey.",
+          "The plan will turnkey this quarter.",
+          "Every buyer expects turnkey from us."
+        ],
+        "lemma": "turnkey"
+      }
+    ]
+  },
+  "unfair advantage": {
+    "classification": "vague differentiator",
+    "variants": [
+      {
+        "examples": [
+          "Our unfair advantage attracts buyers.",
+          "We ship unfair advantage to customers.",
+          "The team relies on unfair advantage.",
+          "The product is unfair advantage.",
+          "The plan will unfair advantage this quarter.",
+          "Every buyer expects unfair advantage from us."
+        ],
+        "lemma": "unfair advantage"
+      }
+    ]
+  },
+  "unique value proposition": {
+    "classification": "vague differentiator",
+    "variants": [
+      {
+        "examples": [
+          "Our unique value proposition attracts buyers.",
+          "We ship unique value proposition to customers.",
+          "The team relies on unique value proposition.",
+          "The product is unique value proposition.",
+          "The plan will unique value proposition this quarter.",
+          "Every buyer expects unique value proposition from us."
+        ],
+        "lemma": "unique value proposition"
+      }
+    ]
+  },
+  "unlock value": {
+    "classification": "growth cliche",
+    "variants": [
+      {
+        "examples": [
+          "Our unlock value attracts buyers.",
+          "We ship unlock value to customers.",
+          "The team relies on unlock value.",
+          "The product is unlock value.",
+          "The plan will unlock value this quarter.",
+          "Every buyer expects unlock value from us."
+        ],
+        "lemma": "unlock value"
+      }
+    ]
+  },
+  "unmatched": {
+    "classification": "unfalsifiable superlative",
+    "variants": [
+      {
+        "examples": [
+          "Our unmatched attracts buyers.",
+          "We ship unmatched to customers.",
+          "The team relies on unmatched.",
+          "The product is unmatched.",
+          "The plan will unmatched this quarter.",
+          "Every buyer expects unmatched from us."
+        ],
+        "lemma": "unmatched"
+      }
+    ]
+  },
+  "unparalleled": {
+    "classification": "unfalsifiable superlative",
+    "variants": [
+      {
+        "examples": [
+          "Our unparalleled attracts buyers.",
+          "We ship unparalleled to customers.",
+          "The team relies on unparalleled.",
+          "The product is unparalleled.",
+          "The plan will unparalleled this quarter.",
+          "Every buyer expects unparalleled from us."
+        ],
+        "lemma": "unparalleled"
+      }
+    ]
+  },
+  "value add": {
+    "classification": "consultant abstraction",
+    "variants": [
+      {
+        "examples": [
+          "Our value add attracts buyers.",
+          "We ship value add to customers.",
+          "The team relies on value add.",
+          "The product is value add.",
+          "The plan will value add this quarter.",
+          "Every buyer expects value add from us."
+        ],
+        "lemma": "value add"
+      }
+    ]
+  },
+  "viral loop": {
+    "classification": "growth cliche",
+    "variants": [
+      {
+        "examples": [
+          "Our viral loop attracts buyers.",
+          "We ship viral loop to customers.",
+          "The team relies on viral loop.",
+          "The product is viral loop.",
+          "The plan will viral loop this quarter.",
+          "Every buyer expects viral loop from us."
+        ],
+        "lemma": "viral loop"
+      }
+    ]
+  },
+  "world class": {
+    "classification": "unfalsifiable superlative",
+    "variants": [
+      {
+        "examples": [
+          "Our world class attracts buyers.",
+          "We ship world class to customers.",
+          "The team relies on world class.",
+          "The product is world class.",
+          "The plan will world class this quarter.",
+          "Every buyer expects world class from us."
+        ],
+        "lemma": "world class"
+      }
+    ]
+  }
+}
