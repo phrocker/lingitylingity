@@ -1,0 +1,207 @@
+{
+  "best in class": {
+    "classification": "unfalsifiable superlative",
+    "example": "The product is best in class.",
+    "lemma": "good in class"
+  },
+  "best of breed": {
+    "classification": "unfalsifiable superlative",
+    "example": "The product is best of breed.",
+    "lemma": "good of breed"
+  },
+  "boil the ocean": {
+    "classification": "consultant abstraction",
+    "example": "The product is boil the ocean.",
+    "lemma": "boil the ocean"
+  },
+  "bulletproof": {
+    "classification": "unfalsifiable superlative",
+    "example": "The product is bulletproof.",
+    "lemma": "bulletproof"
+  },
+  "core competency": {
+    "classification": "consultant abstraction",
+    "example": "The product is core competency.",
+    "lemma": "core competency"
+  },
+  "cutting edge": {
+    "classification": "unfalsifiable superlative",
+    "example": "The product is cutting edge.",
+    "lemma": "cut edge"
+  },
+  "differentiated offering": {
+    "classification": "vague differentiator",
+    "example": "The product is differentiated offering.",
+    "lemma": "differentiate offering"
+  },
+  "frictionless": {
+    "classification": "unfalsifiable superlative",
+    "example": "The product is frictionless.",
+    "lemma": "frictionless"
+  },
+  "game changer": {
+    "classification": "unfalsifiable superlative",
+    "example": "The product is game changer.",
+    "lemma": "game changer"
+  },
+  "game changing": {
+    "classification": "unfalsifiable superlative",
+    "example": "The product is game changing.",
+    "lemma": "game change"
+  },
+  "growth hack": {
+    "classification": "growth cliche",
+    "example": "The product is growth hack.",
+    "lemma": "growth hack"
+  },
+  "hockey stick": {
+    "classification": "growth cliche",
+    "example": "The product is hockey stick.",
+    "lemma": "hockey stick"
+  },
+  "holistic solution": {
+    "classification": "consultant abstraction",
+    "example": "The product is holistic solution.",
+    "lemma": "holistic solution"
+  },
+  "industry leading": {
+    "classification": "unfalsifiable superlative",
+    "example": "The product is industry leading.",
+    "lemma": "industry lead"
+  },
+  "land and expand": {
+    "classification": "growth cliche",
+    "example": "The product is land and expand.",
+    "lemma": "land and expand"
+  },
+  "low hanging fruit": {
+    "classification": "consultant abstraction",
+    "example": "The product is low hanging fruit.",
+    "lemma": "low hang fruit"
+  },
+  "move the needle": {
+    "classification": "consultant abstraction",
+    "example": "The product is move the needle.",
+    "lemma": "move the needle"
+  },
+  "next generation": {
+    "classification": "unfalsifiable superlative",
+    "example": "The product is next generation.",
+    "lemma": "next generation"
+  },
+  "operationalize": {
+    "classification": "consultant abstraction",
+    "example": "The product is operationalize.",
+    "lemma": "operationalize"
+  },
+  "paradigm shift": {
+    "classification": "consultant abstraction",
+    "example": "The product is paradigm shift.",
+    "lemma": "paradigm shift"
+  },
+  "rocket ship": {
+    "classification": "growth cliche",
+    "example": "The product is rocket ship.",
+    "lemma": "rocket ship"
+  },
+  "seamless": {
+    "classification": "unfalsifiable superlative",
+    "example": "The product is seamless.",
+    "lemma": "seamless"
+  },
+  "second to none": {
+    "classification": "unfalsifiable superlative",
+    "example": "The product is second to none.",
+    "lemma": "second to none"
+  },
+  "secret sauce": {
+    "classification": "vague differentiator",
+    "example": "The product is secret sauce.",
+    "lemma": "secret sauce"
+  },
+  "special sauce": {
+    "classification": "vague differentiator",
+    "example": "The product is special sauce.",
+    "lemma": "special sauce"
+  },
+  "state of the art": {
+    "classification": "unfalsifiable superlative",
+    "example": "The product is state of the art.",
+    "lemma": "state of the art"
+  },
+  "sticky product": {
+    "classification": "vague differentiator",
+    "example": "The product is sticky product.",
+    "lemma": "sticky product"
+  },
+  "strategic initiative": {
+    "classification": "consultant abstraction",
+    "example": "The product is strategic initiative.",
+    "lemma": "strategic initiative"
+  },
+  "supercharge": {
+    "classification": "growth cliche",
+    "example": "The product is supercharge.",
+    "lemma": "supercharge"
+  },
+  "synergy": {
+    "classification": "consultant abstraction",
+    "example": "The product is synergy.",
+    "lemma": "synergy"
+  },
+  "thought leadership": {
+    "classification": "consultant abstraction",
+    "example": "The product is thought leadership.",
+    "lemma": "think leadership"
+  },
+  "turbocharge": {
+    "classification": "growth cliche",
+    "example": "The product is turbocharge.",
+    "lemma": "turbocharge"
+  },
+  "turnkey": {
+    "classification": "unfalsifiable superlative",
+    "example": "The product is turnkey.",
+    "lemma": "turnkey"
+  },
+  "unfair advantage": {
+    "classification": "vague differentiator",
+    "example": "The product is unfair advantage.",
+    "lemma": "unfair advantage"
+  },
+  "unique value proposition": {
+    "classification": "vague differentiator",
+    "example": "The product is unique value proposition.",
+    "lemma": "unique value proposition"
+  },
+  "unlock value": {
+    "classification": "growth cliche",
+    "example": "The product is unlock value.",
+    "lemma": "unlock value"
+  },
+  "unmatched": {
+    "classification": "unfalsifiable superlative",
+    "example": "The product is unmatched.",
+    "lemma": "unmatched"
+  },
+  "unparalleled": {
+    "classification": "unfalsifiable superlative",
+    "example": "The product is unparalleled.",
+    "lemma": "unparalleled"
+  },
+  "value add": {
+    "classification": "consultant abstraction",
+    "example": "The product is value add.",
+    "lemma": "value add"
+  },
+  "viral loop": {
+    "classification": "growth cliche",
+    "example": "The product is viral loop.",
+    "lemma": "viral loop"
+  },
+  "world class": {
+    "classification": "unfalsifiable superlative",
+    "example": "The product is world class.",
+    "lemma": "world class"
+  }
+}

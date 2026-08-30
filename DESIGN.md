@@ -144,6 +144,50 @@ records the parser name, version, runtime, and digest as `linguistic_model`
 inside the hashed analysis artifact. Verification rejects an artifact produced
 by a different pipeline rather than re-analysing it under new assumptions.
 
+## Profiles
+
+A profile carries the weights, thresholds, and vocabulary for one kind of
+document. The analyzer is shared; the profile decides what counts as a defect
+and how much it costs. Two profiles ship, and a project may install more.
+
+`architecture-review` reads review decisions. `product-strategy` reads need
+statements, value propositions, and positioning. The second weights agency and
+lexical clarity at 25 each and structure at 8, because a strategy document
+mostly fails by claiming something unfalsifiable, by claiming it without an
+actor, or by asserting a benefit with no mechanism behind it.
+
+`product-strategy` deliberately omits "market", "industry", and "space" from
+its actor terms. A sentence whose only actor is the market names nobody who can
+act, and the agency rules must keep reporting it.
+
+A profile stores no protected phrases. An earlier revision of
+`architecture-review` matched protected concepts against literal phrases, the
+fixture passed, and the gate understood nothing. `product-strategy` therefore
+declares an empty `protected_concepts` array and leaves protection to the
+meaning gate, which reads claim signatures from the parse.
+
+### Phrases are stored as lemmas, and a lemma is not the surface word
+
+The phrase rules match lemma sequences, so a phrase written the way an author
+types it will never fire. The pinned pipeline lemmatises "best in class" to
+"good in class" and "cutting edge" to "cut edge", and it resolves "best"
+differently in isolation than in a sentence: alone it becomes "well", and in
+"the platform is best in class" it becomes "good". A phrase list derived by eye
+therefore ships rules that are silently dead, and a passing test suite says
+nothing about it, because a rule that never matches breaks nothing.
+
+Every jargon phrase in `product-strategy` is pinned to a sentence that provably
+raises the finding, recorded in `tests/fixtures/product-strategy-jargon.json`
+alongside the lemma it resolves to. A test asserts that the fixture and the
+profile cover exactly the same phrases, so a phrase added without a
+demonstration fails the suite. The same test guards against a reader
+"correcting" a lemma back to its surface spelling.
+
+One phrase was dropped rather than shipped. The pinned pipeline lemmatises
+"force multiplier" to "force multipli", which matches correctly but reads as a
+typo, so a future reader would repair it and silence the rule. A phrase that
+cannot be stored legibly is not worth the maintenance hazard.
+
 ## Scoring
 
 The score is an explanation aid, not the acceptance authority.

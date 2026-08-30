@@ -42,9 +42,22 @@ source text
   -> accept, iterate, reject, or require human review
 ```
 
-The first target profile is `architecture-review`: recommendations, ADR
-summaries, findings, risks, and review decisions that must remain precise while
-reading like professional human communication.
+Two profiles ship. `architecture-review` reads recommendations, ADR summaries,
+findings, risks, and review decisions that must remain precise while reading
+like professional human communication. `product-strategy` reads need
+statements, value propositions, positioning, and go-to-market plans.
+
+A strategy document fails differently from an architecture review. Its common
+defects are an unfalsifiable claim, a claim with no actor, and a benefit
+asserted without a mechanism, so `product-strategy` weights agency and lexical
+clarity highest and structure lowest. It also treats "the market", "the
+industry", and "the space" as non-actors, because a sentence whose only actor
+is the market names nobody who can act.
+
+The difference is measurable. On the same hyped paragraph,
+`architecture-review` scores 88.65 and reports no jargon at all, while
+`product-strategy` scores 69.53 and reports five jargon findings. Neither
+profile penalises prose that names a number, an actor, and a limit.
 
 ## CLI
 

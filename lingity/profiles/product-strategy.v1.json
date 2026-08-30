@@ -1,0 +1,550 @@
+{
+  "$schema": "https://lingity.dev/schemas/v1/profile.schema.json",
+  "name": "product-strategy",
+  "version": "1.0.0",
+  "language": "en",
+  "weights": {
+    "sentence_load": 15,
+    "morphology": 15,
+    "agency": 25,
+    "lexical_clarity": 25,
+    "structure": 8,
+    "redundancy": 12
+  },
+  "bands": [
+    {
+      "name": "revision_required",
+      "minimum": 0,
+      "maximum": 69.99
+    },
+    {
+      "name": "usable_but_improvable",
+      "minimum": 70,
+      "maximum": 84.99
+    },
+    {
+      "name": "clear",
+      "minimum": 85,
+      "maximum": 100
+    }
+  ],
+  "thresholds": {
+    "max_sentence_words": 22,
+    "max_actions_per_sentence": 3,
+    "max_clauses_per_sentence": 3,
+    "max_nominalizations_per_sentence": 2,
+    "noun_stack_words": 3,
+    "max_paragraph_words": 80,
+    "max_repeated_content_word": 3,
+    "max_punctuation_depth": 4,
+    "max_undefined_acronyms_per_sentence": 1,
+    "max_undefined_acronyms_per_paragraph": 3,
+    "max_inline_list_items": 3,
+    "max_sentence_purposes": 2,
+    "max_qualifiers_per_sentence": 1,
+    "max_compound_parts": 3
+  },
+  "rules": {
+    "nominalization_suffixes": [
+      "tion",
+      "sion",
+      "ment",
+      "ance",
+      "ence",
+      "ency",
+      "ship",
+      "ure",
+      "age"
+    ],
+    "nominalization_exclusions": [
+      "agreement",
+      "architecture",
+      "argument",
+      "audience",
+      "compliance",
+      "coverage",
+      "document",
+      "element",
+      "evidence",
+      "experience",
+      "governance",
+      "instrument",
+      "insurance",
+      "management",
+      "package",
+      "percentage",
+      "performance",
+      "requirement",
+      "segment",
+      "statement",
+      "usage"
+    ],
+    "nominalizations": [
+      "alignment",
+      "assessment",
+      "assumption",
+      "collaboration",
+      "communication",
+      "consideration",
+      "determination",
+      "differentiation",
+      "enablement",
+      "execution",
+      "expectation",
+      "exploration",
+      "identification",
+      "implementation",
+      "integration",
+      "iteration",
+      "measurement",
+      "optimization",
+      "prioritization",
+      "realization",
+      "utilization",
+      "validation",
+      "verification"
+    ],
+    "hidden_agency": {
+      "agentless decision": [
+        "bet be place",
+        "choice be make",
+        "decision be make",
+        "decision should be make",
+        "priority be set",
+        "roadmap be define",
+        "scope be define",
+        "trade off be make"
+      ],
+      "impersonal claim": [
+        "it be assume that",
+        "it be believe that",
+        "it be estimate that",
+        "it be expect that",
+        "it be project that",
+        "it be understand that"
+      ],
+      "agentless commitment": [
+        "must be build",
+        "must be deliver",
+        "must be launch",
+        "must be measure",
+        "must be prioritize",
+        "must be ship",
+        "must be validate",
+        "should be build",
+        "should be deliver",
+        "should be launch",
+        "should be measure",
+        "should be prioritize",
+        "should be ship",
+        "should be validate",
+        "will be deliver"
+      ],
+      "agentless market claim": [
+        "adoption be drive",
+        "cost be reduce",
+        "demand be drive",
+        "growth be drive",
+        "need be address",
+        "pain be feel",
+        "problem be solve",
+        "revenue be generate",
+        "value be create",
+        "value be deliver",
+        "value be unlock"
+      ]
+    },
+    "weak_verbs": {
+      "light verb make": [
+        "make assumption",
+        "make commitment",
+        "make decision",
+        "make improvement",
+        "make investment",
+        "make progress"
+      ],
+      "light verb provide": [
+        "provide benefit",
+        "provide capability",
+        "provide insight",
+        "provide support",
+        "provide value",
+        "provide visibility"
+      ],
+      "light verb drive": [
+        "drive adoption",
+        "drive engagement",
+        "drive growth",
+        "drive impact",
+        "drive outcome",
+        "drive value"
+      ],
+      "light verb deliver": [
+        "deliver benefit",
+        "deliver impact",
+        "deliver outcome",
+        "deliver value"
+      ],
+      "light verb enable": [
+        "enable growth",
+        "enable outcome",
+        "enable value"
+      ],
+      "light verb perform conduct": [
+        "conduct analysis",
+        "conduct interview",
+        "conduct research",
+        "conduct study",
+        "perform analysis",
+        "perform evaluation"
+      ]
+    },
+    "jargon": {
+      "unfalsifiable superlative": [
+        "bulletproof",
+        "cut edge",
+        "frictionless",
+        "game change",
+        "game changer",
+        "good in class",
+        "good of breed",
+        "industry lead",
+        "next generation",
+        "seamless",
+        "second to none",
+        "state of the art",
+        "turnkey",
+        "unmatched",
+        "unparalleled",
+        "world class"
+      ],
+      "consultant abstraction": [
+        "boil the ocean",
+        "core competency",
+        "holistic solution",
+        "low hang fruit",
+        "move the needle",
+        "operationalize",
+        "paradigm shift",
+        "strategic initiative",
+        "synergy",
+        "think leadership",
+        "value add"
+      ],
+      "growth cliche": [
+        "growth hack",
+        "hockey stick",
+        "land and expand",
+        "rocket ship",
+        "supercharge",
+        "turbocharge",
+        "unlock value",
+        "viral loop"
+      ],
+      "vague differentiator": [
+        "differentiate offering",
+        "secret sauce",
+        "special sauce",
+        "sticky product",
+        "unfair advantage",
+        "unique value proposition"
+      ]
+    },
+    "bureaucratic_phrases": {
+      "impersonal claim": [
+        "it be believe that",
+        "it be well know that",
+        "it be widely accept that",
+        "it should be note that"
+      ],
+      "wordy connector": [
+        "as appropriate",
+        "as it relate to",
+        "in order to",
+        "in term of",
+        "on a go forward basis",
+        "with respect to"
+      ],
+      "throat clearing": [
+        "at the end of the day",
+        "it be important to note that",
+        "needless to say",
+        "when all be say and do"
+      ],
+      "market hand wave": [
+        "the industry be move",
+        "the market be demand",
+        "the market want",
+        "the space be crowd"
+      ]
+    },
+    "filler_phrases": {
+      "purpose filler": [
+        "for purpose of",
+        "for the purpose of",
+        "in order to"
+      ],
+      "temporal filler": [
+        "at this point in time",
+        "at this time",
+        "go forward"
+      ],
+      "closing filler": [
+        "at the end of the day",
+        "needless to say"
+      ]
+    },
+    "qualifiers": [
+      "arguably",
+      "basically",
+      "clearly",
+      "dramatically",
+      "essentially",
+      "fundamentally",
+      "generally",
+      "incredibly",
+      "largely",
+      "massively",
+      "obviously",
+      "potentially",
+      "presumably",
+      "quite",
+      "really",
+      "relatively",
+      "roughly",
+      "significantly",
+      "somewhat",
+      "substantially",
+      "truly",
+      "very",
+      "virtually"
+    ],
+    "indirect_predicates": {
+      "expletive there": [
+        "there be appetite",
+        "there be demand",
+        "there be gap",
+        "there be market",
+        "there be need",
+        "there be opportunity",
+        "there be risk"
+      ],
+      "expletive it": [
+        "it be clear that",
+        "it be critical that",
+        "it be essential that",
+        "it be important that",
+        "it be obvious that",
+        "it be worth note that"
+      ],
+      "purpose wrapper": [
+        "aim of",
+        "goal of",
+        "mission of",
+        "objective of",
+        "purpose of",
+        "vision of"
+      ]
+    },
+    "purpose_markers": {
+      "claim": [
+        "assert",
+        "believe",
+        "claim",
+        "differentiate",
+        "position",
+        "promise",
+        "propose"
+      ],
+      "evidence": [
+        "benchmark",
+        "cite",
+        "data",
+        "demonstrate",
+        "evidence",
+        "measure",
+        "prove",
+        "show",
+        "validate",
+        "verify"
+      ],
+      "mechanism": [
+        "automate",
+        "build",
+        "collect",
+        "deliver",
+        "detect",
+        "implement",
+        "integrate",
+        "operate",
+        "ship"
+      ],
+      "commercial": [
+        "bill",
+        "charge",
+        "cost",
+        "margin",
+        "monetize",
+        "price",
+        "revenue",
+        "sell",
+        "subscribe"
+      ],
+      "risk": [
+        "depend",
+        "dependency",
+        "expose",
+        "exposure",
+        "mitigate",
+        "risk",
+        "threat"
+      ]
+    },
+    "recommendation_action_groups": {
+      "commit": [
+        "commit",
+        "guarantee",
+        "promise"
+      ],
+      "build": [
+        "build",
+        "deliver",
+        "implement",
+        "ship"
+      ],
+      "measure": [
+        "benchmark",
+        "instrument",
+        "measure",
+        "track",
+        "validate"
+      ],
+      "decide": [
+        "choose",
+        "decide",
+        "defer",
+        "prioritize"
+      ]
+    },
+    "abstract_evidence_heads": [
+      "evidence",
+      "proof",
+      "traction",
+      "signal",
+      "insight",
+      "learning",
+      "validation"
+    ],
+    "actor_terms": [
+      "buyer",
+      "buyers",
+      "company",
+      "competitor",
+      "competitors",
+      "customer",
+      "customers",
+      "engineer",
+      "engineers",
+      "founder",
+      "founders",
+      "incumbent",
+      "incumbents",
+      "merchant",
+      "merchants",
+      "operator",
+      "operators",
+      "owner",
+      "owners",
+      "partner",
+      "partners",
+      "platform",
+      "platforms",
+      "provider",
+      "providers",
+      "reviewer",
+      "reviewers",
+      "seller",
+      "sellers",
+      "sponsor",
+      "sponsors",
+      "team",
+      "teams",
+      "user",
+      "users",
+      "vendor",
+      "vendors"
+    ],
+    "allowed_compounds": [
+      "best-effort",
+      "break-even",
+      "cost-effective",
+      "cross-sell",
+      "data-driven",
+      "end-to-end",
+      "evidence-based",
+      "first-party",
+      "go-to-market",
+      "high-touch",
+      "long-term",
+      "low-touch",
+      "near-term",
+      "off-the-shelf",
+      "out-of-the-box",
+      "product-led",
+      "sales-led",
+      "self-serve",
+      "short-term",
+      "third-party",
+      "well-known"
+    ],
+    "compound_modifier_suffixes": [
+      "aware",
+      "backed",
+      "based",
+      "driven",
+      "facing",
+      "focused",
+      "funded",
+      "led",
+      "oriented",
+      "ready"
+    ],
+    "known_acronyms": [
+      "API",
+      "ARR",
+      "B2B",
+      "B2C",
+      "CAC",
+      "CAGR",
+      "CRM",
+      "CSV",
+      "GTM",
+      "HTTP",
+      "HTTPS",
+      "ICP",
+      "ID",
+      "JSON",
+      "KPI",
+      "LTV",
+      "MRR",
+      "MVP",
+      "NPS",
+      "OKR",
+      "QA",
+      "RFP",
+      "ROI",
+      "SDK",
+      "SEO",
+      "SKU",
+      "SLA",
+      "SMB",
+      "SOM",
+      "SQL",
+      "TAM",
+      "UI",
+      "URL",
+      "UX"
+    ],
+    "protected_concepts": []
+  }
+}
