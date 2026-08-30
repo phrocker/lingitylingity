@@ -15,7 +15,7 @@ import hashlib
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterator
+from typing import TYPE_CHECKING, Any, Iterator, Sequence
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from spacy.language import Language
@@ -89,6 +89,8 @@ class Document:
     text: str
     sentences: tuple[Sentence, ...]
     tokens: tuple[Token, ...]
+    spans: tuple[tuple[int, int], ...] = ()
+    """The character ranges of ``text`` that were parsed as prose."""
 
     def token(self, index: int) -> Token:
         return self.tokens[index]
@@ -207,53 +209,91 @@ def model_fingerprint() -> dict[str, str]:
     }
 
 
-def parse(text: str) -> Document:
-    """Parse ``text`` into sentences and dependency-annotated tokens."""
+def parse(text: str, spans: Sequence[tuple[int, int]] | None = None) -> Document:
+    """Parse ``text`` into sentences and dependency-annotated tokens.
+
+    ``spans`` restricts the parse to the listed character ranges and parses
+    each range on its own, so a sentence can never run across a structural
+    boundary such as a heading, a table row, or a fenced code block. Offsets
+    stay relative to ``text``, so a finding still locates itself in the source
+    the author wrote. Passing ``None`` parses the whole text as one range.
+    """
     pipeline = load_pipeline()
-    doc = pipeline(text)
+    if spans is None:
+        segments: tuple[tuple[int, int], ...] = ((0, len(text)),)
+    else:
+        segments = tuple((start, end) for start, end in spans if text[start:end].strip())
+
     tokens: list[Token] = []
-    sentence_index_of: dict[int, int] = {}
-    for sentence_index, span in enumerate(doc.sents):
-        for token in span:
-            sentence_index_of[token.i] = sentence_index
-    for token in doc:
-        tokens.append(
-            Token(
-                index=token.i,
-                text=token.text,
-                start=token.idx,
-                end=token.idx + len(token.text),
-                lemma=token.lemma_.lower(),
-                pos=token.pos_,
-                tag=token.tag_,
-                dep=token.dep_,
-                head=token.head.i,
-                morph=str(token.morph),
-                entity_type=token.ent_type_,
-                is_alpha=token.is_alpha,
-                is_stop=token.is_stop,
-                is_punct=token.is_punct,
-                sentence_index=sentence_index_of[token.i],
-            )
-        )
-    frozen = tuple(tokens)
     sentences: list[Sentence] = []
-    for sentence_index, span in enumerate(doc.sents):
-        span_tokens = tuple(
-            frozen[token.i] for token in span if not (token.is_space and not token.text.strip())
-        )
-        if not span_tokens:
-            continue
-        start = span_tokens[0].start
-        end = span_tokens[-1].end
-        sentences.append(
-            Sentence(
-                index=len(sentences),
-                text=text[start:end],
-                start=start,
-                end=end,
-                tokens=span_tokens,
-                root=span.root.i,
+    for offset, limit in segments:
+        doc = pipeline(text[offset:limit])
+        base = len(tokens)
+        sentence_base = len(sentences)
+
+        kept_per_sentence: list[list[Any]] = []
+        provisional: dict[int, int] = {}
+        for local_index, span in enumerate(doc.sents):
+            kept_per_sentence.append(
+                [token for token in span if not (token.is_space and not token.text.strip())]
             )
-        )
-    return Document(text=text, sentences=tuple(sentences), tokens=frozen)
+            for token in span:
+                provisional[token.i] = local_index
+
+        # A sentence that holds only whitespace is dropped, so translate the
+        # provisional index to the index the sentence actually receives.
+        translate: dict[int, int] = {}
+        surviving = 0
+        latest = sentence_base
+        for local_index, kept in enumerate(kept_per_sentence):
+            if kept:
+                latest = sentence_base + surviving
+                translate[local_index] = latest
+                surviving += 1
+            else:
+                translate[local_index] = latest
+
+        for token in doc:
+            tokens.append(
+                Token(
+                    index=base + token.i,
+                    text=token.text,
+                    start=offset + token.idx,
+                    end=offset + token.idx + len(token.text),
+                    lemma=token.lemma_.lower(),
+                    pos=token.pos_,
+                    tag=token.tag_,
+                    dep=token.dep_,
+                    head=base + token.head.i,
+                    morph=str(token.morph),
+                    entity_type=token.ent_type_,
+                    is_alpha=token.is_alpha,
+                    is_stop=token.is_stop,
+                    is_punct=token.is_punct,
+                    sentence_index=translate[provisional[token.i]],
+                )
+            )
+
+        for span, kept in zip(doc.sents, kept_per_sentence):
+            if not kept:
+                continue
+            span_tokens = tuple(tokens[base + token.i] for token in kept)
+            start = span_tokens[0].start
+            end = span_tokens[-1].end
+            sentences.append(
+                Sentence(
+                    index=len(sentences),
+                    text=text[start:end],
+                    start=start,
+                    end=end,
+                    tokens=span_tokens,
+                    root=base + span.root.i,
+                )
+            )
+
+    return Document(
+        text=text,
+        sentences=tuple(sentences),
+        tokens=tuple(tokens),
+        spans=segments,
+    )
