@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import pytest
 
@@ -61,8 +61,10 @@ def test_bands_cover_the_whole_range(strategy: Profile) -> None:
     bands = cast(list[dict[str, float]], strategy.data["bands"])
     assert bands[0]["minimum"] == 0
     assert bands[-1]["maximum"] == 100
+    # Non-overlap is not coverage. Scores round to hundredths, so a gap wider
+    # than 0.01 leaves scores no band can name and _band_for raises on them.
     for earlier, later in zip(bands, bands[1:]):
-        assert earlier["maximum"] < later["minimum"]
+        assert round(later["minimum"] - earlier["maximum"], 2) == 0.01
 
 
 def test_it_supplies_every_rule_the_analyzer_reads(strategy: Profile) -> None:
@@ -72,33 +74,47 @@ def test_it_supplies_every_rule_the_analyzer_reads(strategy: Profile) -> None:
     assert set(reference.thresholds) <= set(strategy.thresholds)
 
 
-def _jargon_fixture() -> dict[str, dict[str, str]]:
+def _jargon_fixture() -> dict[str, dict[str, Any]]:
     path = Path(__file__).parent / "fixtures" / "product-strategy-jargon.json"
-    return cast(dict[str, dict[str, str]], json.loads(path.read_text(encoding="utf-8")))
+    return cast(dict[str, dict[str, Any]], json.loads(path.read_text(encoding="utf-8")))
 
 
-@pytest.mark.parametrize("surface", sorted(_jargon_fixture()))
-def test_every_jargon_phrase_fires_on_its_example(surface: str) -> None:
+def _fixture_cases() -> list[tuple[str, str, str]]:
+    return [
+        (surface, variant["lemma"], variant["example"])
+        for surface, entry in sorted(_jargon_fixture().items())
+        for variant in entry["variants"]
+    ]
+
+
+@pytest.mark.parametrize(
+    "surface,lemma,example", _fixture_cases(), ids=lambda value: str(value)[:40]
+)
+def test_every_jargon_variant_fires_on_its_example(
+    surface: str, lemma: str, example: str
+) -> None:
     """A stored phrase that never matches is a rule nobody enforces.
 
     The profile stores lemma sequences, and a lemma is not always the surface
-    word: "best in class" parses as "good in class", and "cutting edge" as
-    "cut edge". Deriving a phrase by eye therefore ships a rule that is silent.
-    Every entry here is pinned to a sentence that provably raises the finding.
+    word: "cutting edge" parses as "cut edge". Worse, a lemma depends on the
+    grammatical role the phrase takes. "thought leadership" yields "thought
+    leadership" as a subject and "think leadership" after a copula, so pinning
+    one carrier ships a rule that is silent everywhere else. Every variant here
+    is pinned to a natural sentence that provably raises the finding.
     """
-    entry = _jargon_fixture()[surface]
     strategy = load_profile("product-strategy")
     findings = cast(
-        list[dict[str, JsonValue]], analyze_text(entry["example"], strategy)["findings"]
+        list[dict[str, JsonValue]], analyze_text(example, strategy)["findings"]
     )
     observed = [
         cast(dict[str, JsonValue], finding["observed_value"])
         for finding in findings
         if finding["rule_id"] == "LING-JARGON-001"
     ]
+    classification = _jargon_fixture()[surface]["classification"]
     # Assert the pair, not just the rule id: moving a phrase into the wrong
     # user-visible category would otherwise leave this test green.
-    assert {"phrase": surface, "classification": entry["classification"]} in observed
+    assert {"phrase": surface, "classification": classification} in observed
 
 
 def test_the_fixture_covers_every_jargon_phrase_in_the_profile(
@@ -109,15 +125,27 @@ def test_the_fixture_covers_every_jargon_phrase_in_the_profile(
         for phrases in cast(dict[str, list[str]], strategy.rules["jargon"]).values()
         for phrase in phrases
     }
-    covered = {entry["lemma"] for entry in _jargon_fixture().values()}
+    covered = {lemma for _surface, lemma, _example in _fixture_cases()}
     assert stored == covered
 
 
-def test_a_lemma_differs_from_its_surface_form(strategy: Profile) -> None:
+def test_a_role_dependent_phrase_fires_in_every_role(strategy: Profile) -> None:
+    """The reported failure: one carrier pinned a lemma real prose never makes."""
+    assert "LING-JARGON-001" in _rule_ids("Our thought leadership attracts buyers.", strategy)
+    assert "LING-JARGON-001" in _rule_ids("The product is thought leadership.", strategy)
+    assert "LING-JARGON-001" in _rule_ids("The platform is best in class.", strategy)
+    assert "LING-JARGON-001" in _rule_ids("We ship a best in class platform.", strategy)
+
+
+def test_a_lemma_differs_from_its_surface_form() -> None:
     """Guards the reason the fixture exists, so nobody "corrects" the lemmas."""
-    fixture = _jargon_fixture()
-    assert fixture["best in class"]["lemma"] == "good in class"
-    assert fixture["cutting edge"]["lemma"] == "cut edge"
+    lemmas = {
+        surface: {lemma for _s, lemma, _e in _fixture_cases() if _s == surface}
+        for surface in ("best in class", "cutting edge", "thought leadership")
+    }
+    assert "good in class" in lemmas["best in class"]
+    assert lemmas["cutting edge"] == {"cut edge"}
+    assert {"think leadership", "thought leadership"} <= lemmas["thought leadership"]
 
 
 def test_the_market_is_not_an_actor(strategy: Profile) -> None:
@@ -141,6 +169,11 @@ def test_a_market_only_directive_is_reported(strategy: Profile) -> None:
 def test_a_named_actor_clears_the_same_directive(strategy: Profile) -> None:
     assert "LING-ACTOR-001" not in _rule_ids("The team should prioritize retention.", strategy)
     assert "LING-ACTOR-001" not in _rule_ids("The vendor should publish the limit.", strategy)
+
+
+def test_a_named_entity_elsewhere_is_not_the_actor(strategy: Profile) -> None:
+    """The directive's subject decides, not any organisation in the sentence."""
+    assert "LING-ACTOR-001" in _rule_ids("The market should sell to Acme.", strategy)
 
 
 def test_the_stricter_gate_is_opt_in() -> None:

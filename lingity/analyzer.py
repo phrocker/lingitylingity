@@ -493,7 +493,9 @@ def _directive_marker(document: Document, sentence: Sentence) -> tuple[str, int,
     return None
 
 
-def _has_responsible_actor(document: Document, sentence: Sentence, profile: Profile) -> bool:
+def _has_responsible_actor(
+    document: Document, sentence: Sentence, profile: Profile, strict: bool = False
+) -> bool:
     actor_terms = _profile_words(profile, "actor_terms")
     for token in sentence.tokens:
         if token.dep in SUBJECT_DEPS and _lemma(token) in actor_terms:
@@ -502,6 +504,10 @@ def _has_responsible_actor(document: Document, sentence: Sentence, profile: Prof
             return True
         if token.dep in SUBJECT_DEPS and token.pos == "PROPN":
             return True
+    if strict:
+        # A named organisation elsewhere in the sentence does not perform the
+        # directive. "The market should sell to Acme" still names nobody who acts.
+        return False
     return any(token.pos == "PROPN" and token.entity_type in {"ORG", "PERSON"} for token in sentence.tokens)
 
 
@@ -512,13 +518,13 @@ def _actor_action_findings(document: Document, profile: Profile, agency_spans: l
         if marker is None:
             continue
         label, _start, _end, verb = marker
-        if _has_responsible_actor(document, sentence, profile):
-            continue
         # A profile may require that the subject of a directive be an actor the
         # profile recognises. Without it, any overt noun satisfies the rule, so
         # "the market should prioritise retention" reports nothing and a
         # profile's choice of actor terms decides nothing.
         strict = bool(profile.thresholds.get("require_responsible_actor", 0))
+        if _has_responsible_actor(document, sentence, profile, strict):
+            continue
         if not strict and _has_overt_subject(document, verb):
             continue
         if _overlaps(sentence.start, sentence.end, agency_spans):
@@ -891,6 +897,12 @@ def _list_suitability_findings(document: Document, profile: Profile) -> list[Fin
     return findings
 
 
+def _join_labels(labels: list[str]) -> str:
+    if len(labels) == 1:
+        return labels[0]
+    return f"{', '.join(labels[:-1])} and {labels[-1]}"
+
+
 def _mixed_purpose_findings(document: Document, profile: Profile) -> list[Finding]:
     findings: list[Finding] = []
     purpose_markers = cast(dict[str, list[str]], profile.rules["purpose_markers"])
@@ -910,7 +922,10 @@ def _mixed_purpose_findings(document: Document, profile: Profile) -> list[Findin
                 _location(document.text, sentence.start, sentence.end, sentence.index),
                 {"purposes": cast(list[JsonValue], purposes), "count": len(purposes)},
                 threshold,
-                "Separate the decision, remediation work, evidence, and exit criteria into distinct sentences or bullets.",
+                # Name the purposes this profile actually matched. Naming a fixed
+                # set sends a strategy author guidance about exit criteria.
+                f"Separate the {_join_labels(purposes)} statements into distinct "
+                "sentences or bullets.",
                 min(14.0, (len(purposes) - threshold) * 4.0),
             )
         )

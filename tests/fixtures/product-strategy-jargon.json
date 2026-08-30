@@ -1,207 +1,391 @@
 {
   "best in class": {
     "classification": "unfalsifiable superlative",
-    "example": "The product is best in class.",
-    "lemma": "good in class"
+    "variants": [
+      {
+        "example": "The plan will best in class this quarter.",
+        "lemma": "best in class"
+      },
+      {
+        "example": "Our best in class attracts buyers.",
+        "lemma": "good in class"
+      },
+      {
+        "example": "We ship best in class to customers.",
+        "lemma": "well in class"
+      }
+    ]
   },
   "best of breed": {
     "classification": "unfalsifiable superlative",
-    "example": "The product is best of breed.",
-    "lemma": "good of breed"
+    "variants": [
+      {
+        "example": "Our best of breed attracts buyers.",
+        "lemma": "good of breed"
+      },
+      {
+        "example": "We ship best of breed to customers.",
+        "lemma": "well of breed"
+      }
+    ]
   },
   "boil the ocean": {
     "classification": "consultant abstraction",
-    "example": "The product is boil the ocean.",
-    "lemma": "boil the ocean"
+    "variants": [
+      {
+        "example": "Our boil the ocean attracts buyers.",
+        "lemma": "boil the ocean"
+      }
+    ]
   },
   "bulletproof": {
     "classification": "unfalsifiable superlative",
-    "example": "The product is bulletproof.",
-    "lemma": "bulletproof"
+    "variants": [
+      {
+        "example": "Our bulletproof attracts buyers.",
+        "lemma": "bulletproof"
+      }
+    ]
   },
   "core competency": {
     "classification": "consultant abstraction",
-    "example": "The product is core competency.",
-    "lemma": "core competency"
+    "variants": [
+      {
+        "example": "Our core competency attracts buyers.",
+        "lemma": "core competency"
+      }
+    ]
   },
   "cutting edge": {
     "classification": "unfalsifiable superlative",
-    "example": "The product is cutting edge.",
-    "lemma": "cut edge"
+    "variants": [
+      {
+        "example": "Our cutting edge attracts buyers.",
+        "lemma": "cut edge"
+      }
+    ]
   },
   "differentiated offering": {
     "classification": "vague differentiator",
-    "example": "The product is differentiated offering.",
-    "lemma": "differentiate offering"
+    "variants": [
+      {
+        "example": "The plan will differentiated offering this quarter.",
+        "lemma": "differentiate offer"
+      },
+      {
+        "example": "Our differentiated offering attracts buyers.",
+        "lemma": "differentiate offering"
+      }
+    ]
   },
   "frictionless": {
     "classification": "unfalsifiable superlative",
-    "example": "The product is frictionless.",
-    "lemma": "frictionless"
+    "variants": [
+      {
+        "example": "Our frictionless attracts buyers.",
+        "lemma": "frictionless"
+      }
+    ]
   },
   "game changer": {
     "classification": "unfalsifiable superlative",
-    "example": "The product is game changer.",
-    "lemma": "game changer"
+    "variants": [
+      {
+        "example": "Our game changer attracts buyers.",
+        "lemma": "game changer"
+      }
+    ]
   },
   "game changing": {
     "classification": "unfalsifiable superlative",
-    "example": "The product is game changing.",
-    "lemma": "game change"
+    "variants": [
+      {
+        "example": "Our game changing attracts buyers.",
+        "lemma": "game change"
+      }
+    ]
   },
   "growth hack": {
     "classification": "growth cliche",
-    "example": "The product is growth hack.",
-    "lemma": "growth hack"
+    "variants": [
+      {
+        "example": "Our growth hack attracts buyers.",
+        "lemma": "growth hack"
+      }
+    ]
   },
   "hockey stick": {
     "classification": "growth cliche",
-    "example": "The product is hockey stick.",
-    "lemma": "hockey stick"
+    "variants": [
+      {
+        "example": "Our hockey stick attracts buyers.",
+        "lemma": "hockey stick"
+      }
+    ]
   },
   "holistic solution": {
     "classification": "consultant abstraction",
-    "example": "The product is holistic solution.",
-    "lemma": "holistic solution"
+    "variants": [
+      {
+        "example": "Our holistic solution attracts buyers.",
+        "lemma": "holistic solution"
+      }
+    ]
   },
   "industry leading": {
     "classification": "unfalsifiable superlative",
-    "example": "The product is industry leading.",
-    "lemma": "industry lead"
+    "variants": [
+      {
+        "example": "Our industry leading attracts buyers.",
+        "lemma": "industry lead"
+      }
+    ]
   },
   "land and expand": {
     "classification": "growth cliche",
-    "example": "The product is land and expand.",
-    "lemma": "land and expand"
+    "variants": [
+      {
+        "example": "Our land and expand attracts buyers.",
+        "lemma": "land and expand"
+      }
+    ]
   },
   "low hanging fruit": {
     "classification": "consultant abstraction",
-    "example": "The product is low hanging fruit.",
-    "lemma": "low hang fruit"
+    "variants": [
+      {
+        "example": "Our low hanging fruit attracts buyers.",
+        "lemma": "low hang fruit"
+      }
+    ]
   },
   "move the needle": {
     "classification": "consultant abstraction",
-    "example": "The product is move the needle.",
-    "lemma": "move the needle"
+    "variants": [
+      {
+        "example": "Our move the needle attracts buyers.",
+        "lemma": "move the needle"
+      }
+    ]
   },
   "next generation": {
     "classification": "unfalsifiable superlative",
-    "example": "The product is next generation.",
-    "lemma": "next generation"
+    "variants": [
+      {
+        "example": "Our next generation attracts buyers.",
+        "lemma": "next generation"
+      }
+    ]
   },
   "operationalize": {
     "classification": "consultant abstraction",
-    "example": "The product is operationalize.",
-    "lemma": "operationalize"
+    "variants": [
+      {
+        "example": "Our operationalize attracts buyers.",
+        "lemma": "operationalize"
+      }
+    ]
   },
   "paradigm shift": {
     "classification": "consultant abstraction",
-    "example": "The product is paradigm shift.",
-    "lemma": "paradigm shift"
+    "variants": [
+      {
+        "example": "Our paradigm shift attracts buyers.",
+        "lemma": "paradigm shift"
+      }
+    ]
   },
   "rocket ship": {
     "classification": "growth cliche",
-    "example": "The product is rocket ship.",
-    "lemma": "rocket ship"
+    "variants": [
+      {
+        "example": "Our rocket ship attracts buyers.",
+        "lemma": "rocket ship"
+      }
+    ]
   },
   "seamless": {
     "classification": "unfalsifiable superlative",
-    "example": "The product is seamless.",
-    "lemma": "seamless"
+    "variants": [
+      {
+        "example": "Our seamless attracts buyers.",
+        "lemma": "seamless"
+      }
+    ]
   },
   "second to none": {
     "classification": "unfalsifiable superlative",
-    "example": "The product is second to none.",
-    "lemma": "second to none"
+    "variants": [
+      {
+        "example": "Our second to none attracts buyers.",
+        "lemma": "second to none"
+      }
+    ]
   },
   "secret sauce": {
     "classification": "vague differentiator",
-    "example": "The product is secret sauce.",
-    "lemma": "secret sauce"
+    "variants": [
+      {
+        "example": "Our secret sauce attracts buyers.",
+        "lemma": "secret sauce"
+      }
+    ]
   },
   "special sauce": {
     "classification": "vague differentiator",
-    "example": "The product is special sauce.",
-    "lemma": "special sauce"
+    "variants": [
+      {
+        "example": "Our special sauce attracts buyers.",
+        "lemma": "special sauce"
+      }
+    ]
   },
   "state of the art": {
     "classification": "unfalsifiable superlative",
-    "example": "The product is state of the art.",
-    "lemma": "state of the art"
+    "variants": [
+      {
+        "example": "Our state of the art attracts buyers.",
+        "lemma": "state of the art"
+      }
+    ]
   },
   "sticky product": {
     "classification": "vague differentiator",
-    "example": "The product is sticky product.",
-    "lemma": "sticky product"
+    "variants": [
+      {
+        "example": "Our sticky product attracts buyers.",
+        "lemma": "sticky product"
+      }
+    ]
   },
   "strategic initiative": {
     "classification": "consultant abstraction",
-    "example": "The product is strategic initiative.",
-    "lemma": "strategic initiative"
+    "variants": [
+      {
+        "example": "Our strategic initiative attracts buyers.",
+        "lemma": "strategic initiative"
+      }
+    ]
   },
   "supercharge": {
     "classification": "growth cliche",
-    "example": "The product is supercharge.",
-    "lemma": "supercharge"
+    "variants": [
+      {
+        "example": "Our supercharge attracts buyers.",
+        "lemma": "supercharge"
+      }
+    ]
   },
   "synergy": {
     "classification": "consultant abstraction",
-    "example": "The product is synergy.",
-    "lemma": "synergy"
+    "variants": [
+      {
+        "example": "Our synergy attracts buyers.",
+        "lemma": "synergy"
+      }
+    ]
   },
   "thought leadership": {
     "classification": "consultant abstraction",
-    "example": "The product is thought leadership.",
-    "lemma": "think leadership"
+    "variants": [
+      {
+        "example": "We ship thought leadership to customers.",
+        "lemma": "think leadership"
+      },
+      {
+        "example": "Our thought leadership attracts buyers.",
+        "lemma": "thought leadership"
+      }
+    ]
   },
   "turbocharge": {
     "classification": "growth cliche",
-    "example": "The product is turbocharge.",
-    "lemma": "turbocharge"
+    "variants": [
+      {
+        "example": "Our turbocharge attracts buyers.",
+        "lemma": "turbocharge"
+      }
+    ]
   },
   "turnkey": {
     "classification": "unfalsifiable superlative",
-    "example": "The product is turnkey.",
-    "lemma": "turnkey"
+    "variants": [
+      {
+        "example": "Our turnkey attracts buyers.",
+        "lemma": "turnkey"
+      }
+    ]
   },
   "unfair advantage": {
     "classification": "vague differentiator",
-    "example": "The product is unfair advantage.",
-    "lemma": "unfair advantage"
+    "variants": [
+      {
+        "example": "Our unfair advantage attracts buyers.",
+        "lemma": "unfair advantage"
+      }
+    ]
   },
   "unique value proposition": {
     "classification": "vague differentiator",
-    "example": "The product is unique value proposition.",
-    "lemma": "unique value proposition"
+    "variants": [
+      {
+        "example": "Our unique value proposition attracts buyers.",
+        "lemma": "unique value proposition"
+      }
+    ]
   },
   "unlock value": {
     "classification": "growth cliche",
-    "example": "The product is unlock value.",
-    "lemma": "unlock value"
+    "variants": [
+      {
+        "example": "Our unlock value attracts buyers.",
+        "lemma": "unlock value"
+      }
+    ]
   },
   "unmatched": {
     "classification": "unfalsifiable superlative",
-    "example": "The product is unmatched.",
-    "lemma": "unmatched"
+    "variants": [
+      {
+        "example": "Our unmatched attracts buyers.",
+        "lemma": "unmatched"
+      }
+    ]
   },
   "unparalleled": {
     "classification": "unfalsifiable superlative",
-    "example": "The product is unparalleled.",
-    "lemma": "unparalleled"
+    "variants": [
+      {
+        "example": "Our unparalleled attracts buyers.",
+        "lemma": "unparalleled"
+      }
+    ]
   },
   "value add": {
     "classification": "consultant abstraction",
-    "example": "The product is value add.",
-    "lemma": "value add"
+    "variants": [
+      {
+        "example": "Our value add attracts buyers.",
+        "lemma": "value add"
+      }
+    ]
   },
   "viral loop": {
     "classification": "growth cliche",
-    "example": "The product is viral loop.",
-    "lemma": "viral loop"
+    "variants": [
+      {
+        "example": "Our viral loop attracts buyers.",
+        "lemma": "viral loop"
+      }
+    ]
   },
   "world class": {
     "classification": "unfalsifiable superlative",
-    "example": "The product is world class.",
-    "lemma": "world class"
+    "variants": [
+      {
+        "example": "Our world class attracts buyers.",
+        "lemma": "world class"
+      }
+    ]
   }
 }

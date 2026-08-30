@@ -183,19 +183,27 @@ profile vocabulary.
 ### Phrases are stored as lemmas, and a lemma is not the surface word
 
 The phrase rules match lemma sequences, so a phrase written the way an author
-types it will never fire. The pinned pipeline lemmatises "best in class" to
-"good in class" and "cutting edge" to "cut edge", and it resolves "best"
-differently in isolation than in a sentence: alone it becomes "well", and in
-"the platform is best in class" it becomes "good". A phrase list derived by eye
-therefore ships rules that are silently dead, and a passing test suite says
-nothing about it, because a rule that never matches breaks nothing.
+types it will never fire. The pinned pipeline lemmatises "cutting edge" to "cut
+edge". A phrase list derived by eye therefore ships rules that are silently
+dead, and a passing suite says nothing about it, because a rule that never
+matches breaks nothing.
 
-Every jargon phrase in `product-strategy` is pinned to a sentence that provably
-raises the finding, recorded in `tests/fixtures/product-strategy-jargon.json`
-alongside the lemma it resolves to. A test asserts that the fixture and the
-profile cover exactly the same phrases, so a phrase added without a
-demonstration fails the suite. The same test guards against a reader
-"correcting" a lemma back to its surface spelling.
+A lemma also depends on the grammatical role the phrase takes, which is the
+subtler trap. "Thought leadership" lemmatises to "thought leadership" as a
+subject and to "think leadership" after a copula, because the parser reads
+"thought" as a noun in one and a verb in the other. "Best in class" produces
+three forms across its roles. Pinning a phrase to a single carrier therefore
+ships a rule that fires in one construction and stays silent everywhere else,
+and an unnatural carrier pins the form that real prose never produces.
+
+Every jargon phrase in `product-strategy` is exercised across six natural
+carriers spanning subject, object, prepositional object, complement, and verb
+positions. Every distinct lemma that fires is stored, and
+`tests/fixtures/product-strategy-jargon.json` records each one beside the
+sentence that produced it. A test asserts that the fixture and the profile cover
+exactly the same lemma set, so a phrase added without a demonstration fails the
+suite, and a reader who "corrects" a lemma back to its surface spelling fails it
+too.
 
 One phrase was dropped rather than shipped. The pinned pipeline lemmatises
 "force multiplier" to "force multipli", which matches correctly but reads as a
