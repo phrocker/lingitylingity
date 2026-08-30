@@ -221,17 +221,26 @@ is an error rather than a quiet `no_material_change`.
 
 ```text
 python -m pip install -e .[dev]
-python -m spacy download en_core_web_sm
 python -m nltk.downloader wordnet omw-1.4
 pytest
-mypy --strict lingity tests
+mypy
 python -m compileall -q lingity tests
 ```
+
+These are the commands CI runs, on Python 3.11 and 3.12, for every push to
+`main` and every pull request; see `.github/workflows/ci.yml`. `pytest` and
+`mypy` take their settings from `pyproject.toml`, so no flags are needed.
 
 Analysis needs the spaCy model and the WordNet corpora present locally. Both are
 install-time steps on purpose: nothing downloads anything at analysis time, so a
 run cannot silently depend on the network or quietly change behaviour when a
 corpus is missing. Missing data is an error, not a fallback.
+
+The model is the pinned `en_core_web_sm` 3.8.0 wheel declared in
+`pyproject.toml`, so `pip install` already puts it in place. Do not substitute
+`python -m spacy download en_core_web_sm`: that resolves whatever model version
+is current at the time, and `lingity/nlp.py` rejects anything but 3.8.0.
+WordNet is not a Python distribution and stays a separate download.
 
 WordNet drives morphology — deriving the verb behind a nominalization
 ("ratification" → "ratify") and separating a word from its antonyms — rather
