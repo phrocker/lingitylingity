@@ -287,17 +287,50 @@ def _passive_findings(document: Document) -> list[Finding]:
     return findings
 
 
+def _is_stacked_modifier(token: Token) -> bool:
+    # A token in a "compound" relation to a noun head is a nominal modifier
+    # whatever part of speech the tagger guessed for it. The tagger reads
+    # "messaging" in "messaging loss hypotheses" as a NOUN in one context and a
+    # VERB in another, and the phrase is the same noun stack either way.
+    if token.dep == "compound":
+        return token.pos in {"NOUN", "PROPN", "VERB"}
+    # "amod" is only a stacked modifier when the modifier is itself a noun.
+    # Restricting it here keeps real adjectives and participles out.
+    return token.dep == "amod" and token.pos in {"NOUN", "PROPN"}
+
+
 def _noun_stack_tokens(document: Document, head: Token) -> tuple[Token, ...]:
     if head.pos not in {"NOUN", "PROPN"} or head.dep == "compound":
         return ()
     compounds = [
         token
         for token in document.subtree(head)
-        if token.dep == "compound" and token.is_word and token.pos in {"NOUN", "PROPN"}
+        if token.is_word and _is_stacked_modifier(token)
     ]
     if not compounds:
         return ()
-    return tuple(sorted([*compounds, head], key=lambda token: token.index))
+    ordered = sorted([*compounds, head], key=lambda token: token.index)
+    run = [ordered[-1]]
+    for token in reversed(ordered[:-1]):
+        if token.index != run[-1].index - 1:
+            break
+        run.append(token)
+    run.reverse()
+    if len(run) < 2:
+        return ()
+    return tuple(run)
+
+
+def _noun_stack_depth(stack: tuple[Token, ...]) -> int:
+    depth = 0
+    previous_entity = ""
+    for token in stack:
+        entity = token.entity_type
+        if entity and entity == previous_entity:
+            continue
+        depth += 1
+        previous_entity = entity
+    return depth
 
 
 def _noun_stack_findings(document: Document, profile: Profile) -> list[Finding]:
@@ -307,7 +340,10 @@ def _noun_stack_findings(document: Document, profile: Profile) -> list[Finding]:
     for sentence in document.sentences:
         for head in sentence.tokens:
             stack = _noun_stack_tokens(document, head)
-            if len(stack) < minimum:
+            if not stack:
+                continue
+            depth = _noun_stack_depth(stack)
+            if depth < minimum:
                 continue
             start = stack[0].start
             end = stack[-1].end
@@ -320,12 +356,12 @@ def _noun_stack_findings(document: Document, profile: Profile) -> list[Finding]:
                 Finding(
                     "LING-NOUN-STACK-001",
                     "morphology",
-                    _severity(len(stack), minimum),
+                    _severity(depth, minimum),
                     _location(document.text, start, end, sentence.index),
-                    {"words": len(stack), "text": text},
+                    {"words": len(stack), "units": depth, "text": text},
                     minimum - 1,
                     "Unpack the noun stack with a verb or preposition.",
-                    min(12.0, 3.0 + (len(stack) - 3) * 2.0),
+                    min(12.0, 3.0 + (depth - 3) * 2.0),
                 )
             )
     return findings

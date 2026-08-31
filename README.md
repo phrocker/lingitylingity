@@ -96,6 +96,13 @@ table:
   sentence.
 - **Morphology** — nominalization density and weak verb constructions.
 - **Noun stacking** — consecutive noun modifiers and hyphenated compound depth.
+  A stack must be contiguous, and a named entity counts as one unit, so
+  `Azure Kubernetes Service cluster` is two units rather than four and a
+  person's name is never reported as a stack. Detection reads the dependency
+  relation rather than the part-of-speech tag, because the tagger reads
+  `messaging` in `messaging loss hypotheses` as a noun in one sentence and a
+  verb in another. The finding reports `words` for the span and `units` for the
+  naming units the threshold compares.
 - **Agency** — agentless directives and missing explicit actor-action pairs.
 - **Voice** — passive constructions and indirect predicates. Passive detection
   is structural: it requires a passive auxiliary or passive subject relation

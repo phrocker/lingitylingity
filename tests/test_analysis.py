@@ -53,15 +53,17 @@ def test_rewrite_scores_better_and_reduces_findings(
     assert isinstance(original_score, float)
     assert isinstance(rewrite_score, float)
     assert rewrite_score > original_score
-    assert cast(dict[str, JsonValue], original["score"])["band"] == "revision_required"
-    # The rewrite must move at least one band, but it is not required to reach
-    # "clear". A rewrite that carries every governed term forward cannot shed
-    # the findings those terms cause, and demanding a fixed band here would
-    # calibrate the bands to this one fixture rather than measure it.
+    # No absolute band is pinned here. A pin records where the current weights
+    # happen to land rather than measuring the rewrite, and the pin this test
+    # used to carry held only because three fabricated noun-stack findings
+    # depressed the original's score. A rewrite that carries every governed
+    # term forward cannot shed the findings those terms cause, so assert the
+    # direction and the margin instead.
     bands = ["unusable", "revision_required", "usable_but_improvable", "clear"]
     original_band = cast(str, cast(dict[str, JsonValue], original["score"])["band"])
     rewrite_band = cast(str, cast(dict[str, JsonValue], rewrite["score"])["band"])
-    assert bands.index(rewrite_band) > bands.index(original_band)
+    assert bands.index(rewrite_band) >= bands.index(original_band)
+    assert rewrite_score - original_score >= 10.0
     assert len(cast(list[JsonValue], rewrite["findings"])) < len(
         cast(list[JsonValue], original["findings"])
     )
@@ -517,3 +519,92 @@ def test_clean_prose_sweep_has_zero_findings() -> None:
     ]
     for text in clean_sentences:
         assert _findings(text) == [], text
+
+
+def _noun_stacks(text: str) -> list[tuple[str, int, int]]:
+    stacks: list[tuple[str, int, int]] = []
+    for finding in _findings(text):
+        if finding["rule_id"] != "LING-NOUN-STACK-001":
+            continue
+        observed = cast(dict[str, JsonValue], finding["observed_value"])
+        stacks.append(
+            (
+                cast(str, observed["text"]),
+                cast(int, observed["words"]),
+                cast(int, observed["units"]),
+            )
+        )
+    return stacks
+
+
+def test_a_noun_stack_span_is_the_text_it_reports() -> None:
+    # The reported span used to be sliced between the first and last stack
+    # token, so intervening words were swallowed and the reported word count
+    # disagreed with the reported text. observed_value is the contract this
+    # project rests on, so "words" must count the words actually in the span
+    # and "units" must be the naming units compared against the threshold.
+    for text in (
+        "Recommended decision: Propose deferring architecture ratification and any "
+        "irreversible V2 cutover.",
+        "Require closure evidence for the governed recommendations before a target "
+        "architecture returns for human decision.",
+        "The customer data retention policy review board met.",
+        "The Azure Kubernetes Service cluster owners met.",
+    ):
+        for span, words, units in _noun_stacks(text):
+            assert span in text, span
+            assert len(span.split()) == words, (span, words)
+            assert 0 < units <= words, (span, units, words)
+            assert not any(
+                token in span.split() for token in ("and", "or", "the", "a", "for")
+            )
+
+
+def test_a_named_entity_counts_as_one_naming_unit() -> None:
+    # "Azure Kubernetes Service" is one product name, so the phrase is three
+    # units (name + cluster + owners) across five words. Counting the words
+    # would report a denser stack than a reader experiences.
+    stacks = _noun_stacks("The Azure Kubernetes Service cluster owners met.")
+    assert stacks == [("Azure Kubernetes Service cluster owners", 5, 3)]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Tom Zimmermann and Eirini Kalliamvakou published a study.",
+        "The Azure Kubernetes Service cluster failed.",
+        "Rudrajit Choudhuri wrote the summary.",
+    ],
+)
+def test_a_named_entity_is_not_a_noun_stack(text: str) -> None:
+    # A person or product name is a single naming unit, not stacked modifiers.
+    # "Unpack the noun stack with a verb or preposition" is unactionable advice
+    # for "Tom Zimmermann", so the entity must not inflate the stack depth.
+    assert _noun_stacks(text) == [], text
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "The critical security review passed.",
+        "A large red button appeared.",
+        "The final approved budget shipped.",
+    ],
+)
+def test_an_adjective_is_not_a_noun_stack(text: str) -> None:
+    assert _noun_stacks(text) == [], text
+
+
+def test_a_noun_stack_is_detected_regardless_of_modifier_dependency_label() -> None:
+    # The parser labels the first modifier of "messaging loss hypotheses"
+    # "compound" in one context and "amod" in another. The phrase is the same
+    # noun stack either way, so detection must not depend on which label the
+    # parser chose.
+    embedded = (
+        "Use the hybrid topology as a baseline, address the authorization concerns, "
+        "and verify the two critical messaging loss hypotheses."
+    )
+    standalone = "Verify the messaging loss hypotheses."
+    assert ("messaging loss hypotheses", 3, 3) in _noun_stacks(embedded)
+    assert ("messaging loss hypotheses", 3, 3) in _noun_stacks(standalone)
+
