@@ -608,3 +608,80 @@ def test_a_noun_stack_is_detected_regardless_of_modifier_dependency_label() -> N
     assert ("messaging loss hypotheses", 3, 3) in _noun_stacks(embedded)
     assert ("messaging loss hypotheses", 3, 3) in _noun_stacks(standalone)
 
+
+def _redundancy_terms(text: str) -> list[tuple[str, int]]:
+    terms: list[tuple[str, int]] = []
+    for finding in _findings(text):
+        if finding["rule_id"] != "LING-REDUNDANCY-001":
+            continue
+        observed = cast(dict[str, JsonValue], finding["observed_value"])
+        terms.append((cast(str, observed["term"]), cast(int, observed["occurrences"])))
+    return sorted(terms)
+
+
+def _fingerprints(text: str) -> list[str]:
+    """Identify each finding by what it reports, not by where the offsets land."""
+    return sorted(
+        f"{finding['rule_id']}:{json.dumps(finding['observed_value'], sort_keys=True)}"
+        for finding in _findings(text)
+    )
+
+
+def test_a_repeated_term_is_reported_within_one_block() -> None:
+    # Three uses of one content word in a single paragraph is the local
+    # repetition the rule exists to catch, and it still is.
+    text = (
+        "The governance board reviewed governance rules and published governance advice."
+    )
+    assert ("governance", 3) in _redundancy_terms(text)
+
+
+def test_a_term_repeated_across_blocks_is_not_redundancy() -> None:
+    # Governance prose has to call one concept by one name in every section, so
+    # a term recurring across paragraphs is the document being consistent. When
+    # this was counted per document, naming the subject of a long document was
+    # itself enough to be reported as redundant.
+    blocks = [
+        "The governance board met in March.",
+        "Each team publishes governance rules.",
+        "The auditor reviews governance evidence.",
+        "Engineers follow governance practice daily.",
+        "The council records governance decisions.",
+    ]
+    assert _redundancy_terms("\n\n".join(blocks)) == []
+
+
+def test_a_document_reports_exactly_what_its_blocks_report() -> None:
+    # A finding has to describe the passage it points at. A rule that counted
+    # across the whole document made a paragraph score differently alone than it
+    # did inside the document containing it, so concatenating clean prose
+    # manufactured findings that no paragraph had.
+    blocks = [
+        "The governance board reviewed governance rules and published governance advice.",
+        "A decision was made by the committee regarding the deferral of the migration.",
+        "The auditor reviews governance evidence and records governance decisions.",
+        "Engineers ship the gateway each week.",
+    ]
+    together = _fingerprints("\n\n".join(blocks))
+    apart = sorted(item for block in blocks for item in _fingerprints(block))
+    assert together == apart
+
+def _observed_texts(text: str) -> list[str]:
+    texts: list[str] = []
+    for finding in _findings(text):
+        observed = finding["observed_value"]
+        if isinstance(observed, str):
+            texts.append(observed)
+        elif isinstance(observed, dict):
+            texts.extend(value for value in observed.values() if isinstance(value, str))
+    return texts
+
+
+def test_a_finding_quotes_text_the_way_the_parser_read_it() -> None:
+    # The parser joins a block's wrapped lines with one space before reading
+    # them, so a finding that echoed the raw source slice reported a line break
+    # and a list item's indentation that the analysis never saw.
+    text = "- The results are not\n  conflated with the source data by the team.\n"
+    texts = _observed_texts(text)
+    assert texts, "expected the wrapped passive construction to be reported"
+    assert all("\n" not in value for value in texts), texts

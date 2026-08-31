@@ -113,7 +113,19 @@ table:
 - **Structure** — paragraph length, list suitability, and mixed-purpose
   sentences.
 - **Redundancy** — repeated qualifiers, duplicated recommendations, and filler
-  phrases.
+  phrases. Lingity counts a repeated content word within one block, not across
+  the whole text. Governance prose has to call one concept by one name in every
+  section, so a term that recurs between sections shows consistency. Counting
+  document-wide made a finding depend on wording far away from it. Joining clear
+  paragraphs then manufactured findings that no paragraph had alone.
+
+Every rule is block-scoped: the findings for a document are exactly the findings
+of its blocks. A passage therefore scores the same alone as it does inside the
+document that contains it.
+
+A finding quotes source text the way the parser read it. The parser joins a
+block's wrapped lines with a single space, so an observed value never carries a
+line break or a list marker's indentation.
 
 Noun stacking findings are reported under the `morphology` dimension and voice
 findings under `agency`, so the score always resolves to the six weighted
