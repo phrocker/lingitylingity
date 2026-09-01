@@ -247,6 +247,14 @@ lexical clarity at 25 each and structure at 8, because a strategy document
 mostly fails by claiming something unfalsifiable or by claiming it without
 naming who acts.
 
+`web-copy` reads public-facing prose. Nobody studies a marketing page, and its
+characteristic failure is not an unfalsifiable claim but prose that reads as
+machine-written, so it weights morphology and lexical clarity at 25 each and
+drops agency to 12 — much public copy is legitimately descriptive, and "the
+office sits off Route 32" names no actor and needs none. Its vocabulary adds
+two groups the other profiles have no reason to carry: `ai cadence`, the words
+a model reaches for when asked to sound enthusiastic, and `recruiting cliche`.
+
 `resume-review` reads accomplishment bullets. It weights agency at 30,
 morphology at 25, and redundancy at 20, and structure at 2, because a document
 that is already a bullet list has almost no structure left to get wrong, while

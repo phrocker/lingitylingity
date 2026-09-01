@@ -1,0 +1,310 @@
+{
+  "In today's world": {
+    "classification": "ai cadence",
+    "examples": [
+      "In today's world, clearances matter more than ever."
+    ],
+    "lemma": "in today 's world"
+  },
+  "Join our team": {
+    "classification": "recruiting cliche",
+    "examples": [
+      "Join our team of cleared professionals."
+    ],
+    "lemma": "join our team"
+  },
+  "bleeding edge": {
+    "classification": "unfalsifiable superlative",
+    "examples": [
+      "We work with bleeding edge technology."
+    ],
+    "lemma": "bleed edge"
+  },
+  "competitive salary": {
+    "classification": "recruiting cliche",
+    "examples": [
+      "The role offers a competitive salary."
+    ],
+    "lemma": "competitive salary"
+  },
+  "delve": {
+    "classification": "ai cadence",
+    "examples": [
+      "The report will delve into corridor hiring trends."
+    ],
+    "lemma": "delve"
+  },
+  "dynamic team": {
+    "classification": "recruiting cliche",
+    "examples": [
+      "Join a dynamic team of engineers."
+    ],
+    "lemma": "dynamic team"
+  },
+  "ecosystem of": {
+    "classification": "ai cadence",
+    "examples": [
+      "The company built an ecosystem of partners."
+    ],
+    "lemma": "ecosystem of"
+  },
+  "elevate": {
+    "classification": "ai cadence",
+    "examples": [
+      "This role will elevate your career."
+    ],
+    "lemma": "elevate"
+  },
+  "embark": {
+    "classification": "ai cadence",
+    "examples": [
+      "New hires embark on a six week onboarding."
+    ],
+    "lemma": "embark"
+  },
+  "ever evolving": {
+    "classification": "ai cadence",
+    "examples": [
+      "The threat landscape is ever evolving."
+    ],
+    "lemma": "ever evolve"
+  },
+  "exciting opportunity": {
+    "classification": "recruiting cliche",
+    "examples": [
+      "This is an exciting opportunity for engineers."
+    ],
+    "lemma": "exciting opportunity"
+  },
+  "fast paced environment": {
+    "classification": "recruiting cliche",
+    "examples": [
+      "You will thrive in a fast paced environment."
+    ],
+    "lemma": "fast pace environment"
+  },
+  "foster": {
+    "classification": "ai cadence",
+    "examples": [
+      "We foster collaboration across teams."
+    ],
+    "lemma": "foster"
+  },
+  "harness the power": {
+    "classification": "ai cadence",
+    "examples": [
+      "We harness the power of machine learning."
+    ],
+    "lemma": "harness the power"
+  },
+  "hit the ground running": {
+    "classification": "recruiting cliche",
+    "examples": [
+      "You will hit the ground running."
+    ],
+    "lemma": "hit the ground run"
+  },
+  "holistic": {
+    "classification": "ai cadence",
+    "examples": [
+      "We take a holistic approach to security."
+    ],
+    "lemma": "holistic"
+  },
+  "leverage": {
+    "classification": "ai cadence",
+    "examples": [
+      "We leverage cloud infrastructure for scale."
+    ],
+    "lemma": "leverage"
+  },
+  "like a family": {
+    "classification": "recruiting cliche",
+    "examples": [
+      "The team feels like a family."
+    ],
+    "lemma": "like a family"
+  },
+  "make an impact": {
+    "classification": "recruiting cliche",
+    "examples": [
+      "You will make an impact from day one."
+    ],
+    "lemma": "make an impact"
+  },
+  "market leading": {
+    "classification": "unfalsifiable superlative",
+    "examples": [
+      "The company offers a market leading platform."
+    ],
+    "lemma": "market lead"
+  },
+  "mission critical": {
+    "classification": "unfalsifiable superlative",
+    "examples": [
+      "These are mission critical systems."
+    ],
+    "lemma": "mission critical"
+  },
+  "navigate the landscape": {
+    "classification": "ai cadence",
+    "examples": [
+      "Candidates must navigate the landscape of clearances."
+    ],
+    "lemma": "navigate the landscape"
+  },
+  "paradigm": {
+    "classification": "ai cadence",
+    "examples": [
+      "This represents a new paradigm for defense work."
+    ],
+    "lemma": "paradigm"
+  },
+  "passionate about": {
+    "classification": "recruiting cliche",
+    "examples": [
+      "We are passionate about mission work."
+    ],
+    "lemma": "passionate about"
+  },
+  "premier": {
+    "classification": "unfalsifiable superlative",
+    "examples": [
+      "They call themselves the premier provider in the region."
+    ],
+    "lemma": "premier"
+  },
+  "rapidly evolving": {
+    "classification": "ai cadence",
+    "examples": [
+      "This is a rapidly evolving field."
+    ],
+    "lemma": "rapidly evolve"
+  },
+  "realm of": {
+    "classification": "ai cadence",
+    "examples": [
+      "That work falls in the realm of cyber defense."
+    ],
+    "lemma": "realm of"
+  },
+  "robust": {
+    "classification": "ai cadence",
+    "examples": [
+      "The platform offers a robust security model."
+    ],
+    "lemma": "robust"
+  },
+  "rock star": {
+    "classification": "recruiting cliche",
+    "examples": [
+      "We are looking for a rock star developer."
+    ],
+    "lemma": "rock star"
+  },
+  "self starter": {
+    "classification": "recruiting cliche",
+    "examples": [
+      "The ideal candidate is a self starter."
+    ],
+    "lemma": "self starter"
+  },
+  "showcase": {
+    "classification": "ai cadence",
+    "examples": [
+      "The page will showcase our engineering culture."
+    ],
+    "lemma": "showcase"
+  },
+  "spearhead": {
+    "classification": "ai cadence",
+    "examples": [
+      "She will spearhead the migration effort."
+    ],
+    "lemma": "spearhead"
+  },
+  "streamline": {
+    "classification": "ai cadence",
+    "examples": [
+      "The tool will streamline your workflow."
+    ],
+    "lemma": "streamline"
+  },
+  "tapestry": {
+    "classification": "ai cadence",
+    "examples": [
+      "The corridor is a rich tapestry of contractors."
+    ],
+    "lemma": "tapestry"
+  },
+  "team player": {
+    "classification": "recruiting cliche",
+    "examples": [
+      "We want a team player who communicates well."
+    ],
+    "lemma": "team player"
+  },
+  "testament to": {
+    "classification": "ai cadence",
+    "examples": [
+      "The result is a testament to the team's work."
+    ],
+    "lemma": "testament to"
+  },
+  "think outside the box": {
+    "classification": "recruiting cliche",
+    "examples": [
+      "Engineers here think outside the box."
+    ],
+    "lemma": "think outside the box"
+  },
+  "underscore": {
+    "classification": "ai cadence",
+    "examples": [
+      "These numbers underscore the hiring gap."
+    ],
+    "lemma": "underscore"
+  },
+  "unlock the power": {
+    "classification": "ai cadence",
+    "examples": [
+      "Our platform will unlock the power of your data."
+    ],
+    "lemma": "unlock the power"
+  },
+  "unrivaled": {
+    "classification": "unfalsifiable superlative",
+    "examples": [
+      "The platform offers unrivaled performance."
+    ],
+    "lemma": "unrivaled"
+  },
+  "utilize": {
+    "classification": "ai cadence",
+    "examples": [
+      "Engineers utilize modern tooling here."
+    ],
+    "lemma": "utilize"
+  },
+  "vibrant": {
+    "classification": "ai cadence",
+    "examples": [
+      "The office has a vibrant culture."
+    ],
+    "lemma": "vibrant"
+  },
+  "wear many hats": {
+    "classification": "recruiting cliche",
+    "examples": [
+      "Engineers here wear many hats."
+    ],
+    "lemma": "wear many hat"
+  },
+  "work hard play hard": {
+    "classification": "recruiting cliche",
+    "examples": [
+      "We work hard play hard at this company."
+    ],
+    "lemma": "work hard play hard"
+  }
+}
