@@ -386,3 +386,138 @@ def test_a_second_finite_predicate_is_not_absorbed_as_a_state() -> None:
         "claim:action=be;actor=fix;modality=assertive;polarity=positive;"
         "status=asserted;target=complete"
     ], signature
+
+
+_TRAILING_GATE = (
+    "Require closure evidence for the governed recommendations "
+    "before a target architecture returns for human decision."
+)
+_FRONTED_GATE = (
+    "Before a target architecture returns for human decision, "
+    "require closure evidence for the governed recommendations."
+)
+
+
+def _ordering(text: str) -> list[str]:
+    return [item for item in _signature(text) if item.startswith("order:")]
+
+
+def test_moving_an_ordering_clause_to_the_front_preserves_meaning() -> None:
+    """Fronting a "before" clause reorders words, not instructions.
+
+    The parser attaches a trailing "before" to the nearest noun and a fronted
+    one to the main verb, so the same gate used to produce two different
+    signatures and the meaning check rejected a faithful reordering.
+    """
+
+    assert _comparison(_TRAILING_GATE, _FRONTED_GATE)["equivalent"] is True
+
+
+def test_an_ordering_clause_does_not_leak_into_the_claim_target() -> None:
+    """The gated action is the claim; the sequencing is its own element."""
+
+    targets = [
+        item for item in _signature(_TRAILING_GATE) if item.startswith("claim:")
+    ]
+    assert targets == [
+        "claim:action=require;actor=unspecified;modality=must;polarity=positive;"
+        "status=asserted;target=closure evidence govern recommendation"
+    ], targets
+
+
+@pytest.mark.parametrize("text", [_TRAILING_GATE, _FRONTED_GATE])
+def test_the_sequence_is_reported_the_same_way_from_either_order(text: str) -> None:
+    assert _ordering(text) == [
+        "order:sequence:earlier=require closure evidence govern recommendation;"
+        "later=target architecture return human decision"
+    ], _ordering(text)
+
+
+@pytest.mark.parametrize(
+    ("marker", "fronted_marker"),
+    [
+        ("before", "Before"),
+        ("after", "After"),
+        ("until", "Until"),
+        ("once", "Once"),
+        ("following", "Following"),
+    ],
+)
+def test_a_subordinate_clause_states_its_sequence_in_either_position(
+    marker: str, fronted_marker: str
+) -> None:
+    """A conjunction hangs below its clause, so it has no children to read.
+
+    Only the prepositional shape was handled, so "close the findings before the
+    design returns" reported no sequence at all and compared equal to the same
+    sentence with "after" -- a silently inverted gate.
+    """
+
+    trailing = f"Close the findings {marker} the design returns to the board."
+    fronted = f"{fronted_marker} the design returns to the board, close the findings."
+    assert _ordering(trailing), trailing
+    assert _ordering(trailing) == _ordering(fronted), (trailing, fronted)
+
+
+@pytest.mark.parametrize(
+    ("earlier", "later"),
+    [
+        ("before", "after"),
+        ("until", "once"),
+        ("before", "following"),
+    ],
+)
+def test_swapping_the_ordering_marker_is_still_a_meaning_change(
+    earlier: str, later: str
+) -> None:
+    """Closing the reordering hole must not also let an inversion through."""
+
+    first = f"Close the findings {earlier} the design returns to the board."
+    second = f"Close the findings {later} the design returns to the board."
+    assert _comparison(first, second)["equivalent"] is False
+
+
+def test_dropping_the_ordering_clause_is_a_meaning_change() -> None:
+    assert (
+        _comparison(_TRAILING_GATE, "Require closure evidence for the governed recommendations.")[
+            "equivalent"
+        ]
+        is False
+    )
+
+
+def test_exchanging_the_two_sequenced_clauses_is_a_meaning_change() -> None:
+    """Reordering the words is safe; reordering the operands is not."""
+
+    swapped = (
+        "Before closure evidence is required for the governed recommendations, "
+        "a target architecture returns for human decision."
+    )
+    assert _comparison(_TRAILING_GATE, swapped)["equivalent"] is False
+
+
+@pytest.mark.parametrize(
+    "clause",
+    [
+        "before a target architecture returns for human decision",
+        "after a target architecture returns for human decision",
+        "until a target architecture returns for human decision",
+        "once a target architecture returns for human decision",
+        "following a target architecture return for human decision",
+        "prior to a target architecture returning for human decision",
+    ],
+)
+def test_dropping_a_gate_is_detected_however_the_gate_is_worded(
+    clause: str,
+) -> None:
+    """Excluding an ordering clause from a target must not lose the gate.
+
+    A target sheds the clause so that word order stops changing the claim, but
+    the sentence still says something the shortened version does not. Whichever
+    element carries it, deleting the gate has to read as a meaning change --
+    losing it silently is the one failure this check exists to prevent.
+    """
+
+    gated = f"Require closure evidence for the governed recommendations {clause}."
+    ungated = "Require closure evidence for the governed recommendations."
+    assert _comparison(gated, ungated)["equivalent"] is False, gated

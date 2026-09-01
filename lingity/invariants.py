@@ -698,6 +698,14 @@ def _target_tokens(document: Document, predicate: Token) -> list[Token]:
     root = _object_root(document, predicate)
     if root is None:
         return []
+    # An ordering clause is dropped only when _ordering_relations reports it, so
+    # the content is represented as an order:sequence rather than lost. Trailing
+    # markers attach low -- "before" lands on the nearest noun inside the object
+    # -- so without this the same sentence produced a target that swallowed the
+    # clause when trailing and one that did not when fronted.
+    ordered_away = {
+        index for relation in _ordering_relations(document) for index in relation.owned
+    }
     # Material belonging to a nested clause is excluded so that targets do not
     # swallow the rest of the sentence. The predicate's own object is never
     # nested material, though: when a discourse label makes the predicate
@@ -707,6 +715,7 @@ def _target_tokens(document: Document, predicate: Token) -> list[Token]:
         token
         for token in document.subtree(root)
         if token.dep not in {"acl", "advcl", "relcl"}
+        and token.index not in ordered_away
         and (
             document.head_of(token).index == predicate.index
             or document.head_of(token).dep not in {"acl", "advcl", "relcl"}
@@ -1507,6 +1516,161 @@ def _governance_items(
                 yield _item(document.text, "governance", "term", "target architecture", token.start, following.end, document.text)
 
 
+_SUBORDINATING_DEPS = {"mark", "advmod"}
+
+
+@dataclass(frozen=True)
+class OrderingRelation:
+    """One temporal relation, with the span the marker owns."""
+
+    marker: Token
+    anchor: Token
+    earlier: str
+    later: str
+    start: int
+    end: int
+    owned: frozenset[int]
+
+
+def _ordering_anchor(document: Document, start: Token) -> Token:
+    """Return the predicate that governs `start`.
+
+    An ordering marker relates two clauses, but the parser attaches it wherever
+    it sits: fronted, "before" attaches to the main verb; trailing, it attaches
+    to the nearest preceding noun. Taking the attachment point as the anchor
+    made the same sentence produce two different relations depending on clause
+    order, so a rewrite that only moved the clause looked like a meaning change.
+
+    Walking up to the governing predicate makes the anchor the clause, which is
+    what the relation is actually about.
+    """
+    current = start
+    for _ in range(_MAX_HEAD_WALK):
+        if current.pos in {"VERB", "AUX"}:
+            return current
+        head = document.head_of(current)
+        if head.index == current.index:
+            return current
+        current = head
+    return current
+
+
+def _ordering_sides(
+    document: Document, marker: Token, *, subordinating: bool
+) -> tuple[Token, list[Token]] | None:
+    """Return the anchor predicate and the tokens the marker introduces.
+
+    The two shapes are opposites. As a preposition the sequenced clause hangs
+    below the marker, so it is found among its children. As a subordinating
+    conjunction the marker hangs below the clause instead, so the clause is its
+    head and it has no children at all -- which is why only the prepositional
+    shape used to yield a relation, and "close the findings before the design
+    returns" compared equal to "...after the design returns".
+    """
+    head = document.head_of(marker)
+    if head.index == marker.index:
+        return None
+    if subordinating:
+        governor = document.head_of(head)
+        if governor.index == head.index:
+            # A fronted subordinate clause is sometimes parsed as the root, with
+            # the main clause demoted to the unlabelled "dep" fallback beneath
+            # it. The relation is still stated, so recover the main clause from
+            # the inverted parse rather than dropping the sequencing entirely.
+            demoted = [
+                child
+                for child in document.children(head)
+                if child.pos == "VERB" and child.dep in {"dep", "conj", "parataxis"}
+            ]
+            if not demoted:
+                return None
+            return _ordering_anchor(document, demoted[0]), [head]
+        return _ordering_anchor(document, governor), [head]
+    related = [
+        child for child in document.children(marker) if child.dep in {"pobj", "advcl"}
+    ]
+    if not related:
+        related = [
+            child
+            for child in document.children(marker)
+            if child.pos in {"NOUN", "PROPN", "VERB"}
+        ]
+    if not related:
+        return None
+    return _ordering_anchor(document, head), related
+
+
+def _ordering_relations(document: Document) -> list[OrderingRelation]:
+    """Return every temporal relation the document states.
+
+    Shared with `_target_tokens` so that a claim target drops an ordering clause
+    only when that clause is provably represented here. Excluding it on the
+    marker alone would silently lose governed content whenever this function
+    declined to emit a relation.
+    """
+    relations: list[OrderingRelation] = []
+    for token in document:
+        if token.lower not in ORDERING_MARKERS:
+            continue
+        # A subordinating marker is labelled "mark" when the parser reads its
+        # clause as a clause, and "advmod" when it does not -- "once a target
+        # architecture returns" parses the verb as a noun and demotes the marker
+        # to an adverb. The relation is stated either way, so both labels are
+        # read, but only from a conjunction: an ordinary adverb sequences
+        # nothing.
+        subordinating = token.dep in _SUBORDINATING_DEPS and token.pos == "SCONJ"
+        if token.dep != "prep" and not subordinating:
+            continue
+        sides = _ordering_sides(document, token, subordinating=subordinating)
+        if sides is None:
+            continue
+        anchor, related = sides
+        if anchor.index == token.index:
+            continue
+        anchor_indices = {member.index for member in document.subtree(anchor)}
+        owned = {
+            member.index for relative in related for member in document.subtree(relative)
+        }
+        if anchor.index in owned:
+            # The recovered main clause sits inside the marked clause's subtree
+            # in an inverted parse, so remove it before measuring the two sides.
+            owned -= anchor_indices
+        anchor_side = _normalize_target_tokens(
+            [
+                candidate
+                for candidate in document.subtree(anchor)
+                if candidate.index != token.index and candidate.index not in owned
+            ]
+        )
+        other_side = _normalize_target_tokens(
+            [
+                member
+                for relative in related
+                for member in document.subtree(relative)
+                if member.index != token.index and member.index in owned
+            ]
+        )
+        if not anchor_side or not other_side:
+            continue
+        if token.lower in {"before", "until", "prior"}:
+            earlier, later = anchor_side, other_side
+        else:
+            earlier, later = other_side, anchor_side
+        span = sorted(document.subtree(token), key=lambda member: member.start)
+        relations.append(
+            OrderingRelation(
+                marker=token,
+                anchor=anchor,
+                earlier=earlier,
+                later=later,
+                start=min(token.start, anchor.start),
+                end=max(token.end, span[-1].end),
+                owned=frozenset(owned | {token.index}),
+            )
+        )
+    return relations
+
+
 def _order_items(document: Document) -> Iterable[dict[str, JsonValue]]:
     """Emit explicit sequencing relations for temporal prepositions.
 
@@ -1518,53 +1682,14 @@ def _order_items(document: Document) -> Iterable[dict[str, JsonValue]]:
     B" and "B after A" agree.
     """
 
-    for token in document:
-        if token.lower not in ORDERING_MARKERS or token.dep not in {"prep", "mark"}:
-            continue
-        anchor = document.head_of(token)
-        if anchor is token:
-            continue
-        related = [
-            child for child in document.children(token) if child.dep in {"pobj", "advcl"}
-        ]
-        if not related:
-            related = [
-                child
-                for child in document.children(token)
-                if child.pos in {"NOUN", "PROPN", "VERB"}
-            ]
-        if not related:
-            continue
-        anchor_side = _normalize_target_tokens(
-            [
-                candidate
-                for candidate in document.subtree(anchor)
-                if candidate.index != token.index
-                and candidate.index not in {
-                    member.index
-                    for relative in related
-                    for member in document.subtree(relative)
-                }
-            ]
-        )
-        other_side = _normalize_target_tokens(
-            [member for relative in related for member in document.subtree(relative)]
-        )
-        if not anchor_side or not other_side:
-            continue
-        if token.lower in {"before", "until", "prior"}:
-            earlier, later = anchor_side, other_side
-        else:
-            earlier, later = other_side, anchor_side
-        start = min(token.start, anchor.start)
-        end = max(token.end, max(member.end for member in document.subtree(token)))
+    for relation in _ordering_relations(document):
         yield _item(
             document.text,
             "order",
             "sequence",
-            f"earlier={earlier};later={later}",
-            start,
-            end,
+            f"earlier={relation.earlier};later={relation.later}",
+            relation.start,
+            relation.end,
             document.text,
         )
 
