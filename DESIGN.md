@@ -274,10 +274,32 @@ A profile may now set `require_responsible_actor`. Under that threshold a
 directive clears the rule only when its subject is an actor the profile
 recognises. `architecture-review` does not set it and behaves as before.
 
-`product-strategy` and `resume-review` store no protected phrases, and declare
-an empty `protected_concepts` array. `architecture-review` still carries one
-governance entry from before the phrase matching was removed. Protection belongs
-to the meaning gate, which reads claim signatures from the parse.
+No shipped profile stores protected phrases, and every one declares an empty
+`protected_concepts` array. `architecture-review` was the last to carry a
+governance entry, and its two patterns matched only the fixture's own headings,
+so it certified nothing about any other document. It could go once governance
+terms were compared by presence instead of by count: the entry existed to stop
+"Recommended decision:" and "Recommendation:" from reading as a lost "decision".
+Protection belongs to the meaning gate, which reads claim signatures from the
+parse.
+
+### A governance term is protected by presence, not by count
+
+Most protected elements are counted, because each occurrence carries arguments
+of its own. Two claims name two actions; two `quantity:count:2` entries are two
+counts a rewrite has to keep. Counting them is what makes a dropped sentence
+detectable.
+
+Governance terms are the exception. Their value comes from a closed lemma list,
+so the same string recurs for mentions that have nothing to do with each other,
+and the element records no actor, target, or modality that could tell those
+mentions apart. A count difference therefore cannot be attributed to any
+particular loss. It only says the document spent the word fewer times, which is
+what the nominalization and sentence-length rules ask writers to do.
+
+This does not let governed content through. Dropping a governance term entirely
+still reports it missing, and losing one of two requirements that share a term
+still fails on the claim that carried the target.
 
 ### A profile can read an absent subject as the author
 

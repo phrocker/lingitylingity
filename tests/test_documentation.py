@@ -12,10 +12,15 @@ touching either sentence.
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
+from typing import cast
 
 import pytest
+
+from lingity.invariants import compare_protected, extract_protected
+from lingity.profiles import load_profile
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
@@ -569,3 +574,48 @@ def test_a_word_that_merely_starts_with_ship_is_not_the_count_claim(
     assert _documented_profile_count(document) == 5
 
 
+
+
+JUDGE_EXAMPLE = re.compile(r"\$ lingity judge.*?\n(.*?)```", re.DOTALL)
+DROPPED_COUNT = re.compile(r"(\d+) protected element\(s\) dropped")
+MISSING_LINE = re.compile(r"^\s*MISSING (\S.*?)\s*$", re.MULTILINE)
+FIXTURE = REPO_ROOT / "tests" / "fixtures" / "recommended-decision.json"
+
+
+@pytest.mark.parametrize("name", READMES)
+def test_the_documented_rejection_lists_elements_the_gate_really_reports(
+    name: str,
+) -> None:
+    """The sample rejection must be output the code can still produce.
+
+    This example went stale twice without anyone noticing: once when a
+    governance term stopped being reported, and once when ordering relations
+    began reading from the governing clause, which changed the shape of every
+    `order:sequence` signature. Both times the block kept claiming an output
+    the gate could no longer emit, because nothing compared it to a real run.
+    """
+    text = (REPO_ROOT / name).read_text(encoding="utf-8")
+    block = JUDGE_EXAMPLE.search(text)
+    assert block is not None, f"{name} no longer shows a judge rejection to check"
+    body = block.group(1)
+
+    fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    profile = load_profile()
+    comparison = compare_protected(
+        extract_protected(fixture["original"], profile),
+        extract_protected(fixture["unfaithful_rewrite"], profile),
+    )
+    missing = cast(list[str], comparison["missing"])
+
+    documented = MISSING_LINE.findall(body)
+    assert documented, f"{name} shows a rejection that names no dropped element"
+    for element in documented:
+        assert element in missing, (
+            f"{name} says the gate reports {element!r}, but it reports {missing!r}"
+        )
+
+    count = DROPPED_COUNT.search(body)
+    assert count is not None, f"{name} no longer states how many elements were dropped"
+    assert int(count.group(1)) == len(missing), (
+        f"{name} claims {count.group(1)} dropped element(s); the gate reports {len(missing)}"
+    )

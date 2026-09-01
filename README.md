@@ -222,11 +222,12 @@ restore them by name instead of guessing:
 
 ```text
 $ lingity judge source.txt --candidate shorter.txt
-accepted False   68.17 -> 89.59
-  reason: protected meaning is changed: 5 protected element(s) dropped
+accepted False   70.46 -> 89.50
+  reason: protected meaning is changed: 9 protected element(s) dropped
   MISSING quantity:count:2
-  MISSING governance:term:recommend
-  MISSING order:sequence:earlier=govern recommendation;later=target architecture return human decision
+  MISSING governance:term:ratify
+  MISSING order:sequence:earlier=require closure evidence govern recommendation;later=target architecture return human decision
+  ...
 ```
 
 The gate compares meaning as propositions rather than as wording. It parses
