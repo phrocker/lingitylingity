@@ -78,6 +78,35 @@ def _workflow_commands() -> list[str]:
     return _parse_run_steps(WORKFLOW.read_text(encoding="utf-8"))
 
 
+def _step_blocks(text: str) -> list[str]:
+    """Split the workflow's `steps:` list into one chunk per step.
+
+    Bounded to the `steps:` section and split only at the indentation of its own
+    items. Splitting on any `- ` in the file would break a step apart at a nested
+    list under `with:`, stranding its `if:` in one chunk and its `run:` in the
+    next -- so a guarded command would be read as unguarded. Lists elsewhere in
+    the workflow, such as a block-style `matrix.python-version`, would create
+    spurious chunks for the same reason.
+    """
+    heading = re.search(r"^([ \t]*)steps:[ \t]*$", text, re.MULTILINE)
+    if heading is None:
+        raise AssertionError("workflow declares no `steps:` block")
+
+    depth = len(heading.group(1))
+    body_lines = []
+    for line in text[heading.end() :].splitlines():
+        if line.strip() and len(line) - len(line.lstrip()) <= depth:
+            break
+        body_lines.append(line)
+    body = "\n".join(body_lines)
+
+    item = re.search(r"^([ \t]*)-[ \t]", body, re.MULTILINE)
+    if item is None:
+        raise AssertionError("`steps:` block declares no steps")
+
+    return re.split(rf"^{re.escape(item.group(1))}-[ \t]", body, flags=re.MULTILINE)[1:]
+
+
 def _conditional_run_steps(text: str) -> list[str]:
     """Return the `run:` commands whose step is guarded by an `if:` condition.
 
@@ -86,7 +115,7 @@ def _conditional_run_steps(text: str) -> list[str]:
     it is pinned here rather than left to rot alongside the first.
     """
     conditional = []
-    for step in re.split(r"^[ \t]*-[ \t]", text, flags=re.MULTILINE)[1:]:
+    for step in _step_blocks(text):
         run = re.search(r"^[ \t]*(?:-[ \t]+)?run:[ \t]*(\S.*)$", step, re.MULTILINE)
         if run is None:
             continue
@@ -245,3 +274,58 @@ def test_a_development_section_at_the_end_of_the_file_is_read_whole(tmp_path: Pa
     readme.write_text(f"# Title\n\n## Development\n\n{DEVELOPMENT_FENCE}", encoding="utf-8")
 
     assert _documented_commands(readme) == ["python -m pytest"]
+
+
+BLOCK_STYLE_MATRIX_WORKFLOW = """jobs:
+  check:
+    strategy:
+      matrix:
+        python-version:
+          - "3.11"
+          - "3.12"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: python -m nltk.downloader wordnet
+      - name: Tests
+        run: python -m pytest
+"""
+
+NESTED_LIST_WORKFLOW = """jobs:
+  check:
+    steps:
+      - name: Restore
+        if: github.event_name == 'push'
+        with:
+          paths:
+            - ~/nltk_data
+            - ~/.cache/pip
+        run: python -m nltk.downloader wordnet
+      - name: Tests
+        run: python -m pytest
+"""
+
+
+def test_a_list_outside_the_steps_block_does_not_split_steps() -> None:
+    """A block-style matrix is a list too; only the steps' own items may split."""
+    assert _conditional_run_steps(BLOCK_STYLE_MATRIX_WORKFLOW) == ["python -m nltk.downloader wordnet"]
+    assert _parse_run_steps(BLOCK_STYLE_MATRIX_WORKFLOW) == [
+        "python -m nltk.downloader wordnet",
+        "python -m pytest",
+    ]
+
+
+def test_a_nested_list_inside_a_step_does_not_strand_its_guard() -> None:
+    """Splitting on any `- ` would separate this step's `if:` from its `run:`."""
+    assert _conditional_run_steps(NESTED_LIST_WORKFLOW) == ["python -m nltk.downloader wordnet"]
+
+
+def test_a_workflow_without_a_steps_block_is_rejected() -> None:
+    with pytest.raises(AssertionError, match="no `steps:` block"):
+        _conditional_run_steps("jobs:\n  check:\n    runs-on: ubuntu-latest\n")
+
+
+def test_an_empty_steps_block_is_rejected() -> None:
+    with pytest.raises(AssertionError, match="declares no steps"):
+        _conditional_run_steps("jobs:\n  check:\n    steps:\n\n  other:\n    runs-on: x\n")
