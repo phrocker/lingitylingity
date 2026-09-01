@@ -1195,12 +1195,81 @@ def _status_subject_tokens(document: Document, state: Token) -> list[Token]:
     return []
 
 
+_STATE_COMPLEMENT_DEPS = frozenset({"acomp", "oprd", "xcomp", "ccomp"})
+
+
+def _inherits_governor_modality(document: Document, state: Token) -> bool:
+    """Return whether `state` is a bare complement of the predicate above it.
+
+    "cannot remain ratified" and "is not considered ratified" put the state
+    word in a complement and leave the modal and the negation on the verb that
+    governs it, so the state must be read together with that verb.
+
+    A complement that carries its own auxiliary or its own clause marker is
+    not bare: "cannot deny that the migration was ratified" asserts the
+    ratification as content, and its `was` and `that` say so. Inheriting there
+    would deny a state the sentence affirms.
+    """
+    if state.dep not in _STATE_COMPLEMENT_DEPS:
+        return False
+    return not any(
+        child.dep in {"aux", "auxpass", "mark"} for child in document.children(state)
+    )
+
+
+def _reports_achieved_state(document: Document, state: Token) -> bool:
+    """Return whether the text reports `state` as reached, rather than sought.
+
+    A governance status is a fact about where something stands: "the migration
+    was ratified" records a completed ratification. Two constructions put the
+    same participle in a sentence that reports no such fact.
+
+    A modal makes it an obligation or a forecast. "The migration must be
+    ratified" says it is *not* ratified yet -- that is the whole point of
+    saying it. Reading the participle as a status inverted the sentence, and
+    it also rejected the remediation LING-PASSIVE-001 asks for, because "the
+    board must ratify the migration" states the same obligation without
+    leaving a participle to misread.
+
+    Negation denies it outright. "The migration has not been ratified"
+    produced a status saying it was, because status polarity is a property of
+    the state word -- ratified is a positive outcome, rejected a negative one
+    -- and never carried the sentence's own negation.
+
+    Neither case loses protection. Both are already carried by the claim,
+    which records modality and polarity: the obligation keeps `modality=must`
+    and the denial keeps `polarity=negative`.
+
+    Both tests read the predicate, not the token, because coordination leaves
+    the auxiliaries on the first conjunct: "must be reviewed and ratified"
+    hangs `must` on "reviewed" and leaves "ratified" bare. Reading only the
+    participle's own children saw no modal there and reported the migration
+    as ratified -- the same inversion this guard exists to stop, surviving one
+    conjunction. `_predicate_modal_tokens` and `_predicate_negation_tokens`
+    already resolve that inheritance for claims, so reusing them also keeps a
+    status and its claim from disagreeing about the same words.
+
+    Complements hide the same words one level up rather than one conjunct
+    across, so a bare complement is read together with the predicate that
+    governs it.
+    """
+    if _predicate_modal_tokens(document, state):
+        return False
+    if _predicate_negation_tokens(document, state):
+        return False
+    if _inherits_governor_modality(document, state):
+        return _reports_achieved_state(document, document.head_of(state))
+    return True
+
+
 def _status_records(document: Document) -> list[StatusRecord]:
     records: list[StatusRecord] = []
     seen: set[tuple[int, str]] = set()
     for token in document:
         state = _status_state(token)
         if state is None or token.pos not in {"ADJ", "VERB"}:
+            continue
+        if not _reports_achieved_state(document, token):
             continue
         key = (token.index, state)
         if key in seen:

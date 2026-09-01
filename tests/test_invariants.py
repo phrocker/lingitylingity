@@ -733,3 +733,187 @@ def test_only_governance_terms_collapse_to_presence() -> None:
 
     assert comparison["equivalent"] is False
     assert missing.count("quantity:count:2") == 1
+
+
+def _statuses(text: str) -> list[str]:
+    return [item for item in _signature(text) if item.startswith("governance:status")]
+
+
+def test_a_reached_state_is_still_reported_as_a_status() -> None:
+    assert _statuses("The migration was ratified by the board.") == [
+        "governance:status:domain=ratification;polarity=positive;"
+        "state=ratified;subject=migration"
+    ]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "The migration must be ratified by the board.",
+        "The migration should be ratified.",
+        "The migration will be ratified.",
+    ],
+)
+def test_a_state_under_a_modal_is_not_reported_as_reached(text: str) -> None:
+    """Requiring or forecasting a state says it has not been reached."""
+    assert _statuses(text) == []
+
+
+def test_a_denied_state_is_not_reported_as_reached() -> None:
+    """Status polarity describes the state word, never the sentence.
+
+    "ratified" is a positive outcome and "rejected" a negative one, so the
+    polarity field cannot carry the sentence's own negation. Reporting a
+    status here therefore said the migration was ratified.
+    """
+    assert _statuses("The migration has not been ratified.") == []
+
+
+def test_the_passive_remediation_keeps_protected_meaning() -> None:
+    """LING-PASSIVE-001 asks for exactly this rewrite, so the gate must allow it."""
+    comparison = _comparison(
+        "The migration must be ratified by the board.",
+        "The board must ratify the migration.",
+    )
+
+    assert comparison["equivalent"] is True, comparison
+
+
+@pytest.mark.parametrize(
+    ("source", "candidate"),
+    [
+        ("The migration must be ratified.", "The migration is ratified."),
+        ("The migration will be ratified.", "The migration is ratified."),
+        ("The migration has not been ratified.", "The migration is ratified."),
+    ],
+)
+def test_turning_an_unreached_state_into_a_fact_is_still_rejected(
+    source: str, candidate: str
+) -> None:
+    """Dropping the false status must not drop the protection.
+
+    The claim carries modality and polarity, so an obligation, a forecast, and
+    a denial each still differ from the assertion that the state was reached.
+    """
+    assert _comparison(source, candidate)["equivalent"] is False
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "The migration must be reviewed and ratified.",
+        "The migration has not been reviewed or ratified.",
+    ],
+)
+def test_a_coordinated_state_inherits_the_modality_of_its_conjunct(text: str) -> None:
+    """Coordination leaves the auxiliaries on the first conjunct.
+
+    "must be reviewed and ratified" hangs `must` on "reviewed", so reading only
+    "ratified"'s own children found no modal and reported the migration as
+    ratified -- the inversion this guard exists to stop, surviving a single
+    conjunction.
+    """
+    assert _statuses(text) == []
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "The migration must be reviewed and ratified.",
+        "The migration has not been reviewed or ratified.",
+    ],
+)
+def test_an_unreached_coordinated_state_asserts_no_reached_claim(text: str) -> None:
+    """The false status also reached the claims, which is where the gate reads."""
+    assert [item for item in _signature(text) if "status=ratified" in item] == []
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "The migration was reviewed and ratified.",
+        "The migration has not been reviewed but has been ratified.",
+    ],
+)
+def test_a_reached_coordinated_state_is_still_reported(text: str) -> None:
+    """Inheritance must not swallow states the text does report.
+
+    The second sentence denies only the review. Negation distributes across
+    "or" and "nor", not "but", so the ratification stays a fact.
+    """
+    assert len(_statuses(text)) == 1
+
+
+def test_a_coordinated_obligation_is_not_equivalent_to_a_fact() -> None:
+    """Dropping the false status must not drop the protection."""
+    comparison = _comparison(
+        "The migration must be reviewed and ratified.",
+        "The migration is ratified.",
+    )
+
+    assert comparison["equivalent"] is False
+
+
+def test_modality_inherits_across_a_contrastive_conjunction() -> None:
+    """A documented conservative limit, not a silent one.
+
+    "must be reviewed but was ratified last year" reports a real ratification,
+    yet `_predicate_modal_tokens` carries `must` to every conjunct regardless
+    of the conjunction, so the status is withheld. Negation is already
+    restricted to "or"/"nor"; modality is not, and narrowing it would change
+    claim construction, which is the gate's safety-critical path.
+
+    The failure is conservative: the gate withholds a fact rather than
+    inventing one, so it can only reject a rewrite, never certify a bad one.
+    """
+    assert _statuses("The migration must be reviewed but was ratified last year.") == []
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "The migration cannot remain ratified.",
+        "The migration must remain ratified.",
+        "The migration is not considered ratified.",
+        "The board must consider the migration ratified.",
+    ],
+)
+def test_a_bare_complement_inherits_the_modality_of_its_governor(text: str) -> None:
+    """A complement leaves the modal and the negation on the verb above it.
+
+    "cannot remain ratified" hangs both on "remain", so reading only
+    "ratified" reported a ratification the sentence refuses.
+    """
+    assert _statuses(text) == []
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "The migration remains ratified.",
+        "The board cannot deny that the migration was ratified.",
+    ],
+)
+def test_a_finite_complement_keeps_the_state_it_asserts(text: str) -> None:
+    """Inheritance stops where the complement supplies its own clause.
+
+    "cannot deny that the migration was ratified" asserts the ratification as
+    content, and its `was` and `that` say so. Inheriting the matrix negation
+    would deny a state the sentence affirms.
+    """
+    assert len(_statuses(text)) == 1
+
+
+@pytest.mark.parametrize(
+    ("source", "candidate"),
+    [
+        ("The migration cannot remain ratified.", "The migration is ratified."),
+        ("The migration is not considered ratified.", "The migration is ratified."),
+        ("The board must consider the migration ratified.", "The migration is ratified."),
+    ],
+)
+def test_a_withheld_complement_state_is_not_equivalent_to_a_fact(
+    source: str, candidate: str
+) -> None:
+    """Withholding the false status must not withhold the protection."""
+    assert _comparison(source, candidate)["equivalent"] is False

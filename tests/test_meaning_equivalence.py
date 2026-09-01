@@ -4,14 +4,19 @@ Every pair in ``meaning-equivalence-corpus.json`` was authored from the
 semantics of governance directives rather than from any profile pattern or
 shipped fixture. A gate that recognises phrasings instead of propositions
 scores near the degenerate baseline on this corpus: answering "changed" for
-every pair scores 16/32, so the changed-pair count alone proves nothing. The
+every pair scores 16 of 33, so the changed-pair count alone proves nothing. The
 equivalent-pair count is what distinguishes a semantic gate from a lookup
 table, and both are asserted here.
+
+The two counts above are checked against the corpus by
+``test_the_documented_baseline_matches_the_corpus``, because a number written
+into prose beside a file that grows is a number that goes quietly wrong.
 """
 
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -175,3 +180,26 @@ def test_identity_is_equivalent(profile: Profile) -> None:
                 assert _disposition(profile, text, text) == "equivalent", (
                     f"{pair['id']} ({side}): text compared unequal to itself"
                 )
+
+
+BASELINE_CLAIM = re.compile(r'answering "changed" for\s*\n?every pair scores (\d+) of (\d+)', re.MULTILINE)
+
+
+def test_the_documented_baseline_matches_the_corpus() -> None:
+    """The module docstring states a degenerate score, so it must stay true.
+
+    The corpus grows. A hard number written beside it in prose does not, and a
+    stale one would misstate the very argument this file exists to make: that
+    the changed-pair count alone proves nothing.
+    """
+    claim = BASELINE_CLAIM.search(__doc__ or "")
+    assert claim is not None, "the module docstring no longer states a baseline score"
+
+    corpus = _corpus()
+    changed = len(corpus["changed_pairs"])
+    total = changed + len(corpus["equivalent_pairs"])
+
+    assert (int(claim.group(1)), int(claim.group(2))) == (changed, total), (
+        f"the docstring claims a degenerate baseline of {claim.group(1)} of {claim.group(2)}, "
+        f"but the corpus scores {changed} of {total}"
+    )
