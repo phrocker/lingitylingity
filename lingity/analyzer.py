@@ -639,10 +639,13 @@ def _actor_action_findings(document: Document, profile: Profile, agency_spans: l
         #
         # The permission is deliberately narrow. It reaches only the clause whose
         # subject is missing, so it can suppress LING-ACTOR-001 and nothing else.
-        # Passive voice is reported by LING-AGENCY-001 from a separate pass, and
-        # "was responsible for the migration" stays a finding: a resume written
-        # in the passive hides the work, which is what this reading exists to
-        # expose rather than excuse.
+        # Two separate passes still run: agentless agency reports LING-AGENCY-001
+        # and true passive voice reports LING-PASSIVE-001. So "was responsible for
+        # the migration" stays a finding under LING-AGENCY-001, and "must be
+        # completed before the release" reports both. A resume written this way
+        # hides the work, which is what this reading exists to expose rather than
+        # excuse. test_the_narrow_permission_leaves_the_other_passes_alone pins
+        # the rule each example reports, so the identifiers cannot drift.
         if bool(profile.thresholds.get("allow_implied_first_person", 0)) and not _directive_subjects(document, verb):
             continue
         # A profile may require that the subject of a directive be an actor the

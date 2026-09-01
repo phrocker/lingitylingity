@@ -505,3 +505,29 @@ def test_the_flag_widens_comparison_without_widening_what_is_read(
         if finding["rule_id"] == "LING-REDUNDANCY-001"
     }
     assert "coordinate" not in terms
+
+
+def test_the_narrow_permission_leaves_the_other_passes_alone(resume: Profile) -> None:
+    """Suppressing the missing subject must not suppress agency or passive voice.
+
+    The reading reaches only the clause whose subject is missing, so it can
+    withdraw LING-ACTOR-001 and nothing else. Two passes still run over the same
+    text, and they report under distinct identifiers: agentless agency as
+    LING-AGENCY-001, true passive voice as LING-PASSIVE-001.
+
+    The pairing matters because the two are easy to conflate. "Was responsible
+    for the migration" is not passive at all -- it is a copular clause with a
+    predicate adjective -- so it reports LING-AGENCY-001 only. "Must be completed
+    before the release" is genuinely passive and reports both. Naming the wrong
+    identifier alongside the wrong example is precisely the drift this pins.
+    """
+    assert _rule_ids("Own the incident process.", resume) == set()
+
+    responsible = _rule_ids("Was responsible for the migration of the reporting platform.", resume)
+    assert "LING-AGENCY-001" in responsible
+    assert "LING-PASSIVE-001" not in responsible
+    assert "LING-ACTOR-001" not in responsible
+
+    completed = _rule_ids("Must be completed before the release.", resume)
+    assert "LING-AGENCY-001" in completed
+    assert "LING-PASSIVE-001" in completed

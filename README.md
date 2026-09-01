@@ -86,8 +86,7 @@ both prose profiles, while "Responsible for the migration of the reporting
 platform" reports nothing at all under either. The measured effect on a six
 bullet resume: `architecture-review` scores the weak version 91.56 and the
 strong version 94.95, `product-strategy` scores them 89.44 and 93.69, and
-`resume-review` scores them 66.43 and 100.00. Only the third profile ranks the
-two documents the way a reader would.
+`resume-review` scores them 66.43 and 100.00. Only `resume-review` ranks the two documents the way a reader would.
 
 ## CLI
 
