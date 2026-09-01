@@ -18,13 +18,13 @@ WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 READMES = ("README.md", "README_AI.md")
 
 
-def _documented_commands(readme: Path) -> list[str]:
-    """Return the fenced command block inside the `## Development` section.
+def _development_section(readme: Path) -> str:
+    """Return the `## Development` section's text, bounded by the next `##` heading.
 
-    The search is bounded by the next `##` heading. Without that bound the first
-    fence *anywhere* below the heading matches, so an empty `## Development`
-    section would silently borrow a code block from a later section and the
-    parity check would grade the wrong text.
+    Shared so that every claim graded against the workflow is read from the same
+    slice of the file. Without the bound the first match *anywhere* below the
+    heading wins, so an unrelated section could either supply the command block
+    or trip a check that was only ever about this one.
     """
     text = readme.read_text(encoding="utf-8")
     heading = re.search(r"^## Development$", text, re.MULTILINE)
@@ -33,10 +33,12 @@ def _documented_commands(readme: Path) -> list[str]:
 
     section = text[heading.end() :]
     next_heading = re.search(r"^## ", section, re.MULTILINE)
-    if next_heading is not None:
-        section = section[: next_heading.start()]
+    return section if next_heading is None else section[: next_heading.start()]
 
-    fence = re.search(r"^```[a-z]*\n(.*?)^```", section, re.MULTILINE | re.DOTALL)
+
+def _documented_commands(readme: Path) -> list[str]:
+    """Return the fenced command block inside the `## Development` section."""
+    fence = re.search(r"^```[a-z]*\n(.*?)^```", _development_section(readme), re.MULTILINE | re.DOTALL)
     if fence is None:
         raise AssertionError(f"{readme.name} '## Development' section has no fenced command block")
 
@@ -183,9 +185,13 @@ def test_a_guarded_step_is_attributed_to_its_own_command() -> None:
 
 @pytest.mark.parametrize("readme_name", READMES)
 def test_the_readme_does_not_claim_the_commands_run_verbatim(readme_name: str) -> None:
-    """One step is cache-gated, so "verbatim" overstates what CI guarantees."""
-    text = (REPO_ROOT / readme_name).read_text(encoding="utf-8")
-    assert "verbatim" not in text, (
+    """One step is cache-gated, so "verbatim" overstates what CI guarantees.
+
+    Scoped to the `## Development` section: the overclaim is specifically about
+    this command block, and the word is unremarkable anywhere else.
+    """
+    section = _development_section(REPO_ROOT / readme_name)
+    assert "verbatim" not in section, (
         f"{readme_name} claims the documented commands run verbatim, but "
         f"{_conditional_run_steps(WORKFLOW.read_text(encoding='utf-8'))} is conditional in CI"
     )
@@ -217,3 +223,25 @@ def test_a_readme_without_a_development_section_is_rejected(tmp_path: Path) -> N
 
     with pytest.raises(AssertionError, match="no '## Development' section"):
         _documented_commands(readme)
+
+
+def test_the_section_is_bounded_by_the_next_heading(tmp_path: Path) -> None:
+    """Scoping is what keeps an unrelated section from answering for this one."""
+    readme = tmp_path / "README.md"
+    readme.write_text(
+        f"# Title\n\n## Development\n\n{DEVELOPMENT_FENCE}\n## Prior art\n\nQuoted verbatim from the paper.\n",
+        encoding="utf-8",
+    )
+
+    section = _development_section(readme)
+    assert "verbatim" not in section
+    assert "Prior art" not in section
+    assert "python -m pytest" in section
+
+
+def test_a_development_section_at_the_end_of_the_file_is_read_whole(tmp_path: Path) -> None:
+    """With no following heading the section runs to EOF rather than coming back empty."""
+    readme = tmp_path / "README.md"
+    readme.write_text(f"# Title\n\n## Development\n\n{DEVELOPMENT_FENCE}", encoding="utf-8")
+
+    assert _documented_commands(readme) == ["python -m pytest"]
