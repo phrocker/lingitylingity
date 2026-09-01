@@ -502,6 +502,34 @@ def test_an_observed_phrase_spanning_a_join_is_not_corrupted() -> None:
     assert set(observed) == {"in order to"}
 
 
+def test_an_observed_phrase_is_reported_as_the_parser_read_it() -> None:
+    """The excerpt fixes the coordinates; it does not normalise whitespace.
+
+    Phrase matching compares lemmas, so it is whitespace-insensitive: a phrase
+    separated by a tab or by a run of spaces is read as "in order to" and must be
+    reported that way. Echoing the raw run instead puts a literal tab inside a
+    JSON observed value, and makes two findings of the same phrase compare
+    unequal for a reason the analysis never saw.
+
+    Paired with test_an_observed_phrase_spanning_a_join_is_not_corrupted. That
+    test fails if the excerpt is swapped back for a source slice; this one fails
+    if the excerpt is reported unnormalised. Neither property can be traded for
+    the other without a test naming which one was lost.
+    """
+    for source in (
+        "The team must act in  order  to close the finding.\n",
+        "The team must act in\torder to close the finding.\n",
+        "The team must act in   order\tto close the finding.\n",
+    ):
+        findings = cast(list[dict[str, JsonValue]], analyze_text(source)["findings"])
+        observed = {
+            cast(dict[str, JsonValue], finding["observed_value"])["phrase"]
+            for finding in findings
+            if finding["rule_id"] in {"LING-FILLER-001", "LING-BUREAUCRACY-001"}
+        }
+        assert observed == {"in order to"}, repr(source)
+
+
 def _long_blockquote_body() -> str:
     return (
         "the reviewer must close every finding and publish the remediation date "

@@ -478,7 +478,7 @@ def _phrase_matches(sentence: Sentence, phrase: str) -> list[tuple[int, int, str
             continue
         start = words[index].start
         end = words[index + width - 1].end
-        matches.append((start, end, sentence.excerpt(words[index], words[index + width - 1])))
+        matches.append((start, end, _quoted(sentence.excerpt(words[index], words[index + width - 1]))))
     return matches
 
 
