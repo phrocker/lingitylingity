@@ -1210,14 +1210,14 @@ def _redundancy_findings(
     profile: Profile,
     groups: Sequence[Sequence[tuple[int, int]]],
 ) -> list[Finding]:
-    """Report a content word repeated too often within a single block.
+    """Report a content word repeated too often, per block unless a profile opts out.
 
-    Repetition is counted per block, not per document. A reader meets redundancy
-    locally, and governance prose is required to call one concept by one name
-    throughout, so a term recurring across sections is the document being
-    consistent rather than repetitive. Counting per document also made a finding
-    depend on text arbitrarily far away from it, so the same paragraph scored
-    differently alone than it did inside the document that contained it.
+    Repetition is counted per block by default, not per document. A reader meets
+    redundancy locally, and governance prose is required to call one concept by
+    one name throughout, so a term recurring across sections is the document
+    being consistent rather than repetitive. Counting per document also made a
+    finding depend on text arbitrarily far away from it, so the same paragraph
+    scored differently alone than it did inside the document that contained it.
 
     That reasoning is about prose, and a profile may say its genre works the
     other way. A resume is a bullet list, so every line is its own block and a
