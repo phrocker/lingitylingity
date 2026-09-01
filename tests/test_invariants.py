@@ -386,3 +386,99 @@ def test_a_second_finite_predicate_is_not_absorbed_as_a_state() -> None:
         "claim:action=be;actor=fix;modality=assertive;polarity=positive;"
         "status=asserted;target=complete"
     ], signature
+
+
+def _status_subject(text: str) -> str:
+    """Return the entity the governance status names, or "none" if none is emitted."""
+    statuses = [item for item in _signature(text) if item.startswith("governance:status")]
+    if not statuses:
+        return "none"
+    return statuses[0].split("subject=")[1]
+
+
+@pytest.mark.parametrize(
+    ("text", "subject"),
+    [
+        ("The board approved the migration.", "migration"),
+        ("The board rejected the proposal.", "proposal"),
+        ("The migration was approved by the board.", "migration"),
+        ("The migration was approved.", "migration"),
+        ("The migration is approved.", "migration"),
+        ("The risks remain blocked.", "risks"),
+        ("The waiver stays granted.", "waiver"),
+        ("The migration is complete and approved.", "migration"),
+    ],
+)
+def test_a_governance_status_names_the_entity_in_the_state(text: str, subject: str) -> None:
+    """The status subject is the patient, whatever voice the sentence is written in.
+
+    Every state this tracks is a transitive participle, so the entity in the
+    state is never the one who acted. The subject came from the actor finder,
+    which is the opposite role: "the board rejected the proposal" recorded the
+    board as rejected, and the passive forms recorded either the by-phrase agent
+    or nothing at all.
+    """
+    assert _status_subject(text) == subject
+
+
+def test_an_active_verb_with_no_object_names_nobody_as_the_state() -> None:
+    """"The board approved" does not say what was approved, so nothing is named.
+
+    This is the case that made the old behaviour visible: the subject of an
+    active past-tense verb is the actor, and recording it as the patient claimed
+    the board had been approved. Naming nobody is the honest answer, and it
+    matches how the actor finder already refuses to invent an absent agent.
+    """
+    assert _status_subject("The board approved.") == "unknown"
+
+
+@pytest.mark.parametrize(
+    ("active", "passive"),
+    [
+        ("The board approved the migration.", "The migration was approved by the board."),
+        ("The board rejected the proposal.", "The proposal was rejected by the board."),
+        ("The board granted the waiver.", "The waiver was granted by the board."),
+    ],
+)
+def test_voice_alone_does_not_change_protected_meaning(active: str, passive: str) -> None:
+    """Recasting a sentence between voices is the rewrite this tool most wants to allow.
+
+    The pair agreed before this fix only because both sides named the actor and
+    were wrong together. They must still agree now that both name the patient,
+    or the gate would reject the clearest rewrite it exists to encourage.
+    """
+    assert _status_subject(active) == _status_subject(passive)
+    assert _comparison(active, passive)["equivalent"] is True
+
+
+@pytest.mark.parametrize(
+    ("sentence", "expected"),
+    [
+        ("The waiver is complete and granted.", "waiver"),
+        ("The plan is final and approved.", "plan"),
+        ("The design is complete, reviewed and accepted.", "design"),
+    ],
+)
+def test_a_coordinated_state_still_names_what_is_in_it(
+    sentence: str, expected: str
+) -> None:
+    """Coordination can put the subject more than one link above the participle.
+
+    "The plan is final and approved" coordinates against the copula, so the
+    subject is on the immediate head. "The waiver is complete and granted"
+    coordinates against the *adjective* instead, so the subject sits one level
+    further up -- and reporting `unknown` there says something was granted
+    without saying what.
+    """
+
+    assert _status_subject(sentence) == expected
+
+
+def test_an_active_past_tense_verb_still_names_nobody() -> None:
+    """Following the head chain must not reach past the VBD guard.
+
+    "The board approved" says the board did the approving, not that the board
+    was approved, so no state subject is available at all.
+    """
+
+    assert _status_subject("The board approved.") == "unknown"
