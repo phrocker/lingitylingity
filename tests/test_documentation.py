@@ -79,32 +79,39 @@ def _workflow_commands() -> list[str]:
 
 
 def _step_blocks(text: str) -> list[str]:
-    """Split the workflow's `steps:` list into one chunk per step.
+    """Split every `steps:` list in the workflow into one chunk per step.
 
-    Bounded to the `steps:` section and split only at the indentation of its own
-    items. Splitting on any `- ` in the file would break a step apart at a nested
-    list under `with:`, stranding its `if:` in one chunk and its `run:` in the
-    next -- so a guarded command would be read as unguarded. Lists elsewhere in
-    the workflow, such as a block-style `matrix.python-version`, would create
+    Bounded to each `steps:` section and split only at the indentation of that
+    section's own items. Splitting on any `- ` in the file would break a step
+    apart at a nested list under `with:`, stranding its `if:` in one chunk and
+    its `run:` in the next -- so a guarded command would be read as unguarded.
+    Lists elsewhere, such as a block-style `matrix.python-version`, would create
     spurious chunks for the same reason.
+
+    Every job is read, not just the first. `_parse_run_steps` already collects
+    `run:` commands from the whole file, so stopping at one job here would let a
+    second job's conditional steps go unseen while its commands were still being
+    graded.
     """
-    heading = re.search(r"^([ \t]*)steps:[ \t]*$", text, re.MULTILINE)
-    if heading is None:
+    blocks: list[str] = []
+    for heading in re.finditer(r"^([ \t]*)steps:[ \t]*$", text, re.MULTILINE):
+        depth = len(heading.group(1))
+        body_lines = []
+        for line in text[heading.end() :].splitlines():
+            if line.strip() and len(line) - len(line.lstrip()) <= depth:
+                break
+            body_lines.append(line)
+        body = "\n".join(body_lines)
+
+        item = re.search(r"^([ \t]*)-[ \t]", body, re.MULTILINE)
+        if item is None:
+            raise AssertionError("`steps:` block declares no steps")
+
+        blocks.extend(re.split(rf"^{re.escape(item.group(1))}-[ \t]", body, flags=re.MULTILINE)[1:])
+
+    if not blocks:
         raise AssertionError("workflow declares no `steps:` block")
-
-    depth = len(heading.group(1))
-    body_lines = []
-    for line in text[heading.end() :].splitlines():
-        if line.strip() and len(line) - len(line.lstrip()) <= depth:
-            break
-        body_lines.append(line)
-    body = "\n".join(body_lines)
-
-    item = re.search(r"^([ \t]*)-[ \t]", body, re.MULTILINE)
-    if item is None:
-        raise AssertionError("`steps:` block declares no steps")
-
-    return re.split(rf"^{re.escape(item.group(1))}-[ \t]", body, flags=re.MULTILINE)[1:]
+    return blocks
 
 
 def _conditional_run_steps(text: str) -> list[str]:
@@ -329,3 +336,27 @@ def test_a_workflow_without_a_steps_block_is_rejected() -> None:
 def test_an_empty_steps_block_is_rejected() -> None:
     with pytest.raises(AssertionError, match="declares no steps"):
         _conditional_run_steps("jobs:\n  check:\n    steps:\n\n  other:\n    runs-on: x\n")
+
+
+TWO_JOB_WORKFLOW = """jobs:
+  check:
+    steps:
+      - name: Tests
+        run: python -m pytest
+  publish:
+    steps:
+      - name: Upload
+        if: github.ref == 'refs/heads/main'
+        run: python -m twine upload dist/*
+"""
+
+
+def test_a_second_job_is_read_too() -> None:
+    """`_parse_run_steps` grades every job, so guards must be read from every job.
+
+    Stopping at the first `steps:` block would let a later job's conditional
+    command be graded as unconditional -- the same under-report as a stranded
+    guard, reached a different way.
+    """
+    assert _conditional_run_steps(TWO_JOB_WORKFLOW) == ["python -m twine upload dist/*"]
+    assert _parse_run_steps(TWO_JOB_WORKFLOW) == ["python -m pytest", "python -m twine upload dist/*"]
