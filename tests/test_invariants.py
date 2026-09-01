@@ -4,7 +4,11 @@ from typing import cast
 
 import pytest
 
-from lingity.invariants import compare_protected, extract_protected
+from lingity.invariants import (
+    _ordering_relations,
+    compare_protected,
+    extract_protected,
+)
 from lingity.models import JsonValue
 from lingity.morphology import canonical_action
 from lingity.nlp import LinguisticModelError
@@ -521,3 +525,51 @@ def test_dropping_a_gate_is_detected_however_the_gate_is_worded(
     gated = f"Require closure evidence for the governed recommendations {clause}."
     ungated = "Require closure evidence for the governed recommendations."
     assert _comparison(gated, ungated)["equivalent"] is False, gated
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Close the findings before the design returns to the board.",
+        "Before the design returns to the board, close the findings.",
+    ],
+)
+def test_a_sequence_is_located_over_both_clauses_it_relates(text: str) -> None:
+    """The location has to cover what the finding is about.
+
+    A conjunction has no children, so measuring the marker's own subtree ended
+    the span at the marker word and pointed at "Close the findings before" --
+    half of a relation whose other half is the clause that follows it.
+    """
+
+    profile = load_profile("architecture-review")
+    spans = [
+        item["text"]
+        for item in cast(
+            list[dict[str, JsonValue]], extract_protected(text, profile)["items"]
+        )
+        if item["category"] == "order"
+    ]
+    assert spans == [text], spans
+
+
+def test_ordering_relations_are_computed_once_per_document() -> None:
+    """Targets and sequences read one shared result rather than recomputing it.
+
+    `_target_tokens` runs once per claim while `_ordering_relations` walks every
+    token calling `children` and `subtree`, both of which scan the document.
+    Recomputing per claim made extraction quadratic: forty sentences went from
+    0.66s to 25s. Short fixtures hide that, so this asserts reuse directly.
+    """
+
+    profile = load_profile("architecture-review")
+    sentence = (
+        "Require closure evidence for the governed recommendations before a "
+        "target architecture returns for human decision, and ensure the board "
+        "approves the migration until the risks are closed. "
+    )
+    _ordering_relations.cache_clear()
+    extract_protected(sentence * 4, profile)
+    info = _ordering_relations.cache_info()
+
+    assert info.hits > info.misses, info

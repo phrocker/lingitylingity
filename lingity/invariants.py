@@ -6,6 +6,7 @@ import hashlib
 import re
 from collections import Counter
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any, Callable, Iterable, cast
 
 from lingity.models import JsonValue
@@ -1521,7 +1522,13 @@ _SUBORDINATING_DEPS = {"mark", "advmod"}
 
 @dataclass(frozen=True)
 class OrderingRelation:
-    """One temporal relation, with the span the marker owns."""
+    """One temporal relation.
+
+    `start`/`end` span both sequenced sides and the marker between them, since
+    that is what the relation describes. `owned` is narrower: just the indices
+    of the clause the marker introduces, which is what a claim target may drop
+    on the grounds that this relation reports it.
+    """
 
     marker: Token
     anchor: Token
@@ -1600,13 +1607,20 @@ def _ordering_sides(
     return _ordering_anchor(document, head), related
 
 
-def _ordering_relations(document: Document) -> list[OrderingRelation]:
+@lru_cache(maxsize=32)
+def _ordering_relations(document: Document) -> tuple[OrderingRelation, ...]:
     """Return every temporal relation the document states.
 
     Shared with `_target_tokens` so that a claim target drops an ordering clause
     only when that clause is provably represented here. Excluding it on the
     marker alone would silently lose governed content whenever this function
     declined to emit a relation.
+
+    Memoized because `_target_tokens` runs once per claim while this walks every
+    token calling `children` and `subtree`, both of which scan the document.
+    Recomputing it per claim made extraction quadratic in document length: a
+    forty-sentence document went from 0.66s to 25s, which the test suite did not
+    show because its documents are a sentence or two long.
     """
     relations: list[OrderingRelation] = []
     for token in document:
@@ -1635,40 +1649,43 @@ def _ordering_relations(document: Document) -> list[OrderingRelation]:
             # The recovered main clause sits inside the marked clause's subtree
             # in an inverted parse, so remove it before measuring the two sides.
             owned -= anchor_indices
-        anchor_side = _normalize_target_tokens(
-            [
-                candidate
-                for candidate in document.subtree(anchor)
-                if candidate.index != token.index and candidate.index not in owned
-            ]
-        )
-        other_side = _normalize_target_tokens(
-            [
-                member
-                for relative in related
-                for member in document.subtree(relative)
-                if member.index != token.index and member.index in owned
-            ]
-        )
+        anchor_tokens = [
+            candidate
+            for candidate in document.subtree(anchor)
+            if candidate.index != token.index and candidate.index not in owned
+        ]
+        other_tokens = [
+            member
+            for relative in related
+            for member in document.subtree(relative)
+            if member.index != token.index and member.index in owned
+        ]
+        anchor_side = _normalize_target_tokens(anchor_tokens)
+        other_side = _normalize_target_tokens(other_tokens)
         if not anchor_side or not other_side:
             continue
         if token.lower in {"before", "until", "prior"}:
             earlier, later = anchor_side, other_side
         else:
             earlier, later = other_side, anchor_side
-        span = sorted(document.subtree(token), key=lambda member: member.start)
+        # The span covers both sequenced sides and the marker between them. A
+        # conjunction has no children, so measuring the marker's own subtree
+        # ended the span at the marker word and reported "close the findings
+        # before" as the location of a relation whose other half is the clause
+        # that follows it.
+        span = anchor_tokens + other_tokens + [token]
         relations.append(
             OrderingRelation(
                 marker=token,
                 anchor=anchor,
                 earlier=earlier,
                 later=later,
-                start=min(token.start, anchor.start),
-                end=max(token.end, span[-1].end),
+                start=min(member.start for member in span),
+                end=max(member.end for member in span),
                 owned=frozenset(owned | {token.index}),
             )
         )
-    return relations
+    return tuple(relations)
 
 
 def _order_items(document: Document) -> Iterable[dict[str, JsonValue]]:
