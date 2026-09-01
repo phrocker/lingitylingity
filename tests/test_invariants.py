@@ -12,7 +12,7 @@ from lingity.invariants import (
 from lingity.models import JsonValue
 from lingity.morphology import canonical_action
 from lingity.nlp import LinguisticModelError
-from lingity.profiles import load_profile
+from lingity.profiles import _available_profile_paths, load_profile
 
 
 def _protected(text: str) -> dict[str, JsonValue]:
@@ -676,8 +676,14 @@ def test_no_shipped_profile_protects_meaning_with_memorised_phrases() -> None:
     "recommendation:" so the fixture's two headings would cancel out. Those
     strings only ever matched the fixture, so they certified nothing about any
     other document.
+
+    The profile list comes from the loader rather than being written out here,
+    so a profile added later is covered without anyone remembering to add it.
     """
-    for name in ("architecture-review", "product-strategy", "resume-review", "web-copy"):
+    shipped = sorted(_available_profile_paths())
+    assert shipped, "no profiles ship, so this test would assert nothing"
+
+    for name in shipped:
         assert load_profile(name).rules["protected_concepts"] == [], name
 
 

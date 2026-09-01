@@ -1832,7 +1832,7 @@ def _element_signatures(ordered: list[dict[str, JsonValue]]) -> list[str]:
     list, so the same string recurs for mentions that have nothing to do with
     each other, and the element records no actor, target, or modality that
     could tell those mentions apart. A count difference therefore cannot be
-    attributed to any particular loss. It only says the document used a word
+    attributed to any particular loss. It only says the document used the word
     fewer times, which is what LING-NOMINAL-001 and the sentence-length rules
     ask writers to do: "Recommended decision:" and "Recommendation:" head the
     same section, but the first spends the word "decision" on the heading.
