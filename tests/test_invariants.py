@@ -867,3 +867,53 @@ def test_modality_inherits_across_a_contrastive_conjunction() -> None:
     inventing one, so it can only reject a rewrite, never certify a bad one.
     """
     assert _statuses("The migration must be reviewed but was ratified last year.") == []
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "The migration cannot remain ratified.",
+        "The migration must remain ratified.",
+        "The migration is not considered ratified.",
+        "The board must consider the migration ratified.",
+    ],
+)
+def test_a_bare_complement_inherits_the_modality_of_its_governor(text: str) -> None:
+    """A complement leaves the modal and the negation on the verb above it.
+
+    "cannot remain ratified" hangs both on "remain", so reading only
+    "ratified" reported a ratification the sentence refuses.
+    """
+    assert _statuses(text) == []
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "The migration remains ratified.",
+        "The board cannot deny that the migration was ratified.",
+    ],
+)
+def test_a_finite_complement_keeps_the_state_it_asserts(text: str) -> None:
+    """Inheritance stops where the complement supplies its own clause.
+
+    "cannot deny that the migration was ratified" asserts the ratification as
+    content, and its `was` and `that` say so. Inheriting the matrix negation
+    would deny a state the sentence affirms.
+    """
+    assert len(_statuses(text)) == 1
+
+
+@pytest.mark.parametrize(
+    ("source", "candidate"),
+    [
+        ("The migration cannot remain ratified.", "The migration is ratified."),
+        ("The migration is not considered ratified.", "The migration is ratified."),
+        ("The board must consider the migration ratified.", "The migration is ratified."),
+    ],
+)
+def test_a_withheld_complement_state_is_not_equivalent_to_a_fact(
+    source: str, candidate: str
+) -> None:
+    """Withholding the false status must not withhold the protection."""
+    assert _comparison(source, candidate)["equivalent"] is False

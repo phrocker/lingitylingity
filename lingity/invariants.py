@@ -1195,6 +1195,28 @@ def _status_subject_tokens(document: Document, state: Token) -> list[Token]:
     return []
 
 
+_STATE_COMPLEMENT_DEPS = frozenset({"acomp", "oprd", "xcomp", "ccomp"})
+
+
+def _inherits_governor_modality(document: Document, state: Token) -> bool:
+    """Return whether `state` is a bare complement of the predicate above it.
+
+    "cannot remain ratified" and "is not considered ratified" put the state
+    word in a complement and leave the modal and the negation on the verb that
+    governs it, so the state must be read together with that verb.
+
+    A complement that carries its own auxiliary or its own clause marker is
+    not bare: "cannot deny that the migration was ratified" asserts the
+    ratification as content, and its `was` and `that` say so. Inheriting there
+    would deny a state the sentence affirms.
+    """
+    if state.dep not in _STATE_COMPLEMENT_DEPS:
+        return False
+    return not any(
+        child.dep in {"aux", "auxpass", "mark"} for child in document.children(state)
+    )
+
+
 def _reports_achieved_state(document: Document, state: Token) -> bool:
     """Return whether the text reports `state` as reached, rather than sought.
 
@@ -1226,10 +1248,18 @@ def _reports_achieved_state(document: Document, state: Token) -> bool:
     conjunction. `_predicate_modal_tokens` and `_predicate_negation_tokens`
     already resolve that inheritance for claims, so reusing them also keeps a
     status and its claim from disagreeing about the same words.
+
+    Complements hide the same words one level up rather than one conjunct
+    across, so a bare complement is read together with the predicate that
+    governs it.
     """
     if _predicate_modal_tokens(document, state):
         return False
-    return not _predicate_negation_tokens(document, state)
+    if _predicate_negation_tokens(document, state):
+        return False
+    if _inherits_governor_modality(document, state):
+        return _reports_achieved_state(document, document.head_of(state))
+    return True
 
 
 def _status_records(document: Document) -> list[StatusRecord]:
