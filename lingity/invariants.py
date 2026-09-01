@@ -156,14 +156,20 @@ CLAIM_ACTION_LEMMAS = frozenset(ACTION_NORMALIZATION)
 # silenced the main-verb readings that do carry content ("the team must have
 # the credentials").
 #
-# The three that remain are load-bearing for the canonical fixture, for two
-# different reasons, both pinned by strict xfail tests:
+# The three that remain are load-bearing, for three different reasons, and
+# each is held by a different kind of test:
 #   use     -- the fixture rewrite reorders a modifier, and target
 #              normalization cannot yet equate "repository-evidenced hybrid
 #              topology" with "hybrid topology evidenced in the repository".
-#   propose -- `_is_deferral_operator` already emits the deferral claim, so
-#              this would re-add the same directive with target=none.
-#   treat   -- pinned by the canonical cutover rewrite test.
+#              Held by a strict xfail that certifies a target swap, so the
+#              day normalization improves the test forces the win open.
+#   propose -- "Propose deferring X" states its content in an xcomp, which
+#              `_target_tokens` does not read, so the claim would carry
+#              target=none. The deferral inside is already extracted on its
+#              own, so the entry only adds a contentless element that the
+#              rewrite has no counterpart for. Held by the canonical fixture.
+#   treat   -- held by test_explicit_and_do_not_cutover_rewrite_matches_
+#              canonical_original.
 NON_CLAIM_VERB_LEMMAS = {"propose", "treat", "use"}
 GOVERNANCE_LEMMAS = {
     "applicability",

@@ -940,11 +940,13 @@ def test_a_possession_claim_protects_its_actor_and_target(
 
 
 def test_a_possession_is_extracted_as_a_claim() -> None:
-    assert [item for item in _signature("The team must have the credentials.") if
-            item.startswith("claim:")] == [
+    claims = [item for item in _signature("The team must have the credentials.") if
+              item.startswith("claim:")]
+
+    assert claims == [
         "claim:action=have;actor=team;modality=must;polarity=positive;"
         "status=asserted;target=credential"
-    ]
+    ], claims
 
 
 @pytest.mark.xfail(
