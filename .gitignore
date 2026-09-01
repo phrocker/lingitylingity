@@ -6,5 +6,8 @@ __pycache__/
 build/
 dist/
 
+# Agent worktrees created by Claude Code
+.claude/
+
 # Local virtualenv
 .venv/

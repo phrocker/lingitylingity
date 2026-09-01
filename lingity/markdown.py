@@ -150,9 +150,16 @@ def _parser() -> "MarkdownIt":
 
 def parser_fingerprint() -> dict[str, str]:
     """Publish the parser identity that a segmentation is reproducible against."""
+    # _parser() is the only gate that turns a missing or wrong-major install into
+    # MarkdownParserError. Importing before calling it would let a bare
+    # ImportError escape analyze_text() and the CLI's error handling, which
+    # contradicts the contract that an unusable parser is refused with install
+    # guidance rather than crashing. Once _parser() returns, the import cannot
+    # fail.
+    _parser()
+
     import markdown_it
 
-    _parser()
     return {"name": PARSER_NAME, "version": markdown_it.__version__}
 
 
@@ -221,16 +228,30 @@ def _content_spans(
 
 
 def _uncovered(text: str, bounds: list[tuple[int, int]], blocks: list[Block]) -> int:
-    covered = bytearray(len(bounds))
-    for block in blocks:
-        for index, (start, end) in enumerate(bounds):
-            if block.start < end + 1 and start <= block.end:
-                covered[index] = 1
-    return sum(
-        1
-        for index, (start, end) in enumerate(bounds)
-        if not covered[index] and text[start:end].strip()
-    )
+    """Count non-blank lines that no block claims.
+
+    Blocks and lines are both ordered, so one forward sweep answers this. The
+    earlier pass compared every line against every block, which degrades
+    quadratically on a document of many one-line list items.
+
+    Both ranges are half-open, so a block covers a line only when it starts
+    before the line ends *and* ends after the line starts. Comparing them as
+    though the ends were inclusive lets a block that stops exactly where a line
+    begins be treated as covering that line, which reports a line as covered
+    when nothing claims it -- the precise failure this count exists to surface.
+    """
+    ordered = sorted(blocks, key=lambda block: (block.start, block.end))
+    count = 0
+    index = 0
+    for start, end in bounds:
+        if not text[start:end].strip():
+            continue
+        while index < len(ordered) and ordered[index].end <= start:
+            index += 1
+        if index < len(ordered) and ordered[index].start < end:
+            continue
+        count += 1
+    return count
 
 
 def segment_source(text: str) -> Segmentation:

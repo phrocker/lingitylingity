@@ -7,7 +7,12 @@ from typing import cast
 
 import pytest
 
-from lingity.analyzer import analyze_text
+from lingity.analyzer import (
+    _abbreviation_findings,
+    _paragraph_findings,
+    _paragraph_units,
+    analyze_text,
+)
 from lingity.markdown import (
     Block,
     MarkdownParserError,
@@ -21,6 +26,7 @@ from lingity.markdown import (
 )
 from lingity.models import JsonValue
 from lingity.nlp import parse
+from lingity.profiles import load_profile
 
 TABLE_DOCUMENT = """# Findings
 
@@ -466,3 +472,212 @@ def test_the_cli_reports_a_parser_failure_without_a_traceback(
     monkeypatch.setattr(markdown_module, "_parser", refuse)
     assert main(["analyze", str(source), "--output", str(tmp_path / "out.json")]) == 2
     assert "pinned parser unavailable" in capsys.readouterr().err
+
+
+# Grouped spans must not leak between coordinate systems or past a rule.
+
+
+def test_a_code_span_may_open_and_close_on_different_lines() -> None:
+    """A block is scanned whole, so a wrapped code span is still protected."""
+    source = "The collector reads `\nX-Business-Use-Case-Usage\n` on every response.\n"
+    groups = prose_spans(segment(source))
+    extents = tuple((group[0][0], group[-1][1]) for group in groups)
+    spans = inline_code_spans(source, extents)
+    assert len(spans) == 1
+    assert source[spans[0][0] : spans[0][1]].strip("`").strip() == (
+        "X-Business-Use-Case-Usage"
+    )
+    assert "LING-COMPOUND-DEPTH-001" not in _rule_ids(source)
+
+
+def test_an_observed_phrase_spanning_a_join_is_not_corrupted() -> None:
+    """Sentence text is chunk-indexed; source offsets must never slice it.
+
+    A sentence joined from two source lines has the container's markers removed,
+    so every source offset inside it is shifted by an amount that varies across
+    the sentence. Slicing with one would report a phrase off by those bytes.
+    """
+    source = "- The team must act in order\n  to close the finding.\n"
+    findings = cast(list[dict[str, JsonValue]], analyze_text(source)["findings"])
+    observed = [
+        cast(dict[str, JsonValue], finding["observed_value"])["phrase"]
+        for finding in findings
+        if finding["rule_id"] in {"LING-FILLER-001", "LING-BUREAUCRACY-001"}
+    ]
+    assert observed
+    assert set(observed) == {"in order to"}
+
+
+def test_an_observed_phrase_is_reported_as_the_parser_read_it() -> None:
+    """The excerpt fixes the coordinates; it does not normalise whitespace.
+
+    Phrase matching compares lemmas, so it is whitespace-insensitive: a phrase
+    separated by a tab or by a run of spaces is read as "in order to" and must be
+    reported that way. Echoing the raw run instead puts a literal tab inside a
+    JSON observed value, and makes two findings of the same phrase compare
+    unequal for a reason the analysis never saw.
+
+    Paired with test_an_observed_phrase_spanning_a_join_is_not_corrupted. That
+    test fails if the excerpt is swapped back for a source slice; this one fails
+    if the excerpt is reported unnormalised. Neither property can be traded for
+    the other without a test naming which one was lost.
+    """
+    for source in (
+        "The team must act in  order  to close the finding.\n",
+        "The team must act in\torder to close the finding.\n",
+        "The team must act in   order\tto close the finding.\n",
+    ):
+        findings = cast(list[dict[str, JsonValue]], analyze_text(source)["findings"])
+        observed = {
+            cast(dict[str, JsonValue], finding["observed_value"])["phrase"]
+            for finding in findings
+            if finding["rule_id"] in {"LING-FILLER-001", "LING-BUREAUCRACY-001"}
+        }
+        assert observed == {"in order to"}, repr(source)
+
+
+def _long_blockquote_body() -> str:
+    return (
+        "the reviewer must close every finding and publish the remediation date "
+        "before the owner approves the change "
+    ) * 6
+
+
+def test_wrapping_cannot_evade_the_paragraph_rule() -> None:
+    """Each line of a wrapped block was counted as its own paragraph."""
+    body = _long_blockquote_body()
+    wrapped = "".join(f"> {word}\n" for word in body.split(" ") if word)
+    one_line = "> " + body.strip() + "\n"
+    assert len(body.split()) > 90
+    for document in (wrapped, one_line):
+        rules = [
+            finding["rule_id"]
+            for finding in cast(
+                list[dict[str, JsonValue]], analyze_text(document)["findings"]
+            )
+        ]
+        assert rules.count("LING-STRUCTURE-001") == 1
+
+
+def test_many_one_line_items_are_still_fully_covered() -> None:
+    """The uncovered sweep walks blocks and lines once each, in order."""
+    source = "".join(f"- item number {index} must ship.\n" for index in range(400))
+    segmentation = segment_source(source)
+    assert len(segmentation.blocks) == 400
+    assert segmentation.uncovered_lines == 0
+    assert segmentation.unresolved_lines == 0
+
+
+# The uncovered-line sweep decides whether a line was silently dropped, so its
+# interval arithmetic is a correctness boundary rather than an optimisation.
+
+
+def test_a_block_ending_where_a_line_starts_does_not_cover_that_line() -> None:
+    """Extents are half-open, so touching ends must not count as overlap.
+
+    Called directly with hand-built ranges because the sweep's contract is about
+    intervals, not about any document. A block that stops exactly where a line
+    begins shares no character with it; treating the ends as inclusive reported
+    that line as covered and hid a line nothing claimed.
+    """
+    from lingity import markdown as markdown_module
+
+    text = "alpha\nbravo\n"
+    bounds = [(0, 5), (6, 11)]
+    # Extent (0, 6) stops exactly at the second line's first character.
+    blocks = [Block("code", 0, 6, 0, 6)]
+
+    assert markdown_module._uncovered(text, bounds, blocks) == 1
+
+
+def test_a_block_starting_where_a_line_ends_does_not_cover_that_line() -> None:
+    """The mirror of the case above, at the other end of the interval."""
+    from lingity import markdown as markdown_module
+
+    text = "alpha\nbravo\n"
+    bounds = [(0, 5), (6, 11)]
+    blocks = [Block("code", 5, 11, 5, 11)]
+
+    assert markdown_module._uncovered(text, bounds, blocks) == 1
+
+
+def test_a_block_sharing_one_character_with_a_line_covers_it() -> None:
+    """The fix must not swing the other way and start undercounting coverage."""
+    from lingity import markdown as markdown_module
+
+    text = "alpha\nbravo\n"
+    bounds = [(0, 5), (6, 11)]
+    blocks = [Block("code", 0, 7, 0, 7)]
+
+    assert markdown_module._uncovered(text, bounds, blocks) == 0
+
+
+def test_every_block_extent_is_line_aligned() -> None:
+    """Why the interval bug above is unreachable through segment_source today.
+
+    ``_mapped_span`` builds every extent from ``bounds[first][0]`` and
+    ``bounds[last][1]``, so a block always starts at some line's first character
+    and ends at some line's last. A line terminator therefore always separates
+    one block's end from the next line's start, and the touching-ends case never
+    arises. That is an invariant of the caller, not of ``_uncovered``, so it is
+    pinned here: if extents ever grow to include their terminator, this fails
+    and the sweep's arithmetic becomes load-bearing.
+    """
+    from lingity import markdown as markdown_module
+
+    for name in ("README.md", "DESIGN.md"):
+        source = Path(__file__).resolve().parents[1].joinpath(name).read_text(
+            encoding="utf-8"
+        )
+        bounds = markdown_module._line_bounds(source)
+        starts = {start for start, _ in bounds}
+        ends = {end for _, end in bounds}
+        for block in segment_source(source).blocks:
+            assert block.start in starts, f"{name}: {block} does not start a line"
+            assert block.end in ends, f"{name}: {block} does not end a line"
+
+
+def test_a_missing_parser_is_refused_rather_than_crashing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``parser_fingerprint`` must fail the way the rest of ingest fails.
+
+    The contract is that an unusable parser is refused with install guidance.
+    Importing the dependency before ``_parser()`` had the chance to convert the
+    failure let a bare ``ImportError`` escape ``analyze_text`` and the CLI's
+    error handling instead.
+    """
+    import sys
+
+    from lingity import markdown as markdown_module
+
+    markdown_module._parser.cache_clear()
+    monkeypatch.setitem(sys.modules, "markdown_it", None)
+    try:
+        with pytest.raises(MarkdownParserError):
+            markdown_module.parser_fingerprint()
+    finally:
+        markdown_module._parser.cache_clear()
+
+
+def test_a_group_emptied_by_whitespace_filtering_is_not_a_paragraph() -> None:
+    """nlp.parse keeps a group whose ranges were all whitespace, as an empty tuple.
+
+    It filters the ranges but not the group, so `Document.groups` can hold `()`.
+    Carried into the paragraph units that empty tuple reaches both consumers,
+    which read `unit[0][0]` and `unit[-1][1]` to bound the paragraph -- an
+    IndexError on an empty unit. Skipping it here fixes both call sites at once
+    and keeps the paragraph count equal to the number of paragraphs.
+    """
+    text = "The team must act now.\n   \nThe owner approves the change.\n"
+    document = parse(text, spans=(((0, 22),), ((23, 26),), ((27, 57),)))
+
+    assert () in document.groups, "the empty group is the precondition this test pins"
+    units = _paragraph_units(document)
+
+    assert units == [((0, 22),), ((27, 57),)]
+    assert all(unit for unit in units)
+
+    profile = load_profile("architecture-review")
+    _paragraph_findings(document, profile)
+    _abbreviation_findings(document, profile)
