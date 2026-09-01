@@ -19,13 +19,24 @@ READMES = ("README.md", "README_AI.md")
 
 
 def _documented_commands(readme: Path) -> list[str]:
-    """Return the fenced command block that follows the `## Development` heading."""
+    """Return the fenced command block inside the `## Development` section.
+
+    The search is bounded by the next `##` heading. Without that bound the first
+    fence *anywhere* below the heading matches, so an empty `## Development`
+    section would silently borrow a code block from a later section and the
+    parity check would grade the wrong text.
+    """
     text = readme.read_text(encoding="utf-8")
     heading = re.search(r"^## Development$", text, re.MULTILINE)
     if heading is None:
         raise AssertionError(f"{readme.name} has no '## Development' section")
 
-    fence = re.search(r"^```[a-z]*\n(.*?)^```", text[heading.end() :], re.MULTILINE | re.DOTALL)
+    section = text[heading.end() :]
+    next_heading = re.search(r"^## ", section, re.MULTILINE)
+    if next_heading is not None:
+        section = section[: next_heading.start()]
+
+    fence = re.search(r"^```[a-z]*\n(.*?)^```", section, re.MULTILINE | re.DOTALL)
     if fence is None:
         raise AssertionError(f"{readme.name} '## Development' section has no fenced command block")
 
@@ -178,3 +189,31 @@ def test_the_readme_does_not_claim_the_commands_run_verbatim(readme_name: str) -
         f"{readme_name} claims the documented commands run verbatim, but "
         f"{_conditional_run_steps(WORKFLOW.read_text(encoding='utf-8'))} is conditional in CI"
     )
+
+
+DEVELOPMENT_FENCE = "```text\npython -m pytest\n```\n"
+LATER_SECTION_FENCE = "## Prior art\n\n```text\nsome other snippet\n```\n"
+
+
+def test_a_fence_in_a_later_section_is_not_borrowed(tmp_path: Path) -> None:
+    """An empty `## Development` section must fail, not reach into the next one."""
+    readme = tmp_path / "README.md"
+    readme.write_text(f"# Title\n\n## Development\n\nProse only.\n\n{LATER_SECTION_FENCE}", encoding="utf-8")
+
+    with pytest.raises(AssertionError, match="no fenced command block"):
+        _documented_commands(readme)
+
+
+def test_the_development_fence_is_read_rather_than_a_later_one(tmp_path: Path) -> None:
+    readme = tmp_path / "README.md"
+    readme.write_text(f"# Title\n\n## Development\n\n{DEVELOPMENT_FENCE}\n{LATER_SECTION_FENCE}", encoding="utf-8")
+
+    assert _documented_commands(readme) == ["python -m pytest"]
+
+
+def test_a_readme_without_a_development_section_is_rejected(tmp_path: Path) -> None:
+    readme = tmp_path / "README.md"
+    readme.write_text(f"# Title\n\n{LATER_SECTION_FENCE}", encoding="utf-8")
+
+    with pytest.raises(AssertionError, match="no '## Development' section"):
+        _documented_commands(readme)
