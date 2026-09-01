@@ -7,7 +7,12 @@ from typing import cast
 
 import pytest
 
-from lingity.analyzer import _paragraph_units, analyze_text
+from lingity.analyzer import (
+    _abbreviation_findings,
+    _paragraph_findings,
+    _paragraph_units,
+    analyze_text,
+)
 from lingity.markdown import (
     Block,
     MarkdownParserError,
@@ -21,6 +26,7 @@ from lingity.markdown import (
 )
 from lingity.models import JsonValue
 from lingity.nlp import parse
+from lingity.profiles import load_profile
 
 TABLE_DOCUMENT = """# Findings
 
@@ -658,10 +664,10 @@ def test_a_group_emptied_by_whitespace_filtering_is_not_a_paragraph() -> None:
     """nlp.parse keeps a group whose ranges were all whitespace, as an empty tuple.
 
     It filters the ranges but not the group, so `Document.groups` can hold `()`.
-    Carried into the paragraph units that becomes a paragraph containing nothing,
-    and every paragraph-threshold rule counts one more paragraph than the
-    document has -- silently, since the phantom holds no text to attribute a
-    finding to.
+    Carried into the paragraph units that empty tuple reaches both consumers,
+    which read `unit[0][0]` and `unit[-1][1]` to bound the paragraph -- an
+    IndexError on an empty unit. Skipping it here fixes both call sites at once
+    and keeps the paragraph count equal to the number of paragraphs.
     """
     text = "The team must act now.\n   \nThe owner approves the change.\n"
     document = parse(text, spans=(((0, 22),), ((23, 26),), ((27, 57),)))
@@ -671,3 +677,7 @@ def test_a_group_emptied_by_whitespace_filtering_is_not_a_paragraph() -> None:
 
     assert units == [((0, 22),), ((27, 57),)]
     assert all(unit for unit in units)
+
+    profile = load_profile("architecture-review")
+    _paragraph_findings(document, profile)
+    _abbreviation_findings(document, profile)
