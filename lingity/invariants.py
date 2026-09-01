@@ -1122,6 +1122,79 @@ def _status_state(token: Token) -> str | None:
     return STATE_BY_LEMMA.get(token.lemma)
 
 
+def _status_subject_tokens(document: Document, state: Token) -> list[Token]:
+    """Return the entity that is *in* the state, which is the patient, not the actor.
+
+    `_subject_tokens` answers a different question. It finds who acts, so it
+    deliberately discards `nsubjpass` and follows the by-phrase instead. Reusing
+    it here named the wrong entity: "the board approved the migration" recorded
+    the board as approved, and "the board rejected the proposal" recorded the
+    board as rejected.
+
+    Every state in STATE_BY_LEMMA is a transitive participle -- accept, approve,
+    block, deny, grant, ratify, reject, waive -- so the entity in the state is
+    always the patient:
+
+      nsubjpass   "the migration was approved"      -> migration
+      dobj/obj    "the board approved the migration" -> migration
+
+    A bare participle carries the same patient reading through its subject, but
+    the subject is not always attached to the participle: it hangs off the head
+    for `acomp` ("the risks remain blocked") and `conj` ("complete and
+    approved"), and off an intervening auxiliary for "the waiver stays granted".
+
+    The participle tag is what licenses that reading. A VBD is active past tense,
+    where the subject is the actor -- "the board approved" says nothing about
+    what was approved, so this returns nothing rather than naming the board. A
+    JJ is adjectival and never active, so it reads as a patient like VBN does.
+    """
+    passive = [child for child in document.children(state) if child.dep == "nsubjpass"]
+    if passive:
+        return _content_tokens([t for s in passive for t in document.subtree(s)])
+
+    objects = [
+        child for child in document.children(state) if child.dep in {"dobj", "obj"}
+    ]
+    if objects:
+        return _content_tokens([t for o in objects for t in document.subtree(o)])
+
+    if state.tag not in {"VBN", "JJ"}:
+        return []
+
+    candidates = [state]
+    candidates.extend(
+        child for child in document.children(state) if child.dep in {"aux", "auxpass"}
+    )
+    # The subject can sit several links above the participle: "the plan is final
+    # and approved" coordinates against the copula, but "the waiver is complete
+    # and granted" coordinates against the *adjective*, putting the subject one
+    # level further up. Following the chain finds the waiver instead of
+    # reporting that something unnamed was granted.
+    current = state
+    for _ in range(_MAX_HEAD_WALK):
+        head = document.head_of(current)
+        if head.index == current.index:
+            break
+        candidates.append(head)
+        candidates.extend(
+            child
+            for child in document.children(head)
+            if child.dep in {"aux", "auxpass"}
+        )
+        if current.dep not in {"conj", "acomp", "xcomp", "aux", "auxpass"}:
+            break
+        current = head
+    for candidate in candidates:
+        subjects = [
+            child
+            for child in document.children(candidate)
+            if child.dep == "nsubj" and not _is_discourse_label(document, child)
+        ]
+        if subjects:
+            return _content_tokens([t for s in subjects for t in document.subtree(s)])
+    return []
+
+
 def _status_records(document: Document) -> list[StatusRecord]:
     records: list[StatusRecord] = []
     seen: set[tuple[int, str]] = set()
@@ -1133,7 +1206,7 @@ def _status_records(document: Document) -> list[StatusRecord]:
         if key in seen:
             continue
         seen.add(key)
-        subject_tokens = _subject_tokens(document, token)
+        subject_tokens = _status_subject_tokens(document, token)
         subject = _normalize_subject_tokens(document, subject_tokens) if subject_tokens else "unknown"
         records.append(StatusRecord(token.start, token.end, state, subject))
     return records
