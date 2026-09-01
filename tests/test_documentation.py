@@ -46,6 +46,35 @@ def _documented_commands(readme: Path) -> list[str]:
 
 
 BLOCK_SCALAR = re.compile(r"^[|>][+-]?\d*$")
+RUN_LINE = re.compile(r"^[ \t]*(?:-[ \t]+)?run:[ \t]*(\S.*)$", re.MULTILINE)
+
+
+def _strip_inline_comment(value: str) -> str:
+    """Drop a YAML inline comment from a plain scalar.
+
+    YAML starts a comment at a `#` preceded by whitespace, so `run: pytest  # smoke`
+    is the command `pytest`. Taking the rest of the line instead would compare the
+    comment against the README and fail while naming the wrong culprit.
+
+    Quote state is tracked because a `#` inside quotes is content, not a comment:
+    `run: echo "a # b"` is one command. A blind split on `#` would truncate it and
+    then report a mismatch the workflow does not have.
+    """
+    quote = ""
+    for index, char in enumerate(value):
+        if quote:
+            if char == quote:
+                quote = ""
+        elif char in "\"'":
+            quote = char
+        elif char == "#" and index > 0 and value[index - 1] in " \t":
+            return value[:index].strip()
+    return value.strip()
+
+
+def _run_commands(text: str) -> list[str]:
+    """Return every single-line `run:` command in `text`, in order."""
+    return [_strip_inline_comment(match.group(1)) for match in RUN_LINE.finditer(text)]
 
 
 def _parse_run_steps(text: str) -> list[str]:
@@ -58,9 +87,7 @@ def _parse_run_steps(text: str) -> list[str]:
     it against the README as though it were a command -- a confusing failure
     that names the wrong culprit.
     """
-    commands = [
-        match.group(1).strip() for match in re.finditer(r"^[ \t]*(?:-[ \t]+)?run:[ \t]*(\S.*)$", text, re.MULTILINE)
-    ]
+    commands = _run_commands(text)
 
     block_scalars = [command for command in commands if BLOCK_SCALAR.match(command)]
     if block_scalars:
@@ -123,11 +150,11 @@ def _conditional_run_steps(text: str) -> list[str]:
     """
     conditional = []
     for step in _step_blocks(text):
-        run = re.search(r"^[ \t]*(?:-[ \t]+)?run:[ \t]*(\S.*)$", step, re.MULTILINE)
+        run = RUN_LINE.search(step)
         if run is None:
             continue
         if re.search(r"^[ \t]*if:[ \t]*\S", step, re.MULTILINE):
-            conditional.append(run.group(1).strip())
+            conditional.append(_strip_inline_comment(run.group(1)))
     return conditional
 
 
@@ -360,3 +387,46 @@ def test_a_second_job_is_read_too() -> None:
     """
     assert _conditional_run_steps(TWO_JOB_WORKFLOW) == ["python -m twine upload dist/*"]
     assert _parse_run_steps(TWO_JOB_WORKFLOW) == ["python -m pytest", "python -m twine upload dist/*"]
+
+
+COMMENTED_WORKFLOW = """
+jobs:
+  build:
+    steps:
+      - name: Tests
+        run: python -m pytest  # smoke only
+      - name: Echo
+        run: echo "a # b"
+      - name: Corpora
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: python -m nltk.downloader wordnet  # first run only
+"""
+
+
+def test_an_inline_comment_is_not_part_of_the_command() -> None:
+    """YAML ends a plain scalar at a ` #`, so the comment is not the command.
+
+    Capturing it would compare `python -m pytest  # smoke only` against the
+    README's `python -m pytest` and fail -- a real mismatch reported against a
+    workflow that matches, naming the wrong culprit.
+    """
+    assert _parse_run_steps(COMMENTED_WORKFLOW)[0] == "python -m pytest"
+
+
+def test_a_quoted_hash_is_content_not_a_comment() -> None:
+    """A `#` inside quotes is part of the command, so stripping must be quote-aware.
+
+    This is the failure a blind split on `#` would introduce while fixing the
+    other one: it would truncate this command to `echo "a` and report a mismatch
+    the workflow does not have.
+    """
+    assert _parse_run_steps(COMMENTED_WORKFLOW)[1] == 'echo "a # b"'
+
+
+def test_the_conditional_reader_strips_comments_too() -> None:
+    """Both parsers read the same `run:` line, so both must read it the same way.
+
+    They were separate regexes with separate strips; a fix applied to one and not
+    the other would leave the conditional check comparing a commented command.
+    """
+    assert _conditional_run_steps(COMMENTED_WORKFLOW) == ["python -m nltk.downloader wordnet"]
