@@ -40,3 +40,26 @@ testpaths = ["tests"]
 python_version = "3.11"
 strict = true
 files = ["lingity", "tests"]
+
+# numpy arrives transitively through spaCy. On Python 3.12+ pip resolves a numpy
+# whose bundled stubs use PEP 695 `type` statements, which mypy refuses to parse
+# while targeting 3.11:
+#
+#   numpy/__init__.pyi: error: Type statement is only supported in Python 3.12
+#   and greater  [syntax]
+#
+# That aborts the run before any project code is checked. Skipping the module
+# keeps python_version at 3.11 -- the oldest interpreter this package claims to
+# support -- so project code is still checked against that target rather than
+# against the newest interpreter that happens to be installed.
+#
+# The cost: numpy's own types degrade to Any. Nothing here imports numpy
+# directly, so no project code loses checking today; that stops being true the
+# moment something does.
+#
+# Both settings are required. `follow_imports` does not apply to stub files on
+# its own; `follow_imports_for_stubs` is what extends it to the .pyi.
+[[tool.mypy.overrides]]
+module = ["numpy", "numpy.*"]
+follow_imports = "skip"
+follow_imports_for_stubs = true

@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          # Caches ~/.cache/pip, keyed on the interpreter and on the hash of
+          # pyproject.toml, so wheels resolved from PyPI are restored instead of
+          # refetched. It does not cover the pinned en_core_web_sm wheel: that is
+          # a direct-URL dependency, and pip refetches it on every run even with
+          # the cache restored -- observed on a runner, where a warm run reports
+          # "Using cached" for every other wheel and "Downloading" for that one.
+          # At 12.8 MB pulled in about 0.2 s it does not earn a cache step of its
+          # own; the model is instead kept honest by being pinned.
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Restore NLTK corpora
+        id: nltk-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/nltk_data
+          # The key names the corpora it holds; keep it in step with the
+          # download below. The corpora are plain data files and do not depend
+          # on the interpreter, so both matrix legs share one entry.
+          key: nltk-${{ runner.os }}-wordnet-omw-1.4
+
+      - name: Install package and dev dependencies
+        # Installs the pinned en_core_web_sm 3.8.0 wheel declared in
+        # pyproject.toml. Deliberately not `python -m spacy download`, which
+        # resolves whatever model version is current at run time; lingity/nlp.py
+        # requires exactly 3.8.0 and fails closed on anything else.
+        run: python -m pip install -e '.[dev]'
+
+      - name: Download NLTK corpora
+        if: steps.nltk-cache.outputs.cache-hit != 'true'
+        run: python -m nltk.downloader wordnet omw-1.4
+
+      - name: Tests
+        run: python -m pytest
+
+      - name: Types
+        run: python -m mypy
+
+      - name: Byte-compile
+        run: python -m compileall -q lingity tests
