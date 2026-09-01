@@ -917,3 +917,51 @@ def test_a_withheld_complement_state_is_not_equivalent_to_a_fact(
 ) -> None:
     """Withholding the false status must not withhold the protection."""
     assert _comparison(source, candidate)["equivalent"] is False
+
+
+@pytest.mark.parametrize(
+    ("source", "candidate"),
+    [
+        ("The team must have the credentials.", "The team must have the database."),
+        ("The team must have the credentials.", "The vendor must have the credentials."),
+    ],
+)
+def test_a_possession_claim_protects_its_actor_and_target(
+    source: str, candidate: str
+) -> None:
+    """Dropping a verb from claim extraction stops comparing its arguments.
+
+    `NON_CLAIM_VERB_LEMMAS` listed "have" to suppress the auxiliary reading,
+    but `_is_claim_predicate` already requires pos == "VERB", so the entry only
+    silenced the main verb -- and a rewrite could swap either the holder or the
+    thing held and still be certified.
+    """
+    assert _comparison(source, candidate)["equivalent"] is False
+
+
+def test_a_possession_is_extracted_as_a_claim() -> None:
+    assert [item for item in _signature("The team must have the credentials.") if
+            item.startswith("claim:")] == [
+        "claim:action=have;actor=team;modality=must;polarity=positive;"
+        "status=asserted;target=credential"
+    ]
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "`use` is still in NON_CLAIM_VERB_LEMMAS, so its actor and target are "
+        "never compared and this swap is certified. It cannot be removed until "
+        "target normalization equates the canonical fixture's "
+        "'repository-evidenced hybrid topology' with 'hybrid topology "
+        "evidenced in the repository'; removing it today rejects the canonical "
+        "rewrite. Pinned strictly so the fix forces this win into the open."
+    ),
+)
+def test_a_use_claim_protects_its_target() -> None:
+    assert (
+        _comparison(
+            "The board must use the framework.", "The board must use the database."
+        )["equivalent"]
+        is False
+    )

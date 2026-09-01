@@ -146,7 +146,25 @@ ACTION_NORMALIZATION = {
     "verify": "verify",
 }
 CLAIM_ACTION_LEMMAS = frozenset(ACTION_NORMALIZATION)
-NON_CLAIM_VERB_LEMMAS = {"be", "do", "have", "propose", "treat", "use"}
+# Verbs whose claims are dropped before the signature is built. Every entry
+# here is a hole in the gate: the actor and the target of that verb stop being
+# compared, so a rewrite may swap either one and still be certified.
+#
+# "be", "do" and "have" were removed after measuring that they cost nothing --
+# `_is_claim_predicate` already requires pos == "VERB", which excludes the
+# auxiliary readings those lemmas were meant to suppress, so the entries only
+# silenced the main-verb readings that do carry content ("the team must have
+# the credentials").
+#
+# The three that remain are load-bearing for the canonical fixture, for two
+# different reasons, both pinned by strict xfail tests:
+#   use     -- the fixture rewrite reorders a modifier, and target
+#              normalization cannot yet equate "repository-evidenced hybrid
+#              topology" with "hybrid topology evidenced in the repository".
+#   propose -- `_is_deferral_operator` already emits the deferral claim, so
+#              this would re-add the same directive with target=none.
+#   treat   -- pinned by the canonical cutover rewrite test.
+NON_CLAIM_VERB_LEMMAS = {"propose", "treat", "use"}
 GOVERNANCE_LEMMAS = {
     "applicability",
     "approval",
