@@ -449,3 +449,36 @@ def test_voice_alone_does_not_change_protected_meaning(active: str, passive: str
     """
     assert _status_subject(active) == _status_subject(passive)
     assert _comparison(active, passive)["equivalent"] is True
+
+
+@pytest.mark.parametrize(
+    ("sentence", "expected"),
+    [
+        ("The waiver is complete and granted.", "waiver"),
+        ("The plan is final and approved.", "plan"),
+        ("The design is complete, reviewed and accepted.", "design"),
+    ],
+)
+def test_a_coordinated_state_still_names_what_is_in_it(
+    sentence: str, expected: str
+) -> None:
+    """Coordination can put the subject more than one link above the participle.
+
+    "The plan is final and approved" coordinates against the copula, so the
+    subject is on the immediate head. "The waiver is complete and granted"
+    coordinates against the *adjective* instead, so the subject sits one level
+    further up -- and reporting `unknown` there says something was granted
+    without saying what.
+    """
+
+    assert _status_subject(sentence) == expected
+
+
+def test_an_active_past_tense_verb_still_names_nobody() -> None:
+    """Following the head chain must not reach past the VBD guard.
+
+    "The board approved" says the board did the approving, not that the board
+    was approved, so no state subject is available at all.
+    """
+
+    assert _status_subject("The board approved.") == "unknown"
