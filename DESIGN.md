@@ -239,7 +239,7 @@ by a different pipeline rather than re-analysing it under new assumptions.
 
 A profile carries the weights, thresholds, and vocabulary for one kind of
 document. The analyzer is shared; the profile decides what counts as a defect
-and how much it costs. Three profiles ship, and a project may install more.
+and how much it costs. Four profiles ship, and a project may install more.
 
 `architecture-review` reads review decisions. `product-strategy` reads need
 statements, value propositions, and positioning. The second weights agency and
@@ -284,8 +284,8 @@ to the meaning gate, which reads claim signatures from the parse.
 "Led migration of forty services" has no subject, by convention rather than by
 evasion. A profile may set `allow_implied_first_person`, and under it a
 directive that carries no subject at all is read as the work of the author
-instead of as missing agency. `architecture-review` and `product-strategy` do
-not set it and behave as before.
+instead of as missing agency. The other shipped profiles do not set it and
+behave as before.
 
 The rule this corrects was not failing the way it looked. `LING-ACTOR-001`
 reports a directive, and a directive is an obligation auxiliary or an
@@ -312,6 +312,25 @@ are the ones a bullet can name as a beneficiary: team, customer, user, client,
 and stakeholder. "The platform should own the runbook" therefore reports
 `LING-ACTOR-001` and "The team should own the runbook" does not.
 
+### A profile can count repetition across blocks rather than within one
+
+`LING-REDUNDANCY-001` counts a repeated content word within a single block,
+because a reader meets redundancy locally and governance prose is required to
+call one concept by one name throughout. A term recurring across sections is
+that document being consistent, not repetitive.
+
+A resume inverts the assumption. Every bullet is its own block, so a verb that
+opens six of them repeats once per block and never twice inside one, and the
+rule reports nothing on precisely the text a reader would call repetitive.
+`resume-review` therefore sets `count_repetition_across_blocks`, which compares
+the document as one bucket. It widens which tokens are compared and not which
+tokens are read: a term still has to fall inside a readable span, so a word
+repeated inside a fenced code block is still not a finding.
+
+The flag is opt-in, and the prose profiles do not set it. That is the point of
+recording it here — the block-local reading is right for prose and wrong for a
+bullet list, and neither is a default that can serve both.
+
 Three of the profile's limits are gaps rather than features, and are recorded
 here so that none of them reads as a promise.
 
@@ -327,7 +346,7 @@ following verb takes a nominalization as its object, so "helped to deliver
 numerous enhancements" is reported twice. The analyzer deduplicates findings on
 exact spans and these two spans differ. The phrase is kept because dropping it
 would silence "helped to migrate the platform", which the structural rule does
-not see, and changing the deduplication would change the other two profiles.
+not see, and changing the deduplication would change the other profiles.
 
 Six bullets opening with the same verb are not reported as repetition unless
 that verb's lemma is at least seven characters long, which is what

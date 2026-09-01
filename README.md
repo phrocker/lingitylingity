@@ -74,6 +74,12 @@ else, so "Must be completed before the release" still reports both
 `LING-AGENCY-001` and `LING-PASSIVE-001` — a resume written in the passive
 hides the work, which is the defect this profile exists to find.
 
+`resume-review` also sets `count_repetition_across_blocks`. Redundancy is
+otherwise counted within a single block, which a bullet list defeats: every
+bullet is its own block, so a verb opening six of them never repeats inside
+one. The flag compares the document as one bucket, and widens which tokens are
+compared rather than which are read.
+
 Without the threshold the actor rule taxes the wrong lines. "Cut checkout
 latency from 1.2 seconds to 300 milliseconds" reports `LING-ACTOR-001` under
 both prose profiles, while "Responsible for the migration of the reporting

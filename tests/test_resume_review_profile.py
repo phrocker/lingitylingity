@@ -162,7 +162,11 @@ def test_the_threshold_does_not_excuse_the_passive(resume: Profile) -> None:
 
 
 def test_the_hidden_accomplishment_is_still_reported(resume: Profile) -> None:
-    """"Was responsible for the migration" names no action and no actor."""
+    """A stated duty names no action and no actor.
+
+    "Was responsible for the migration" reports what the author was assigned
+    rather than what they did, so it stays a finding.
+    """
     assert "LING-AGENCY-001" in _rule_ids("Was responsible for the migration.", resume)
     assert "LING-AGENCY-001" in _rule_ids("Responsible for the migration.", resume)
     assert "LING-AGENCY-001" in _rule_ids("Was tasked with the migration.", resume)
@@ -190,10 +194,10 @@ def test_an_overt_subject_is_never_read_as_the_author(resume: Profile) -> None:
 
 
 def test_an_impersonal_subject_is_not_an_absent_one(resume: Profile) -> None:
-    """"It" is a subject the author wrote, not a subject the genre omits.
+    """An impersonal subject is one the author wrote, not one the genre omits.
 
-    The reading tests for a subject the parse does not carry, so an impersonal
-    one still fails the actor rule instead of standing in for the author.
+    The reading tests for a subject the parse does not carry, so "It" still
+    fails the actor rule instead of standing in for the author.
     """
     assert "LING-ACTOR-001" in _rule_ids("It should improve the runbook.", resume)
 
@@ -431,3 +435,73 @@ def test_the_artifact_records_the_profile_it_used(resume: Profile) -> None:
     assert reference["name"] == "resume-review"
     assert reference["version"] == "1.0.0"
     assert reference["digest"] == resume.digest
+
+
+def test_the_reading_covers_the_bullet_named_in_the_comment(resume: Profile) -> None:
+    """The threshold is what spares a subjectless imperative, and only that.
+
+    Pinned against architecture-review, which does not set the threshold, so the
+    difference is attributable to it rather than to anything else in the profile.
+    """
+    architecture = load_profile("architecture-review")
+    for bullet in (
+        "Own the incident process.",
+        "Ship the runbook.",
+        "Should own the runbook.",
+    ):
+        assert "LING-ACTOR-001" in _rule_ids(bullet, architecture), bullet
+        assert "LING-ACTOR-001" not in _rule_ids(bullet, resume), bullet
+
+
+def test_a_past_tense_bullet_never_reaches_this_reading(resume: Profile) -> None:
+    """The limit of the threshold, stated so the comment cannot misdescribe it.
+
+    _directive_marker recognises an obligation auxiliary or an imperative tagged
+    VB. A past-tense bullet is tagged VBD or VBN, so it is not a directive and
+    raises no actor finding to begin with -- with or without the threshold. An
+    example of this shape would imply the threshold is what spares it, which is
+    why the comment on the reading uses a bare infinitive instead.
+    """
+    architecture = load_profile("architecture-review")
+    for bullet in ("Led the migration.", "Built the reporting pipeline.", "Delivered the platform."):
+        assert "LING-ACTOR-001" not in _rule_ids(bullet, architecture), bullet
+        assert "LING-ACTOR-001" not in _rule_ids(bullet, resume), bullet
+
+
+def test_counting_repetition_across_blocks_is_opt_in() -> None:
+    """The prose profiles must keep the block-local reading of redundancy."""
+    for name in ("architecture-review", "product-strategy", "web-copy"):
+        profile = load_profile(name)
+        assert "count_repetition_across_blocks" not in profile.thresholds, name
+
+
+def test_the_repeated_opener_is_found_because_the_bullets_are_one_bucket(
+    resume: Profile,
+) -> None:
+    """A bullet list defeats block-local counting, which is why the flag exists.
+
+    Redundancy is counted per block so that a term recurring across sections of
+    a prose document is not read as repetition. A resume inverts that: every
+    bullet is its own block, so a verb opening six of them repeats once per
+    block and never twice within one. Under a profile that does not opt in, the
+    same text therefore reports nothing -- which is the behaviour this flag is
+    here to override, not a property of the text.
+    """
+    architecture = load_profile("architecture-review")
+    assert "LING-REDUNDANCY-001" not in _rule_ids(SIX_LONG_OPENERS, architecture)
+    assert "LING-REDUNDANCY-001" in _rule_ids(SIX_LONG_OPENERS, resume)
+
+
+def test_the_flag_widens_comparison_without_widening_what_is_read(
+    resume: Profile,
+) -> None:
+    """Opting in must not let the rule reach text outside a readable span."""
+    document = "# Coordinated Coordinated Coordinated\n\n```\ncoordinate coordinate coordinate\n```\n"
+    terms = {
+        cast(str, cast(dict[str, JsonValue], finding["observed_value"])["term"])
+        for finding in cast(
+            list[dict[str, JsonValue]], analyze_text(document, resume)["findings"]
+        )
+        if finding["rule_id"] == "LING-REDUNDANCY-001"
+    }
+    assert "coordinate" not in terms

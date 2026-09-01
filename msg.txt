@@ -1,0 +1,34 @@
+Correct the implied-subject comment, and restore redundancy on a bullet list
+
+Two review comments and one defect the merge with main introduced.
+
+The comment on the implied-subject reading used "Led the migration" as its
+example. That bullet is tagged VBN, so _directive_marker never treats it as a
+directive and it never reaches the reading at all -- it raises no actor finding
+with or without the threshold, so the example implied the threshold was doing
+work it does not do. The comment now uses a bare infinitive, and two tests pin
+both halves: the named example is suppressed by the threshold and reported
+without it, and a past-tense bullet reaches neither. DESIGN.md already explained
+this correctly, so only the comment was wrong.
+
+Two docstrings opened with four quote characters. The rendered text was in fact
+correct -- the leading quote opens a quoted phrase -- so this is readability
+rather than the described defect, but the opener is fragile and both are
+rewritten not to begin with a quotation mark.
+
+The merge then broke two of this branch's tests, and the cause was mine: main
+now counts repeated content words within a block rather than across the
+document. That is right for prose, whose author is required to call one concept
+by one name, and wrong for a resume, where every bullet is its own block and a
+verb opening six of them repeats once per block and never twice inside one. The
+rule reported nothing on exactly the text a reader would call repetitive.
+Rather than drop the coverage, profiles may set count_repetition_across_blocks,
+which compares the document as one bucket. It is opt-in; the prose profiles do
+not set it and are unchanged. It widens which tokens are compared, not which are
+read, so a word repeated inside a fenced code block is still not a finding --
+pinned by a test. Removing the flag from the profile fails three tests, so it is
+load-bearing rather than decorative.
+
+Also corrects counts the merge falsified: four profiles ship, not three.
+
+Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>

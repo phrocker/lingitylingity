@@ -623,10 +623,19 @@ def _actor_action_findings(document: Document, profile: Profile, agency_spans: l
             continue
         label, _start, _end, verb = marker
         # In some genres an absent subject is a convention rather than a defect.
-        # A resume bullet drops the subject on every line, so "Led the migration"
-        # names the author as surely as "I led the migration" does. A profile may
-        # therefore read a directive that carries no subject at all as the work
-        # of the author.
+        # A resume bullet drops the subject on every line, so "Own the incident
+        # process" names the author as surely as "I own the incident process"
+        # does. A profile may therefore read a directive that carries no subject
+        # at all as the work of the author.
+        #
+        # The example is a bare infinitive on purpose. This reading is reached
+        # only through _directive_marker, which recognises an obligation
+        # auxiliary or an imperative tagged VB. A past-tense bullet such as "Led
+        # the migration" is tagged VBN, so it never becomes a directive and
+        # never arrives here: it raises no actor finding at all, with or without
+        # this threshold. test_a_past_tense_bullet_never_reaches_this_reading
+        # pins that, so the example cannot drift back to one which implies the
+        # threshold is what spares it.
         #
         # The permission is deliberately narrow. It reaches only the clause whose
         # subject is missing, so it can suppress LING-ACTOR-001 and nothing else.
@@ -1206,8 +1215,16 @@ def _redundancy_findings(
     consistent rather than repetitive. Counting per document also made a finding
     depend on text arbitrarily far away from it, so the same paragraph scored
     differently alone than it did inside the document that contained it.
+
+    That reasoning is about prose, and a profile may say its genre works the
+    other way. A resume is a bullet list, so every line is its own block and a
+    verb repeated to open six of them never repeats *within* a block -- yet that
+    repetition is precisely the defect a reader sees. ``count_repetition_across_blocks``
+    lets such a profile count the document as one bucket. It is opt-in, so the
+    prose profiles keep the local reading.
     """
     threshold = int(profile.thresholds["max_repeated_content_word"])
+    across_blocks = bool(profile.thresholds.get("count_repetition_across_blocks", 0))
     content_tokens = [
         token
         for token in document.tokens
@@ -1229,7 +1246,9 @@ def _redundancy_findings(
             continue
         _, end, index = ordered[position]
         if token.start < end:
-            buckets[index].append(token)
+            # A token still has to fall inside a readable span either way, so
+            # this widens which tokens are compared, never which are read.
+            buckets[0 if across_blocks else index].append(token)
 
     findings: list[Finding] = []
     for index in sorted(buckets):

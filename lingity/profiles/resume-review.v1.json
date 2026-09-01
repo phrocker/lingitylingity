@@ -44,7 +44,8 @@
     "max_qualifiers_per_sentence": 0,
     "max_compound_parts": 3,
     "require_responsible_actor": 1,
-    "allow_implied_first_person": 1
+    "allow_implied_first_person": 1,
+    "count_repetition_across_blocks": 1
   },
   "rules": {
     "abstract_evidence_heads": [
