@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import hashlib
+from bisect import bisect_right
 from collections import Counter, defaultdict
-from typing import Iterable, cast
+from typing import Iterable, Sequence, cast
 
 from lingity.invariants import extract_protected, source_sha256
 from lingity.markdown import (
@@ -256,6 +257,16 @@ def _has_agent(document: Document, verb: Token) -> bool:
     return any(child.dep == "agent" for child in document.children(verb))
 
 
+def _quoted(text: str) -> str:
+    """Quote source text the way the parser read it.
+
+    A block's wrapped lines are joined by a single space before parsing, so a
+    finding that echoed the raw slice showed a line break and the indentation of
+    a list marker that the analysis never saw.
+    """
+    return " ".join(text.split())
+
+
 def _passive_span(document: Document, verb: Token) -> tuple[int, int, str]:
     auxiliaries = [
         child
@@ -264,7 +275,7 @@ def _passive_span(document: Document, verb: Token) -> tuple[int, int, str]:
     ]
     start = min([verb.start, *(token.start for token in auxiliaries)])
     end = verb.end
-    return start, end, document.text[start:end]
+    return start, end, _quoted(document.text[start:end])
 
 
 def _passive_findings(document: Document) -> list[Finding]:
@@ -287,17 +298,50 @@ def _passive_findings(document: Document) -> list[Finding]:
     return findings
 
 
+def _is_stacked_modifier(token: Token) -> bool:
+    # A token in a "compound" relation to a noun head is a nominal modifier
+    # whatever part of speech the tagger guessed for it. The tagger reads
+    # "messaging" in "messaging loss hypotheses" as a NOUN in one context and a
+    # VERB in another, and the phrase is the same noun stack either way.
+    if token.dep == "compound":
+        return token.pos in {"NOUN", "PROPN", "VERB"}
+    # "amod" is only a stacked modifier when the modifier is itself a noun.
+    # Restricting it here keeps real adjectives and participles out.
+    return token.dep == "amod" and token.pos in {"NOUN", "PROPN"}
+
+
 def _noun_stack_tokens(document: Document, head: Token) -> tuple[Token, ...]:
     if head.pos not in {"NOUN", "PROPN"} or head.dep == "compound":
         return ()
     compounds = [
         token
         for token in document.subtree(head)
-        if token.dep == "compound" and token.is_word and token.pos in {"NOUN", "PROPN"}
+        if token.is_word and _is_stacked_modifier(token)
     ]
     if not compounds:
         return ()
-    return tuple(sorted([*compounds, head], key=lambda token: token.index))
+    ordered = sorted([*compounds, head], key=lambda token: token.index)
+    run = [ordered[-1]]
+    for token in reversed(ordered[:-1]):
+        if token.index != run[-1].index - 1:
+            break
+        run.append(token)
+    run.reverse()
+    if len(run) < 2:
+        return ()
+    return tuple(run)
+
+
+def _noun_stack_depth(stack: tuple[Token, ...]) -> int:
+    depth = 0
+    previous_entity = ""
+    for token in stack:
+        entity = token.entity_type
+        if entity and entity == previous_entity:
+            continue
+        depth += 1
+        previous_entity = entity
+    return depth
 
 
 def _noun_stack_findings(document: Document, profile: Profile) -> list[Finding]:
@@ -307,7 +351,10 @@ def _noun_stack_findings(document: Document, profile: Profile) -> list[Finding]:
     for sentence in document.sentences:
         for head in sentence.tokens:
             stack = _noun_stack_tokens(document, head)
-            if len(stack) < minimum:
+            if not stack:
+                continue
+            depth = _noun_stack_depth(stack)
+            if depth < minimum:
                 continue
             start = stack[0].start
             end = stack[-1].end
@@ -315,17 +362,17 @@ def _noun_stack_findings(document: Document, profile: Profile) -> list[Finding]:
             if key in emitted:
                 continue
             emitted.add(key)
-            text = document.text[start:end]
+            text = _quoted(document.text[start:end])
             findings.append(
                 Finding(
                     "LING-NOUN-STACK-001",
                     "morphology",
-                    _severity(len(stack), minimum),
+                    _severity(depth, minimum),
                     _location(document.text, start, end, sentence.index),
-                    {"words": len(stack), "text": text},
+                    {"words": len(stack), "units": depth, "text": text},
                     minimum - 1,
                     "Unpack the noun stack with a verb or preposition.",
-                    min(12.0, 3.0 + (len(stack) - 3) * 2.0),
+                    min(12.0, 3.0 + (depth - 3) * 2.0),
                 )
             )
     return findings
@@ -369,7 +416,7 @@ def _compound_depth_findings(document: Document, profile: Profile) -> list[Findi
                     "morphology",
                     _severity(parts, threshold),
                     _location(document.text, start, end, sentence.index),
-                    {"compound": document.text[start:end], "parts": parts, "hyphens": parts - 1},
+                    {"compound": _quoted(document.text[start:end]), "parts": parts, "hyphens": parts - 1},
                     threshold,
                     "Break the compound chain into a short phrase that names the core noun and modifiers separately.",
                     min(10.0, (parts - threshold) * 3.0),
@@ -400,7 +447,7 @@ def _compound_findings(document: Document, profile: Profile, lexical_spans: list
                     "lexical_clarity",
                     "low" if parts == 2 else "medium",
                     _location(document.text, start, end, sentence.index),
-                    {"compound": document.text[start:end], "hyphens": parts - 1},
+                    {"compound": _quoted(document.text[start:end]), "hyphens": parts - 1},
                     {"allowed_hyphens_without_profile_approval": 1},
                     "Replace machine-made compound modifiers with a short phrase or a profile-approved term.",
                     4.0 if parts == 2 else 6.0,
@@ -590,7 +637,7 @@ def _actor_action_findings(document: Document, profile: Profile, agency_spans: l
                 "agency",
                 "medium",
                 _location(document.text, sentence.start, sentence.end, sentence.index),
-                {"directive": label, "text": sentence.text},
+                {"directive": label, "text": _quoted(sentence.text)},
                 {"responsible_actor_required": 1},
                 "Name the responsible team, role, owner, or system that will perform the action.",
                 7.0,
@@ -675,7 +722,7 @@ def _indirect_predicate_findings(document: Document, profile: Profile) -> list[F
                     "agency",
                     "medium",
                     _location(document.text, start, end, sentence.index),
-                    {"text": document.text[start:end]},
+                    {"text": _quoted(document.text[start:end])},
                     {"direct_predicate_required": 1},
                     "Replace the expletive or purpose wrapper with a direct subject and predicate.",
                     6.0,
@@ -985,7 +1032,7 @@ def _list_suitability_findings(document: Document, profile: Profile) -> list[Fin
                 "structure",
                 _severity(len(items), threshold),
                 _location(document.text, sentence.start, sentence.end, sentence.index),
-                {"items": len(items), "text": sentence.text},
+                {"items": len(items), "text": _quoted(sentence.text)},
                 threshold,
                 "Convert the long inline enumeration into a bulleted list with one item per line.",
                 min(12.0, (len(items) - threshold) * 2.0),
@@ -1089,7 +1136,7 @@ def _duplicated_recommendation_findings(document: Document, profile: Profile) ->
                         "action_group": group,
                         "shared_terms": cast(list[JsonValue], shared_terms),
                         "first_sentence": previous.text,
-                        "duplicate_sentence": sentence.text,
+                        "duplicate_sentence": _quoted(sentence.text),
                     },
                     {"allowed_restatements": 0},
                     "Consolidate repeated recommendations into one obligation with one owner and one acceptance condition.",
@@ -1148,31 +1195,64 @@ def _qualifier_findings(document: Document, profile: Profile) -> list[Finding]:
     return findings
 
 
-def _redundancy_findings(document: Document, profile: Profile) -> list[Finding]:
-    findings: list[Finding] = []
+def _redundancy_findings(
+    document: Document,
+    profile: Profile,
+    groups: Sequence[Sequence[tuple[int, int]]],
+) -> list[Finding]:
+    """Report a content word repeated too often within a single block.
+
+    Repetition is counted per block, not per document. A reader meets redundancy
+    locally, and governance prose is required to call one concept by one name
+    throughout, so a term recurring across sections is the document being
+    consistent rather than repetitive. Counting per document also made a finding
+    depend on text arbitrarily far away from it, so the same paragraph scored
+    differently alone than it did inside the document that contained it.
+    """
+    threshold = int(profile.thresholds["max_repeated_content_word"])
     content_tokens = [
         token
         for token in document.tokens
         if token.is_word and len(_lemma(token)) >= 7 and _lemma(token) not in STOP_LEMMAS
     ]
-    counts = Counter(_lemma(token) for token in content_tokens)
-    threshold = int(profile.thresholds["max_repeated_content_word"])
-    for lemma, count in sorted(counts.items()):
-        if count <= threshold:
+    # Block content spans never overlap, so the span starting at or before a
+    # token is the only one that can contain it.
+    ordered = sorted(
+        (start, end, index)
+        for index, group in enumerate(groups)
+        for start, end in group
+        if start < end
+    )
+    starts = [start for start, _, _ in ordered]
+    buckets: dict[int, list[Token]] = defaultdict(list)
+    for token in content_tokens:
+        position = bisect_right(starts, token.start) - 1
+        if position < 0:
             continue
-        first = next(token for token in content_tokens if _lemma(token) == lemma)
-        findings.append(
-            Finding(
-                "LING-REDUNDANCY-001",
-                "redundancy",
-                "low",
-                _location(document.text, first.start, first.end, None),
-                {"term": lemma, "occurrences": count},
-                threshold,
-                "Remove repeated qualifiers or consolidate repeated statements.",
-                min(10.0, (count - threshold) * 2.0),
+        _, end, index = ordered[position]
+        if token.start < end:
+            buckets[index].append(token)
+
+    findings: list[Finding] = []
+    for index in sorted(buckets):
+        block_tokens = buckets[index]
+        counts = Counter(_lemma(token) for token in block_tokens)
+        for lemma, count in sorted(counts.items()):
+            if count <= threshold:
+                continue
+            first = next(token for token in block_tokens if _lemma(token) == lemma)
+            findings.append(
+                Finding(
+                    "LING-REDUNDANCY-001",
+                    "redundancy",
+                    "low",
+                    _location(document.text, first.start, first.end, None),
+                    {"term": lemma, "occurrences": count},
+                    threshold,
+                    "Remove repeated qualifiers or consolidate repeated statements.",
+                    min(10.0, (count - threshold) * 2.0),
+                )
             )
-        )
     return findings
 
 
@@ -1394,7 +1474,7 @@ def analyze_text(text: str, profile: Profile | None = None) -> dict[str, JsonVal
     findings.extend(_paragraph_findings(document, selected_profile))
     findings.extend(_list_suitability_findings(document, selected_profile))
     findings.extend(_mixed_purpose_findings(document, selected_profile))
-    findings.extend(_redundancy_findings(document, selected_profile))
+    findings.extend(_redundancy_findings(document, selected_profile, readable))
     findings.extend(_duplicated_recommendation_findings(document, selected_profile))
     findings.extend(_qualifier_findings(document, selected_profile))
     findings = [

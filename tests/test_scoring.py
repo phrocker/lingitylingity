@@ -204,25 +204,31 @@ def test_calibration_anchors_preserve_profile_bands() -> None:
     assert uniformly_bad["band"] == "revision_required"
 
 
-def test_canonical_decision_fixture_keeps_calibrated_bands() -> None:
+def test_canonical_decision_fixture_keeps_bands_ordered_with_scores() -> None:
     fixture = cast(dict[str, str], json.loads(FIXTURE_PATH.read_text(encoding="utf-8")))
 
     original_score = cast(dict[str, JsonValue], analyze_text(fixture["original"])["score"])
     rewrite_score = cast(dict[str, JsonValue], analyze_text(fixture["rewrite"])["score"])
-
-    assert original_score["band"] == "revision_required"
-    # The unfaithful rewrite reaches "clear" but is rejected by the meaning
-    # gate; the faithful one trades score for fidelity. Both facts are asserted
-    # in tests/test_invariants.py. Here we only require that the bands stay
-    # ordered with the scores.
-    assert rewrite_score["band"] == "usable_but_improvable"
-    assert _number(rewrite_score["value"]) > _number(original_score["value"])
-
     unfaithful_score = cast(
         dict[str, JsonValue], analyze_text(fixture["unfaithful_rewrite"])["score"]
     )
-    assert unfaithful_score["band"] == "clear"
-    assert _number(unfaithful_score["value"]) > _number(rewrite_score["value"])
+
+    # The unfaithful rewrite scores best but is rejected by the meaning gate;
+    # the faithful one trades score for fidelity. Both facts are asserted in
+    # tests/test_invariants.py. Here we only require that the bands stay
+    # ordered with the scores. No absolute band name is pinned: the pins this
+    # test used to carry held only because three fabricated noun-stack findings
+    # depressed the original's score, which made the pin a record of a bug
+    # rather than a calibration.
+    bands = ["unusable", "revision_required", "usable_but_improvable", "clear"]
+    ordered = [original_score, rewrite_score, unfaithful_score]
+    values = [_number(score["value"]) for score in ordered]
+    indices = [bands.index(cast(str, score["band"])) for score in ordered]
+
+    assert values == sorted(values)
+    assert len(set(values)) == len(values)
+    assert indices == sorted(indices)
+    assert indices[-1] > indices[0]
 
 
 def test_catastrophic_findings_remain_bounded_and_banded() -> None:

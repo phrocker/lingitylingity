@@ -53,15 +53,17 @@ def test_rewrite_scores_better_and_reduces_findings(
     assert isinstance(original_score, float)
     assert isinstance(rewrite_score, float)
     assert rewrite_score > original_score
-    assert cast(dict[str, JsonValue], original["score"])["band"] == "revision_required"
-    # The rewrite must move at least one band, but it is not required to reach
-    # "clear". A rewrite that carries every governed term forward cannot shed
-    # the findings those terms cause, and demanding a fixed band here would
-    # calibrate the bands to this one fixture rather than measure it.
+    # No absolute band is pinned here. A pin records where the current weights
+    # happen to land rather than measuring the rewrite, and the pin this test
+    # used to carry held only because three fabricated noun-stack findings
+    # depressed the original's score. A rewrite that carries every governed
+    # term forward cannot shed the findings those terms cause, so assert the
+    # direction and the margin instead.
     bands = ["unusable", "revision_required", "usable_but_improvable", "clear"]
     original_band = cast(str, cast(dict[str, JsonValue], original["score"])["band"])
     rewrite_band = cast(str, cast(dict[str, JsonValue], rewrite["score"])["band"])
-    assert bands.index(rewrite_band) > bands.index(original_band)
+    assert bands.index(rewrite_band) >= bands.index(original_band)
+    assert rewrite_score - original_score >= 10.0
     assert len(cast(list[JsonValue], rewrite["findings"])) < len(
         cast(list[JsonValue], original["findings"])
     )
@@ -517,3 +519,169 @@ def test_clean_prose_sweep_has_zero_findings() -> None:
     ]
     for text in clean_sentences:
         assert _findings(text) == [], text
+
+
+def _noun_stacks(text: str) -> list[tuple[str, int, int]]:
+    stacks: list[tuple[str, int, int]] = []
+    for finding in _findings(text):
+        if finding["rule_id"] != "LING-NOUN-STACK-001":
+            continue
+        observed = cast(dict[str, JsonValue], finding["observed_value"])
+        stacks.append(
+            (
+                cast(str, observed["text"]),
+                cast(int, observed["words"]),
+                cast(int, observed["units"]),
+            )
+        )
+    return stacks
+
+
+def test_a_noun_stack_span_is_the_text_it_reports() -> None:
+    # The reported span used to be sliced between the first and last stack
+    # token, so intervening words were swallowed and the reported word count
+    # disagreed with the reported text. observed_value is the contract this
+    # project rests on, so "words" must count the words actually in the span
+    # and "units" must be the naming units compared against the threshold.
+    for text in (
+        "Recommended decision: Propose deferring architecture ratification and any "
+        "irreversible V2 cutover.",
+        "Require closure evidence for the governed recommendations before a target "
+        "architecture returns for human decision.",
+        "The customer data retention policy review board met.",
+        "The Azure Kubernetes Service cluster owners met.",
+    ):
+        for span, words, units in _noun_stacks(text):
+            assert span in text, span
+            assert len(span.split()) == words, (span, words)
+            assert 0 < units <= words, (span, units, words)
+            assert not any(
+                token in span.split() for token in ("and", "or", "the", "a", "for")
+            )
+
+
+def test_a_named_entity_counts_as_one_naming_unit() -> None:
+    # "Azure Kubernetes Service" is one product name, so the phrase is three
+    # units (name + cluster + owners) across five words. Counting the words
+    # would report a denser stack than a reader experiences.
+    stacks = _noun_stacks("The Azure Kubernetes Service cluster owners met.")
+    assert stacks == [("Azure Kubernetes Service cluster owners", 5, 3)]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Tom Zimmermann and Eirini Kalliamvakou published a study.",
+        "The Azure Kubernetes Service cluster failed.",
+        "Rudrajit Choudhuri wrote the summary.",
+    ],
+)
+def test_a_named_entity_is_not_a_noun_stack(text: str) -> None:
+    # A person or product name is a single naming unit, not stacked modifiers.
+    # "Unpack the noun stack with a verb or preposition" is unactionable advice
+    # for "Tom Zimmermann", so the entity must not inflate the stack depth.
+    assert _noun_stacks(text) == [], text
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "The critical security review passed.",
+        "A large red button appeared.",
+        "The final approved budget shipped.",
+    ],
+)
+def test_an_adjective_is_not_a_noun_stack(text: str) -> None:
+    assert _noun_stacks(text) == [], text
+
+
+def test_a_noun_stack_is_detected_regardless_of_modifier_dependency_label() -> None:
+    # The parser labels the first modifier of "messaging loss hypotheses"
+    # "compound" in one context and "amod" in another. The phrase is the same
+    # noun stack either way, so detection must not depend on which label the
+    # parser chose.
+    embedded = (
+        "Use the hybrid topology as a baseline, address the authorization concerns, "
+        "and verify the two critical messaging loss hypotheses."
+    )
+    standalone = "Verify the messaging loss hypotheses."
+    assert ("messaging loss hypotheses", 3, 3) in _noun_stacks(embedded)
+    assert ("messaging loss hypotheses", 3, 3) in _noun_stacks(standalone)
+
+
+def _redundancy_terms(text: str) -> list[tuple[str, int]]:
+    terms: list[tuple[str, int]] = []
+    for finding in _findings(text):
+        if finding["rule_id"] != "LING-REDUNDANCY-001":
+            continue
+        observed = cast(dict[str, JsonValue], finding["observed_value"])
+        terms.append((cast(str, observed["term"]), cast(int, observed["occurrences"])))
+    return sorted(terms)
+
+
+def _fingerprints(text: str) -> list[str]:
+    """Identify each finding by what it reports, not by where the offsets land."""
+    return sorted(
+        f"{finding['rule_id']}:{json.dumps(finding['observed_value'], sort_keys=True)}"
+        for finding in _findings(text)
+    )
+
+
+def test_a_repeated_term_is_reported_within_one_block() -> None:
+    # Three uses of one content word in a single paragraph is the local
+    # repetition the rule exists to catch, and it still is.
+    text = (
+        "The governance board reviewed governance rules and published governance advice."
+    )
+    assert ("governance", 3) in _redundancy_terms(text)
+
+
+def test_a_term_repeated_across_blocks_is_not_redundancy() -> None:
+    # Governance prose has to call one concept by one name in every section, so
+    # a term recurring across paragraphs is the document being consistent. When
+    # this was counted per document, naming the subject of a long document was
+    # itself enough to be reported as redundant.
+    blocks = [
+        "The governance board met in March.",
+        "Each team publishes governance rules.",
+        "The auditor reviews governance evidence.",
+        "Engineers follow governance practice daily.",
+        "The council records governance decisions.",
+    ]
+    assert _redundancy_terms("\n\n".join(blocks)) == []
+
+
+def test_a_document_reports_exactly_what_its_blocks_report() -> None:
+    # A finding has to describe the passage it points at. A rule that counted
+    # across the whole document made a paragraph score differently alone than it
+    # did inside the document containing it, so concatenating clean prose
+    # manufactured findings that no paragraph had.
+    blocks = [
+        "The governance board reviewed governance rules and published governance advice.",
+        "A decision was made by the committee regarding the deferral of the migration.",
+        "The auditor reviews governance evidence and records governance decisions.",
+        "Engineers ship the gateway each week.",
+    ]
+    together = _fingerprints("\n\n".join(blocks))
+    apart = sorted(item for block in blocks for item in _fingerprints(block))
+    assert together == apart
+
+def _observed_texts(text: str) -> list[str]:
+    texts: list[str] = []
+    for finding in _findings(text):
+        observed = finding["observed_value"]
+        if isinstance(observed, str):
+            texts.append(observed)
+        elif isinstance(observed, dict):
+            texts.extend(value for value in observed.values() if isinstance(value, str))
+    return texts
+
+
+def test_a_finding_quotes_text_the_way_the_parser_read_it() -> None:
+    # The parser joins a block's wrapped lines with one space before reading
+    # them, so a finding that echoed the raw source slice reported a line break
+    # and a list item's indentation that the analysis never saw.
+    text = "- The results are not\n  conflated with the source data by the team.\n"
+    texts = _observed_texts(text)
+    assert texts, "expected the wrapped passive construction to be reported"
+    assert all("\n" not in value for value in texts), texts

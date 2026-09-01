@@ -8,3 +8,6 @@ dist/
 
 # Agent worktrees created by Claude Code
 .claude/
+
+# Local virtualenv
+.venv/
