@@ -181,16 +181,20 @@ is an error rather than a quiet `no_material_change`.
 ## Development
 
 ```text
-python -m pip install -e .[dev]
+python -m pip install -e '.[dev]'
 python -m nltk.downloader wordnet omw-1.4
-pytest
-mypy
+python -m pytest
+python -m mypy
 python -m compileall -q lingity tests
 ```
 
-These are the commands CI runs, on Python 3.11 and 3.12, for every push to
-`main` and every pull request; see `.github/workflows/ci.yml`. `pytest` and
-`mypy` take their settings from `pyproject.toml`, so no flags are needed.
+These are the commands CI runs, verbatim, on Python 3.11 and 3.12, for every
+push to `main` and every pull request; see `.github/workflows/ci.yml`. Each tool
+is invoked through `python -m` so it runs under the interpreter that has the
+package installed rather than whichever console script happens to be first on
+`PATH`, and the extras spec is quoted because `zsh` treats the brackets as a
+glob. `pytest` and `mypy` take their settings from `pyproject.toml`, so no flags
+are needed.
 
 Analysis needs the spaCy model and the WordNet corpora present locally. Both are
 install-time steps on purpose: nothing downloads anything at analysis time, so a
