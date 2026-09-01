@@ -21,7 +21,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 READMES = ("README.md", "README_AI.md")
 PROFILE_DIR = REPO_ROOT / "lingity" / "profiles"
-PROFILE_COUNT_CLAIM = re.compile(r"\b(\w+) profiles ship")
+PROFILE_COUNT_CLAIM = re.compile(r"\b(\w+) profiles ship", re.IGNORECASE)
 NUMBER_WORDS = {
     "One": 1,
     "Two": 2,
@@ -47,10 +47,13 @@ def _shipped_profiles() -> list[str]:
 def _documented_profile_count(document: Path) -> int:
     """Return the profile count `document` claims, as a number.
 
-    The count is written as a word, so it is read case-insensitively -- the same
-    claim is capitalised in README.md and mid-sentence in DESIGN.md. A word this
-    function cannot read is reported by name rather than skipped, because a claim
-    the test cannot parse is a claim the test is not checking.
+    Read case-insensitively throughout: README.md capitalises the claim at a line
+    start and DESIGN.md states it mid-sentence, and a document that capitalised
+    more of the phrase would otherwise be reported as making no claim at all --
+    a failure raised against a document that does state one.
+
+    A word this function cannot read is reported by name rather than skipped,
+    because a claim the test cannot parse is a claim the test is not checking.
     """
     text = document.read_text(encoding="utf-8")
     claim = PROFILE_COUNT_CLAIM.search(text)
@@ -489,7 +492,7 @@ PROFILE_COUNT_DOCUMENTS = ("README.md", "DESIGN.md")
 
 
 @pytest.mark.parametrize("name", PROFILE_COUNT_DOCUMENTS)
-def test_the_documented_profile_count_is_the_number_that_ship(name: str) -> None:
+def test_the_documented_profile_count_matches_the_profiles_that_ship(name: str) -> None:
     """A stated count drifts whenever a profile lands, and nothing else has to change.
 
     Two branches independently wrote "Three profiles ship"; the merge that added
@@ -521,3 +524,21 @@ def test_every_shipped_profile_is_named_in_the_readme() -> None:
     assert not missing, (
         f"README.md never names {', '.join(missing)}, so a shipped profile is undocumented"
     )
+
+
+@pytest.mark.parametrize(
+    "claim",
+    ["Four profiles ship.", "four profiles ship.", "Four Profiles Ship.", "FOUR PROFILES SHIP."],
+)
+def test_the_count_claim_is_found_however_it_is_capitalised(claim: str, tmp_path: Path) -> None:
+    """Capitalisation is a prose choice, not a change to what the document claims.
+
+    A case-sensitive pattern reports a document that capitalises more of the
+    phrase as making no claim at all, which raises "no longer states how many
+    profiles ship" against a document that plainly does -- a false failure that
+    sends the reader looking for a deleted sentence still sitting in the file.
+    """
+    document = tmp_path / "DOC.md"
+    document.write_text(f"Intro line. {claim}\n", encoding="utf-8")
+
+    assert _documented_profile_count(document) == 4
