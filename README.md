@@ -42,10 +42,12 @@ source text
   -> accept, iterate, reject, or require human review
 ```
 
-Two profiles ship. `architecture-review` reads recommendations, ADR summaries,
+Three profiles ship. `architecture-review` reads recommendations, ADR summaries,
 findings, risks, and review decisions that must remain precise while reading
 like professional human communication. `product-strategy` reads need
 statements, value propositions, positioning, and go-to-market plans.
+`web-copy` reads public-facing prose: landing pages, product descriptions,
+job listings.
 
 A strategy document fails differently from an architecture review. It claims
 something unfalsifiable, or it claims it without naming who acts, so

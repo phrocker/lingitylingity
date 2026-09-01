@@ -239,13 +239,21 @@ by a different pipeline rather than re-analysing it under new assumptions.
 
 A profile carries the weights, thresholds, and vocabulary for one kind of
 document. The analyzer is shared; the profile decides what counts as a defect
-and how much it costs. Two profiles ship, and a project may install more.
+and how much it costs. Three profiles ship, and a project may install more.
 
 `architecture-review` reads review decisions. `product-strategy` reads need
 statements, value propositions, and positioning. The second weights agency and
 lexical clarity at 25 each and structure at 8, because a strategy document
 mostly fails by claiming something unfalsifiable or by claiming it without
 naming who acts.
+
+`web-copy` reads public-facing prose. Nobody studies a marketing page, and its
+characteristic failure is not an unfalsifiable claim but prose that reads as
+machine-written, so it weights morphology and lexical clarity at 25 each and
+drops agency to 12 — much public copy is legitimately descriptive, and "the
+office sits off Route 32" names no actor and needs none. Its vocabulary adds
+two groups the other profiles have no reason to carry: `ai cadence`, the words
+a model reaches for when asked to sound enthusiastic, and `recruiting cliche`.
 
 ### A profile can require a recognised actor
 
