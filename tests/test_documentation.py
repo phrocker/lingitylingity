@@ -32,19 +32,37 @@ def _documented_commands(readme: Path) -> list[str]:
     return [line.strip() for line in fence.group(1).splitlines() if line.strip()]
 
 
-def _workflow_commands() -> list[str]:
-    """Return every single-line `run:` command in the CI workflow, in order.
+BLOCK_SCALAR = re.compile(r"^[|>][+-]?\d*$")
+
+
+def _parse_run_steps(text: str) -> list[str]:
+    """Return every single-line `run:` command in a workflow, in order.
 
     Parsed with a regex rather than a YAML loader so the test adds no dependency
-    the package does not otherwise need. Every step in this workflow uses the
-    single-line `run: <command>` form; a block scalar would not be picked up, so
-    the count assertion below fails rather than silently ignoring it.
+    the package does not otherwise need. That parser understands only the
+    single-line `run: <command>` form. A block scalar (`run: |`) is rejected here
+    by name, because the regex would otherwise capture the bare `|` and compare
+    it against the README as though it were a command -- a confusing failure
+    that names the wrong culprit.
     """
-    text = WORKFLOW.read_text(encoding="utf-8")
-    commands = [match.group(1).strip() for match in re.finditer(r"^\s*run:\s*(\S.*)$", text, re.MULTILINE)]
+    commands = [
+        match.group(1).strip() for match in re.finditer(r"^[ \t]*(?:-[ \t]+)?run:[ \t]*(\S.*)$", text, re.MULTILINE)
+    ]
+
+    block_scalars = [command for command in commands if BLOCK_SCALAR.match(command)]
+    if block_scalars:
+        raise AssertionError(
+            f"{WORKFLOW.name} uses a block scalar (`run: {block_scalars[0]}`), which this regex "
+            "parser cannot read. Teach _parse_run_steps to fold block scalars before relying on it."
+        )
+
     if not commands:
         raise AssertionError(f"{WORKFLOW.name} declared no `run:` steps")
     return commands
+
+
+def _workflow_commands() -> list[str]:
+    return _parse_run_steps(WORKFLOW.read_text(encoding="utf-8"))
 
 
 def test_ci_workflow_exists() -> None:
@@ -85,3 +103,26 @@ def test_documented_tools_run_under_the_current_interpreter(readme_name: str) ->
     for command in _documented_commands(REPO_ROOT / readme_name):
         first = command.split()[0]
         assert first == "python", f"{readme_name} documents {command!r}, which does not go through `python -m`"
+
+
+def test_single_line_run_steps_parse_in_document_order() -> None:
+    workflow = "steps:\n  - name: Tests\n    run: python -m pytest\n  - name: Types\n    run: python -m mypy\n"
+    assert _parse_run_steps(workflow) == ["python -m pytest", "python -m mypy"]
+
+
+def test_a_run_step_written_as_a_list_entry_is_not_skipped() -> None:
+    """`- run: ...` is legal YAML; missing it would drop a CI step from the parity check."""
+    assert _parse_run_steps("steps:\n  - run: python -m pytest\n") == ["python -m pytest"]
+
+
+@pytest.mark.parametrize("indicator", ["|", "|-", ">", ">-", "|2"])
+def test_a_block_scalar_run_step_is_named_rather_than_misread(indicator: str) -> None:
+    """Without this guard the bare indicator is captured and compared as a command."""
+    workflow = f"steps:\n  - run: {indicator}\n      python -m pytest\n"
+    with pytest.raises(AssertionError, match="block scalar"):
+        _parse_run_steps(workflow)
+
+
+def test_a_workflow_declaring_no_run_steps_is_rejected() -> None:
+    with pytest.raises(AssertionError, match="no `run:` steps"):
+        _parse_run_steps("steps:\n  - uses: actions/checkout@v4\n")
