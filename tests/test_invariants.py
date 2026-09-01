@@ -727,3 +727,66 @@ def test_only_governance_terms_collapse_to_presence() -> None:
 
     assert comparison["equivalent"] is False
     assert missing.count("quantity:count:2") == 1
+
+
+def _statuses(text: str) -> list[str]:
+    return [item for item in _signature(text) if item.startswith("governance:status")]
+
+
+def test_a_reached_state_is_still_reported_as_a_status() -> None:
+    assert _statuses("The migration was ratified by the board.") == [
+        "governance:status:domain=ratification;polarity=positive;"
+        "state=ratified;subject=migration"
+    ]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "The migration must be ratified by the board.",
+        "The migration should be ratified.",
+        "The migration will be ratified.",
+    ],
+)
+def test_a_state_under_a_modal_is_not_reported_as_reached(text: str) -> None:
+    """Requiring or forecasting a state says it has not been reached."""
+    assert _statuses(text) == []
+
+
+def test_a_denied_state_is_not_reported_as_reached() -> None:
+    """Status polarity describes the state word, never the sentence.
+
+    "ratified" is a positive outcome and "rejected" a negative one, so the
+    polarity field cannot carry the sentence's own negation. Reporting a
+    status here therefore said the migration was ratified.
+    """
+    assert _statuses("The migration has not been ratified.") == []
+
+
+def test_the_passive_remediation_keeps_protected_meaning() -> None:
+    """LING-PASSIVE-001 asks for exactly this rewrite, so the gate must allow it."""
+    comparison = _comparison(
+        "The migration must be ratified by the board.",
+        "The board must ratify the migration.",
+    )
+
+    assert comparison["equivalent"] is True, comparison
+
+
+@pytest.mark.parametrize(
+    ("source", "candidate"),
+    [
+        ("The migration must be ratified.", "The migration is ratified."),
+        ("The migration will be ratified.", "The migration is ratified."),
+        ("The migration has not been ratified.", "The migration is ratified."),
+    ],
+)
+def test_turning_an_unreached_state_into_a_fact_is_still_rejected(
+    source: str, candidate: str
+) -> None:
+    """Dropping the false status must not drop the protection.
+
+    The claim carries modality and polarity, so an obligation, a forecast, and
+    a denial each still differ from the assertion that the state was reached.
+    """
+    assert _comparison(source, candidate)["equivalent"] is False

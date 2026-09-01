@@ -1195,12 +1195,45 @@ def _status_subject_tokens(document: Document, state: Token) -> list[Token]:
     return []
 
 
+def _reports_achieved_state(document: Document, state: Token) -> bool:
+    """Return whether the text reports `state` as reached, rather than sought.
+
+    A governance status is a fact about where something stands: "the migration
+    was ratified" records a completed ratification. Two constructions put the
+    same participle in a sentence that reports no such fact.
+
+    A modal makes it an obligation or a forecast. "The migration must be
+    ratified" says it is *not* ratified yet -- that is the whole point of
+    saying it. Reading the participle as a status inverted the sentence, and
+    it also rejected the remediation LING-PASSIVE-001 asks for, because "the
+    board must ratify the migration" states the same obligation without
+    leaving a participle to misread.
+
+    Negation denies it outright. "The migration has not been ratified"
+    produced a status saying it was, because status polarity is a property of
+    the state word -- ratified is a positive outcome, rejected a negative one
+    -- and never carried the sentence's own negation.
+
+    Neither case loses protection. Both are already carried by the claim,
+    which records modality and polarity: the obligation keeps `modality=must`
+    and the denial keeps `polarity=negative`.
+    """
+    if _own_modal_tokens(document, state):
+        return False
+    return not any(
+        child.dep == "neg" or "Polarity=Neg" in child.morph
+        for child in document.children(state)
+    )
+
+
 def _status_records(document: Document) -> list[StatusRecord]:
     records: list[StatusRecord] = []
     seen: set[tuple[int, str]] = set()
     for token in document:
         state = _status_state(token)
         if state is None or token.pos not in {"ADJ", "VERB"}:
+            continue
+        if not _reports_achieved_state(document, token):
             continue
         key = (token.index, state)
         if key in seen:
