@@ -188,12 +188,16 @@ python -m mypy
 python -m compileall -q lingity tests
 ```
 
-These are the commands CI runs, verbatim, on Python 3.11 and 3.12, for every
-push to `main` and every pull request; see `.github/workflows/ci.yml`. Each tool
-is invoked through `python -m` so it runs under the interpreter that has the
-package installed rather than whichever console script happens to be first on
-`PATH`, and the extras spec is quoted because `zsh` treats the brackets as a
-glob. `pytest` and `mypy` take their settings from `pyproject.toml`, so no flags
+These are the commands CI runs, in this order, on Python 3.11 and 3.12, for
+every push to `main` and every pull request; see `.github/workflows/ci.yml`.
+`tests/test_documentation.py` compares this block against the workflow and fails
+if the two diverge. The command strings are identical; CI differs only in when
+it runs the second one, skipping the corpora download when its cache restores
+`~/nltk_data`. Locally that step is unconditional, and repeating it once the
+corpora are present is a no-op. Each tool is invoked through `python -m` so it
+runs under the interpreter that has the package installed rather than whichever
+console script happens to be first on `PATH`, and the extras spec is quoted
+because `zsh` treats the brackets as a glob. `pytest` and `mypy` take their settings from `pyproject.toml`, so no flags
 are needed.
 
 Analysis needs the spaCy model and the WordNet corpora present locally. Both are

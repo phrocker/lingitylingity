@@ -65,6 +65,23 @@ def _workflow_commands() -> list[str]:
     return _parse_run_steps(WORKFLOW.read_text(encoding="utf-8"))
 
 
+def _conditional_run_steps(text: str) -> list[str]:
+    """Return the `run:` commands whose step is guarded by an `if:` condition.
+
+    The READMEs claim CI runs the documented block in order and differs only in
+    when it downloads the corpora. That is a second claim about the workflow, so
+    it is pinned here rather than left to rot alongside the first.
+    """
+    conditional = []
+    for step in re.split(r"^[ \t]*-[ \t]", text, flags=re.MULTILINE)[1:]:
+        run = re.search(r"^[ \t]*(?:-[ \t]+)?run:[ \t]*(\S.*)$", step, re.MULTILINE)
+        if run is None:
+            continue
+        if re.search(r"^[ \t]*if:[ \t]*\S", step, re.MULTILINE):
+            conditional.append(run.group(1).strip())
+    return conditional
+
+
 def test_ci_workflow_exists() -> None:
     assert WORKFLOW.is_file(), f"{WORKFLOW} is missing; the READMEs point at it by name"
 
@@ -126,3 +143,38 @@ def test_a_block_scalar_run_step_is_named_rather_than_misread(indicator: str) ->
 def test_a_workflow_declaring_no_run_steps_is_rejected() -> None:
     with pytest.raises(AssertionError, match="no `run:` steps"):
         _parse_run_steps("steps:\n  - uses: actions/checkout@v4\n")
+
+
+def test_the_corpora_download_is_the_only_conditional_command() -> None:
+    """The READMEs say CI differs from the documented block only in this one step."""
+    assert _conditional_run_steps(WORKFLOW.read_text(encoding="utf-8")) == [
+        "python -m nltk.downloader wordnet omw-1.4"
+    ]
+
+
+def test_an_unguarded_step_is_not_reported_as_conditional() -> None:
+    workflow = "steps:\n  - name: Tests\n    run: python -m pytest\n  - name: Types\n    run: python -m mypy\n"
+    assert _conditional_run_steps(workflow) == []
+
+
+def test_a_guarded_step_is_attributed_to_its_own_command() -> None:
+    """An `if:` must not leak onto the neighbouring step's command."""
+    workflow = (
+        "steps:\n"
+        "  - name: Download\n"
+        "    if: steps.cache.outputs.cache-hit != 'true'\n"
+        "    run: python -m nltk.downloader wordnet\n"
+        "  - name: Tests\n"
+        "    run: python -m pytest\n"
+    )
+    assert _conditional_run_steps(workflow) == ["python -m nltk.downloader wordnet"]
+
+
+@pytest.mark.parametrize("readme_name", READMES)
+def test_the_readme_does_not_claim_the_commands_run_verbatim(readme_name: str) -> None:
+    """One step is cache-gated, so "verbatim" overstates what CI guarantees."""
+    text = (REPO_ROOT / readme_name).read_text(encoding="utf-8")
+    assert "verbatim" not in text, (
+        f"{readme_name} claims the documented commands run verbatim, but "
+        f"{_conditional_run_steps(WORKFLOW.read_text(encoding='utf-8'))} is conditional in CI"
+    )
