@@ -21,7 +21,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 READMES = ("README.md", "README_AI.md")
 PROFILE_DIR = REPO_ROOT / "lingity" / "profiles"
-PROFILE_COUNT_CLAIM = re.compile(r"\b(\w+) profiles ship", re.IGNORECASE)
+PROFILE_COUNT_CLAIM = re.compile(r"\b(\w+) profiles ship\b", re.IGNORECASE)
 NUMBER_WORDS = {
     "One": 1,
     "Two": 2,
@@ -542,3 +542,30 @@ def test_the_count_claim_is_found_however_it_is_capitalised(claim: str, tmp_path
     document.write_text(f"Intro line. {claim}\n", encoding="utf-8")
 
     assert _documented_profile_count(document) == 4
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "Four profiles shipped in the first release.",
+        "Four profiles shipping in the next release.",
+        "Four profiles ships nothing.",
+    ],
+)
+def test_a_word_that_merely_starts_with_ship_is_not_the_count_claim(
+    sentence: str, tmp_path: Path
+) -> None:
+    """The claim is what ships now, not what shipped once.
+
+    Without a boundary after "ship" the pattern also matches "shipped" and
+    "shipping", so a sentence recording past or planned releases would be read
+    as the current count -- and because the first match wins, such a sentence
+    earlier in the file would hide the real claim entirely.
+    """
+
+    document = tmp_path / "DOC.md"
+    document.write_text(f"{sentence}\nFive profiles ship.\n", encoding="utf-8")
+
+    assert _documented_profile_count(document) == 5
+
+
