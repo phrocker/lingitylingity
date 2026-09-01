@@ -1,9 +1,13 @@
-"""The documented development commands must be the commands CI actually runs.
+"""Claims the documentation makes about other files must stay true.
 
 README.md and README_AI.md both state that the block under `## Development` is
 what CI runs. That is a claim about another file, so it can rot silently the
 moment either side is edited alone -- which is exactly what happened before this
 test existed. Pinning it here turns the claim into something that fails loudly.
+
+The same is true of the profile count. Two branches independently wrote "Three
+profiles ship" and the merge that landed a fourth made both wrong, without
+touching either sentence.
 """
 
 from __future__ import annotations
@@ -16,6 +20,55 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parent.parent
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 READMES = ("README.md", "README_AI.md")
+PROFILE_DIR = REPO_ROOT / "lingity" / "profiles"
+PROFILE_COUNT_CLAIM = re.compile(r"\b(\w+) profiles ship")
+NUMBER_WORDS = {
+    "One": 1,
+    "Two": 2,
+    "Three": 3,
+    "Four": 4,
+    "Five": 5,
+    "Six": 6,
+    "Seven": 7,
+    "Eight": 8,
+    "Nine": 9,
+    "Ten": 10,
+}
+
+
+def _shipped_profiles() -> list[str]:
+    """Return the name of every profile that ships, without its version suffix."""
+    profiles = sorted(path.name.split(".")[0] for path in PROFILE_DIR.glob("*.json"))
+    if not profiles:
+        raise AssertionError(f"{PROFILE_DIR} contains no profiles")
+    return profiles
+
+
+def _documented_profile_count(document: Path) -> int:
+    """Return the profile count `document` claims, as a number.
+
+    The count is written as a word, so it is read case-insensitively -- the same
+    claim is capitalised in README.md and mid-sentence in DESIGN.md. A word this
+    function cannot read is reported by name rather than skipped, because a claim
+    the test cannot parse is a claim the test is not checking.
+    """
+    text = document.read_text(encoding="utf-8")
+    claim = PROFILE_COUNT_CLAIM.search(text)
+    if claim is None:
+        raise AssertionError(
+            f"{document.name} no longer states how many profiles ship. Either restore the "
+            "claim or drop it from PROFILE_COUNT_DOCUMENTS, rather than leaving it unchecked."
+        )
+
+    word = claim.group(1)
+    if word.isdigit():
+        return int(word)
+    if word.capitalize() not in NUMBER_WORDS:
+        raise AssertionError(
+            f"{document.name} says '{word} profiles ship' and this test cannot read "
+            f"'{word}' as a number. Add it to NUMBER_WORDS."
+        )
+    return NUMBER_WORDS[word.capitalize()]
 
 
 def _development_section(readme: Path) -> str:
@@ -430,3 +483,41 @@ def test_the_conditional_reader_strips_comments_too() -> None:
     the other would leave the conditional check comparing a commented command.
     """
     assert _conditional_run_steps(COMMENTED_WORKFLOW) == ["python -m nltk.downloader wordnet"]
+
+
+PROFILE_COUNT_DOCUMENTS = ("README.md", "DESIGN.md")
+
+
+@pytest.mark.parametrize("name", PROFILE_COUNT_DOCUMENTS)
+def test_the_documented_profile_count_is_the_number_that_ship(name: str) -> None:
+    """A stated count drifts whenever a profile lands, and nothing else has to change.
+
+    Two branches independently wrote "Three profiles ship"; the merge that added
+    a fourth falsified both sentences without editing either. Neither branch had
+    done anything wrong on its own, which is why review did not catch it -- the
+    claim only became false in the merge.
+    """
+    document = REPO_ROOT / name
+    shipped = _shipped_profiles()
+
+    assert _documented_profile_count(document) == len(shipped), (
+        f"{name} states a profile count that no longer matches the "
+        f"{len(shipped)} profiles in lingity/profiles: {', '.join(shipped)}"
+    )
+
+
+def test_every_shipped_profile_is_named_in_the_readme() -> None:
+    """The count alone does not catch a rename, which leaves it right and the prose wrong.
+
+    README.md introduces each profile by name, so a profile renamed or replaced
+    keeps the count correct while the paragraph describes something that is no
+    longer there -- and a reader following the README would load a profile that
+    does not exist.
+    """
+    text = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+
+    missing = [profile for profile in _shipped_profiles() if f"`{profile}`" not in text]
+
+    assert not missing, (
+        f"README.md never names {', '.join(missing)}, so a shipped profile is undocumented"
+    )
