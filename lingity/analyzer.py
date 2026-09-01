@@ -876,6 +876,12 @@ def _paragraph_units(document: Document) -> list[tuple[tuple[int, int], ...]]:
         ]
     units: list[tuple[tuple[int, int], ...]] = []
     for group in document.groups:
+        # A group whose ranges were all whitespace survives parsing as an empty
+        # tuple, because nlp.parse filters the ranges but keeps the group. Left
+        # in, it becomes a paragraph that contains nothing, inflating every
+        # paragraph count by one per such block.
+        if not group:
+            continue
         if len(group) == 1:
             start, end = group[0]
             units.extend(
