@@ -1,0 +1,417 @@
+{
+  "$schema": "https://lingity.dev/schemas/v1/profile.schema.json",
+  "name": "resume-review",
+  "version": "1.0.0",
+  "language": "en",
+  "weights": {
+    "sentence_load": 8,
+    "morphology": 25,
+    "agency": 30,
+    "lexical_clarity": 15,
+    "structure": 2,
+    "redundancy": 20
+  },
+  "bands": [
+    {
+      "name": "revision_required",
+      "minimum": 0,
+      "maximum": 69.99
+    },
+    {
+      "name": "usable_but_improvable",
+      "minimum": 70,
+      "maximum": 84.99
+    },
+    {
+      "name": "clear",
+      "minimum": 85,
+      "maximum": 100
+    }
+  ],
+  "thresholds": {
+    "max_sentence_words": 20,
+    "max_actions_per_sentence": 3,
+    "max_clauses_per_sentence": 3,
+    "max_nominalizations_per_sentence": 1,
+    "noun_stack_words": 3,
+    "max_paragraph_words": 60,
+    "max_repeated_content_word": 2,
+    "max_punctuation_depth": 3,
+    "max_undefined_acronyms_per_sentence": 2,
+    "max_undefined_acronyms_per_paragraph": 4,
+    "max_inline_list_items": 4,
+    "max_sentence_purposes": 2,
+    "max_qualifiers_per_sentence": 0,
+    "max_compound_parts": 3,
+    "require_responsible_actor": 1,
+    "allow_implied_first_person": 1,
+    "count_repetition_across_blocks": 1
+  },
+  "rules": {
+    "abstract_evidence_heads": [
+      "background",
+      "expertise",
+      "experience",
+      "exposure",
+      "knowledge",
+      "responsibility",
+      "skill"
+    ],
+    "nominalization_suffixes": [
+      "tion",
+      "sion",
+      "ment",
+      "ance",
+      "ence",
+      "ency",
+      "ship",
+      "ure",
+      "age"
+    ],
+    "nominalization_exclusions": [
+      "agreement",
+      "architecture",
+      "audience",
+      "average",
+      "conference",
+      "coverage",
+      "culture",
+      "department",
+      "document",
+      "element",
+      "equipment",
+      "evidence",
+      "feature",
+      "figure",
+      "future",
+      "image",
+      "infrastructure",
+      "instrument",
+      "internship",
+      "language",
+      "literature",
+      "measure",
+      "membership",
+      "message",
+      "nature",
+      "package",
+      "page",
+      "percentage",
+      "picture",
+      "reference",
+      "requirement",
+      "scholarship",
+      "science",
+      "sentence",
+      "stage",
+      "statement",
+      "storage",
+      "structure",
+      "system"
+    ],
+    "nominalizations": [
+      "analysis",
+      "delivery",
+      "growth",
+      "handoff",
+      "increase",
+      "oversight",
+      "redesign",
+      "rollout",
+      "upkeep"
+    ],
+    "hidden_agency": {
+      "agentless responsibility": [
+        "accountable for",
+        "in charge of",
+        "responsible for"
+      ],
+      "assigned without an agent": [
+        "charge with",
+        "task with"
+      ],
+      "duty list": [
+        "duty include",
+        "responsibility include"
+      ]
+    },
+    "weak_verbs": {
+      "unspecified support": [
+        "assist with",
+        "contribute to",
+        "help to",
+        "work on"
+      ],
+      "unspecified participation": [
+        "engage in",
+        "involve in",
+        "participate in",
+        "take part in"
+      ],
+      "claimed acquaintance": [
+        "exposure to",
+        "familiar with",
+        "work knowledge of"
+      ]
+    },
+    "jargon": {
+      "office idiom": [
+        "bring to the table",
+        "go the extra mile",
+        "hit the ground run",
+        "hit the ground running",
+        "outside the box",
+        "wear many hat"
+      ],
+      "self-description cliche": [
+        "detail orient",
+        "dynamic professional",
+        "go getter",
+        "hard worker",
+        "highly motivate",
+        "highly motivated",
+        "passionate about",
+        "people person",
+        "result drive",
+        "results drive",
+        "season professional",
+        "seasoned professional",
+        "self starter",
+        "team player"
+      ],
+      "unfalsifiable credential": [
+        "excellent communication skill",
+        "extensive experience",
+        "strong work ethic",
+        "think leader",
+        "thought leader",
+        "track record"
+      ],
+      "job title inflation": [
+        "guru",
+        "ninja",
+        "rockstar",
+        "superstar"
+      ]
+    },
+    "bureaucratic_phrases": {
+      "unquantified quantity": [
+        "a number of",
+        "a variety of",
+        "a wide range of"
+      ],
+      "wordy connector": [
+        "in a timely manner",
+        "in order to",
+        "on a daily basis",
+        "on a regular basis"
+      ]
+    },
+    "filler_phrases": {
+      "hollow intensifier": [
+        "consistently",
+        "effectively",
+        "efficiently",
+        "greatly",
+        "proactively",
+        "seamlessly",
+        "significantly",
+        "substantially",
+        "successfully"
+      ],
+      "unquantified quantity": [
+        "numerous",
+        "several",
+        "various"
+      ]
+    },
+    "indirect_predicates": {
+      "role wrapper": [
+        "aim of",
+        "focus of",
+        "function of",
+        "role of"
+      ],
+      "impersonal role statement": [
+        "it be my responsibility to",
+        "it be possible to"
+      ]
+    },
+    "protected_concepts": [],
+    "actor_terms": [
+      "client",
+      "clients",
+      "customer",
+      "customers",
+      "stakeholder",
+      "stakeholders",
+      "team",
+      "teams",
+      "user",
+      "users"
+    ],
+    "allowed_compounds": [
+      "cross-functional",
+      "day-to-day",
+      "end-to-end",
+      "full-stack",
+      "long-term",
+      "on-call",
+      "open-source",
+      "peer-reviewed",
+      "real-time",
+      "short-term"
+    ],
+    "compound_modifier_suffixes": [
+      "aligned",
+      "based",
+      "centric",
+      "driven",
+      "enabled",
+      "facing",
+      "focused",
+      "minded",
+      "oriented",
+      "ready"
+    ],
+    "known_acronyms": [
+      "AI",
+      "API",
+      "BS",
+      "CD",
+      "CI",
+      "CPU",
+      "CRM",
+      "CSS",
+      "ERP",
+      "ETL",
+      "GB",
+      "GPA",
+      "GPU",
+      "HR",
+      "HTML",
+      "HTTP",
+      "HTTPS",
+      "ID",
+      "IT",
+      "JSON",
+      "KPI",
+      "MB",
+      "MBA",
+      "ML",
+      "MS",
+      "OKR",
+      "PM",
+      "QA",
+      "REST",
+      "ROI",
+      "SDK",
+      "SLA",
+      "SQL",
+      "SRE",
+      "TCP",
+      "TLS",
+      "UI",
+      "URL",
+      "UX",
+      "VM",
+      "XML",
+      "YAML"
+    ],
+    "purpose_markers": {
+      "delivery": [
+        "build",
+        "create",
+        "deliver",
+        "deploy",
+        "develop",
+        "launch",
+        "ship"
+      ],
+      "leadership": [
+        "coach",
+        "coordinate",
+        "direct",
+        "lead",
+        "manage",
+        "mentor",
+        "supervise"
+      ],
+      "analysis": [
+        "analyze",
+        "assess",
+        "evaluate",
+        "investigate",
+        "research"
+      ],
+      "improvement": [
+        "automate",
+        "cut",
+        "improve",
+        "optimize",
+        "reduce",
+        "streamline"
+      ],
+      "communication": [
+        "document",
+        "present",
+        "publish",
+        "report",
+        "write"
+      ]
+    },
+    "recommendation_action_groups": {
+      "build": [
+        "build",
+        "create",
+        "develop",
+        "implement",
+        "launch",
+        "ship"
+      ],
+      "lead": [
+        "direct",
+        "lead",
+        "manage",
+        "mentor",
+        "oversee",
+        "supervise"
+      ],
+      "improve": [
+        "automate",
+        "improve",
+        "optimize",
+        "reduce",
+        "streamline"
+      ],
+      "analyze": [
+        "analyze",
+        "assess",
+        "evaluate",
+        "measure",
+        "review"
+      ]
+    },
+    "qualifiers": [
+      "arguably",
+      "basically",
+      "broadly",
+      "essentially",
+      "extremely",
+      "fairly",
+      "generally",
+      "highly",
+      "largely",
+      "mostly",
+      "quite",
+      "rather",
+      "relatively",
+      "somewhat",
+      "strongly",
+      "typically",
+      "usually",
+      "very",
+      "virtually"
+    ]
+  }
+}
