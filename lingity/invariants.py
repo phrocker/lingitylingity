@@ -1217,13 +1217,19 @@ def _reports_achieved_state(document: Document, state: Token) -> bool:
     Neither case loses protection. Both are already carried by the claim,
     which records modality and polarity: the obligation keeps `modality=must`
     and the denial keeps `polarity=negative`.
+
+    Both tests read the predicate, not the token, because coordination leaves
+    the auxiliaries on the first conjunct: "must be reviewed and ratified"
+    hangs `must` on "reviewed" and leaves "ratified" bare. Reading only the
+    participle's own children saw no modal there and reported the migration
+    as ratified -- the same inversion this guard exists to stop, surviving one
+    conjunction. `_predicate_modal_tokens` and `_predicate_negation_tokens`
+    already resolve that inheritance for claims, so reusing them also keeps a
+    status and its claim from disagreeing about the same words.
     """
-    if _own_modal_tokens(document, state):
+    if _predicate_modal_tokens(document, state):
         return False
-    return not any(
-        child.dep == "neg" or "Polarity=Neg" in child.morph
-        for child in document.children(state)
-    )
+    return not _predicate_negation_tokens(document, state)
 
 
 def _status_records(document: Document) -> list[StatusRecord]:
