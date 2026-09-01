@@ -227,17 +227,7 @@
         "provisional current state baseline"
       ]
     },
-    "protected_concepts": [
-      {
-        "category": "governance",
-        "kind": "statement_type",
-        "value": "recommendation",
-        "patterns": [
-          "recommended decision",
-          "recommendation:"
-        ]
-      }
-    ],
+    "protected_concepts": [],
     "actor_terms": [
       "architect",
       "architects",

@@ -1784,6 +1784,45 @@ def _order_items(document: Document) -> Iterable[dict[str, JsonValue]]:
         )
 
 
+_PRESENCE_ONLY_ELEMENTS = {("governance", "term")}
+
+
+def _element_signatures(ordered: list[dict[str, JsonValue]]) -> list[str]:
+    """Render extracted elements as signature strings.
+
+    Most elements are counted, because each occurrence carries arguments of
+    its own: two `claim:` entries name two different actions, and two
+    `quantity:count:2` entries are two different counts a rewrite has to keep.
+    Counting them is what makes a dropped sentence detectable.
+
+    Governance terms are the exception. Their value comes from a closed lemma
+    list, so the same string recurs for mentions that have nothing to do with
+    each other, and the element records no actor, target, or modality that
+    could tell those mentions apart. A count difference therefore cannot be
+    attributed to any particular loss. It only says the document used a word
+    fewer times, which is what LING-NOMINAL-001 and the sentence-length rules
+    ask writers to do: "Recommended decision:" and "Recommendation:" head the
+    same section, but the first spends the word "decision" on the heading.
+
+    Comparing them by presence does not let governed content through. Losing
+    it still fails the gate through the elements that do carry arguments, and
+    dropping a governance term *entirely* still shows up here as a missing
+    signature.
+    """
+    signatures: list[str] = []
+    seen: set[str] = set()
+    for item in ordered:
+        category = cast(str, item["category"])
+        kind = cast(str, item["kind"])
+        signature = f"{category}:{kind}:{item['normalized']}"
+        if (category, kind) in _PRESENCE_ONLY_ELEMENTS:
+            if signature in seen:
+                continue
+            seen.add(signature)
+        signatures.append(signature)
+    return signatures
+
+
 def extract_protected(text: str, profile: Profile) -> dict[str, JsonValue]:
     document = parse(text)
     items: list[dict[str, JsonValue]] = []
@@ -1841,7 +1880,7 @@ def extract_protected(text: str, profile: Profile) -> dict[str, JsonValue]:
         ),
     )
     signature = sorted(
-        [f"{item['category']}:{item['kind']}:{item['normalized']}" for item in ordered]
+        _element_signatures(ordered)
         + _semantic_claim_signatures(document, concept_spans)
     )
     manifest: dict[str, JsonValue] = {

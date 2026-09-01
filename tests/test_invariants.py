@@ -667,3 +667,63 @@ def test_an_active_past_tense_verb_still_names_nobody() -> None:
     """
 
     assert _status_subject("The board approved.") == "unknown"
+
+
+def test_no_shipped_profile_protects_meaning_with_memorised_phrases() -> None:
+    """The gate must certify a rewrite from the parse, not from listed strings.
+
+    `architecture-review` used to carry "recommended decision" and
+    "recommendation:" so the fixture's two headings would cancel out. Those
+    strings only ever matched the fixture, so they certified nothing about any
+    other document.
+    """
+    for name in ("architecture-review", "product-strategy", "resume-review", "web-copy"):
+        assert load_profile(name).rules["protected_concepts"] == [], name
+
+
+def test_a_governance_term_counts_once_however_often_it_appears() -> None:
+    once = _signature("The board must ratify the migration.")
+    twice = _signature("The board must ratify the migration and ratify the rollback.")
+
+    assert once.count("governance:term:ratify") == 1
+    assert twice.count("governance:term:ratify") == 1
+
+
+def test_dropping_a_governance_term_entirely_is_still_detected() -> None:
+    comparison = _comparison(
+        "The board must ratify the migration.",
+        "The board must complete the migration.",
+    )
+
+    assert comparison["equivalent"] is False
+    assert "governance:term:ratify" in cast(list[str], comparison["missing"])
+
+
+def test_losing_one_of_two_governed_items_survives_presence_comparison() -> None:
+    """Counting terms is not what catches a dropped requirement.
+
+    Both texts say "ratify", so the term is present either way and cannot be
+    what fails. The claim carries the target, so the lost rollback still has
+    to surface.
+    """
+    comparison = _comparison(
+        "The board must ratify the migration. The board must ratify the rollback.",
+        "The board must ratify the migration.",
+    )
+    missing = cast(list[str], comparison["missing"])
+
+    assert comparison["equivalent"] is False
+    assert "governance:term:ratify" not in missing
+    assert any("target=rollback" in item for item in missing), missing
+
+
+def test_only_governance_terms_collapse_to_presence() -> None:
+    """A repeated quantity is still counted, so dropping one is still a loss."""
+    comparison = _comparison(
+        "Verify the two messaging hypotheses. Close the two authorization gaps.",
+        "Verify the two messaging hypotheses.",
+    )
+    missing = cast(list[str], comparison["missing"])
+
+    assert comparison["equivalent"] is False
+    assert missing.count("quantity:count:2") == 1
