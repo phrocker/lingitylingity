@@ -632,9 +632,15 @@ PYPROJECT = REPO_ROOT / "pyproject.toml"
 # terms. Matching on the scheme's colon rather than on `://` covers both. An
 # ordinary specifier carries no `@` at all, so this cannot collide with one.
 DIRECT_REFERENCE = re.compile(r"@\s*[a-zA-Z][a-zA-Z0-9+.\-]*:")
+# The trailing filename is matched in full, not just up to the version. Ending
+# the pattern at the version's hyphen accepted any artifact that happened to
+# start the right way: an ABI-specific wheel, a `.zip`, or a bare truncated URL
+# all satisfied it. Those fail at install time rather than at documentation
+# time, which is the failure this guard exists to move earlier.
 MODEL_WHEEL_URL = re.compile(
     r"https://github\.com/explosion/spacy-models/releases/download/"
-    r"(?P<name>[a-z_]+)-(?P<tag>[0-9.]+)/(?P=name)-(?P<version>[0-9.]+)-"
+    r"(?P<name>[a-z_]+)-(?P<tag>[0-9.]+)/(?P=name)-(?P<version>[0-9.]+)"
+    r"-py3-none-any\.whl(?![\w.\-])"
 )
 
 
@@ -750,6 +756,42 @@ def test_an_ordinary_requirement_is_not_mistaken_for_a_direct_reference(
     requirement: str,
 ) -> None:
     assert DIRECT_REFERENCE.search(requirement) is None
+
+
+MODEL_RELEASE = (
+    "https://github.com/explosion/spacy-models/releases/download/"
+    f"{MODEL_NAME}-{MODEL_VERSION}/{MODEL_NAME}-{MODEL_VERSION}"
+)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        f"{MODEL_RELEASE}-cp311-cp311-win_amd64.whl",
+        f"{MODEL_RELEASE}-py3-none-any.zip",
+        f"{MODEL_RELEASE}-py3-none-any.whl.asc",
+        f"{MODEL_RELEASE}-",
+        f"{MODEL_RELEASE}.tar.gz",
+    ],
+)
+def test_an_artifact_that_is_not_the_pinned_wheel_is_rejected(url: str) -> None:
+    """Naming the right version is not the same as naming the right artifact.
+
+    Every URL here carries the correct model name and version, so a matcher that
+    stops at the version accepts all of them. They install something other than
+    the pinned universal wheel -- a platform build, a signature, a source
+    archive, or nothing at all -- and the mismatch surfaces as a download
+    failure in CI rather than as a documentation defect here.
+    """
+    assert MODEL_WHEEL_URL.search(url) is None
+
+
+def test_the_pinned_wheel_url_is_accepted() -> None:
+    """The negative cases above prove nothing if the real URL fails too."""
+    match = MODEL_WHEEL_URL.search(f"{MODEL_RELEASE}-py3-none-any.whl")
+
+    assert match is not None
+    assert (match.group("name"), match.group("version")) == (MODEL_NAME, MODEL_VERSION)
 
 
 def test_every_declared_classifier_is_a_real_trove_classifier() -> None:
