@@ -865,3 +865,130 @@ def test_every_declared_classifier_is_a_real_trove_classifier() -> None:
         f"pyproject.toml declares classifiers PyPI does not recognise: {unknown}. "
         "An unknown classifier is rejected at upload."
     )
+
+
+# A licence identifier is a legal statement about the whole distribution, and
+# nothing in the toolchain checks that it describes the file shipped beside it.
+# `twine check`, `build` and `pip` all accept `license = "MIT"` over an Apache
+# text without comment. Each identifier is therefore mapped to phrases only its
+# own text contains, so the declaration is checked against the licence rather
+# than against itself.
+LICENCE_MARKERS = {
+    "Apache-2.0": (
+        "Apache License",
+        "Version 2.0, January 2004",
+        "http://www.apache.org/licenses/",
+        'distributed on an "AS IS" BASIS',
+    ),
+    "MIT": ("MIT License", "Permission is hereby granted, free of charge"),
+}
+# What the README must state as the project's own terms. Kept separate from the
+# markers above because that map answers "is this file that licence?" while this
+# one answers "does the prose say so?", and the two are checked against
+# different text.
+LICENCE_README_PHRASES = {
+    "Apache-2.0": "Apache License 2.0",
+    "MIT": "MIT License",
+}
+
+
+def test_the_licence_text_is_the_licence_that_is_declared() -> None:
+    """The identifier and the file are two claims that must agree.
+
+    They are written in different places by different edits, and a mismatch is
+    not a build failure -- it is a distribution that tells users they may do
+    something the bundled terms do not permit. No packaging tool compares them.
+    """
+    project = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))["project"]
+    declared = project.get("license")
+
+    assert isinstance(declared, str) and declared, (
+        "pyproject.toml declares no SPDX license expression. Without one the "
+        "distribution states no terms, and default copyright forbids use."
+    )
+    assert declared in LICENCE_MARKERS, (
+        f"pyproject.toml declares {declared!r}, which this guard has no text to "
+        f"check it against. Add its markers to LICENCE_MARKERS: {sorted(LICENCE_MARKERS)}"
+    )
+
+    text = (REPO_ROOT / "LICENSE").read_text(encoding="utf-8")
+    missing = [marker for marker in LICENCE_MARKERS[declared] if marker not in text]
+
+    assert not missing, (
+        f"pyproject.toml declares {declared!r}, but LICENSE is missing text that "
+        f"licence contains: {missing}. The identifier and the file disagree."
+    )
+
+
+def test_every_declared_licence_file_is_shipped() -> None:
+    """`license-files` names what the build copies into the distribution."""
+    project = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))["project"]
+    declared = _string_list("license-files", project.get("license-files", []))
+
+    assert declared, "pyproject.toml declares no license-files"
+
+    missing = [name for name in declared if not (REPO_ROOT / name).is_file()]
+
+    assert not missing, (
+        f"pyproject.toml lists license files that do not exist: {missing}. "
+        "The build would ship a licence claim with nothing behind it."
+    )
+
+
+def test_no_licence_classifier_accompanies_the_licence_expression() -> None:
+    """Each is valid alone; together they are a hard build error.
+
+    `test_every_declared_classifier_is_a_real_trove_classifier` cannot catch
+    this, because `License :: OSI Approved :: Apache Software License` is a
+    perfectly real classifier. PEP 639 superseded it, and setuptools refuses to
+    build when both are present -- so the failure lands as an
+    `InvalidConfigError` from the backend rather than as anything naming the
+    combination that caused it.
+    """
+    classifiers = _string_list(
+        "classifiers",
+        tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))["project"].get("classifiers", []),
+    )
+
+    licence_classifiers = [name for name in classifiers if name.startswith("License ::")]
+
+    assert not licence_classifiers, (
+        f"pyproject.toml declares both a license expression and {licence_classifiers}. "
+        "PEP 639 superseded license classifiers and setuptools refuses to build "
+        "with both. Keep the expression and drop the classifier."
+    )
+
+
+@pytest.mark.parametrize("readme_name", READMES)
+def test_the_readmes_name_the_licence_that_is_declared(readme_name: str) -> None:
+    """A reader decides whether they may use this from the README, not the metadata.
+
+    The check is anchored to the opening statement of the `## License` section
+    rather than to the whole file. A bare substring search over the README
+    passes on any mention anywhere -- and this README names the MIT and WordNet
+    licences of the two data artifacts, so searching the file for `MIT` would
+    have reported a MIT declaration as correctly documented while the section
+    said Apache. The claim being checked is what the project states as its own
+    terms, so that is the line to read.
+    """
+    project = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))["project"]
+    declared = cast(str, project["license"])
+    assert declared in LICENCE_README_PHRASES, (
+        f"pyproject.toml declares {declared!r}, which this guard has no README "
+        f"phrase for. Add one to LICENCE_README_PHRASES: {sorted(LICENCE_README_PHRASES)}"
+    )
+
+    text = (REPO_ROOT / readme_name).read_text(encoding="utf-8")
+    section = re.search(r"^## License\s*\n(.*?)(?=^## |\Z)", text, re.MULTILINE | re.DOTALL)
+    assert section is not None, f"{readme_name} has no `## License` section"
+
+    opening = next(
+        (line for line in section.group(1).splitlines() if line.strip()),
+        "",
+    )
+    phrase = LICENCE_README_PHRASES[declared]
+
+    assert phrase in opening, (
+        f"{readme_name} opens its License section with {opening.strip()!r}, which does "
+        f"not state {phrase!r} as declared in pyproject.toml."
+    )
