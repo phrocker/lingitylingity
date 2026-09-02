@@ -770,24 +770,41 @@ def _claim_span(document: Document, predicate: Token) -> tuple[int, int]:
 
 
 def _canonical_role_phrase(phrase: str) -> str:
-    """Order-independent form of an actor or target phrase.
+    """Order-independent form of an actor or target phrase, anchored on its last lemma.
 
-    The actor and target are already normalized to content lemmas, but as an
-    ordered join: "unseen phrasing" and "phrasing unseen" then read as different
-    claims, so a rewrite that only reorders a noun phrase is falsely reported as
-    a meaning change. Comparing the *set* of lemmas removes that ordering
-    sensitivity while keeping every lemma: adding, dropping, or substituting a
-    word (a different entity or number) still changes the set and is still
-    reported. Word order inside a role carries no propositional weight here --
-    who-acts-on-what is already fixed by which phrase is the actor and which is
-    the target -- so folding it is safe. Sentinels ("unspecified", "none",
-    pronoun targets) are single tokens and pass through unchanged.
+    The actor and target are normalized to content lemmas as an ordered join, so
+    "reliability platform team" and "platform reliability team" read as
+    different claims and a rewrite that only reorders modifiers is falsely
+    reported as a meaning change.
+
+    Folding the whole phrase to a bag is not safe. English noun phrases carry a
+    relation in their order, and reversing it reverses the claim: "the approval
+    of the board" and "the board of the approval" reduce to the same lemmas, as
+    do "the cost of delay" and "the delay of cost". A gate that certified those
+    as equivalent would be certifying a meaning change.
+
+    What separates the two cases is the final lemma. Attributive modifiers sit
+    before the head noun, so a reorder that is genuinely meaning-preserving
+    leaves the last lemma alone ("... platform *team*" either way). In an
+    of-construction the object of the preposition is last, so reversing the
+    relation moves it. Only the lemmas *before* the final one are reordered
+    here, and the final lemma must match exactly.
+
+    Ordering is discarded, but multiplicity is not: the leading lemmas are
+    sorted as a multiset rather than a set, so dropping one of a repeated pair
+    ("the risk of the risk register" versus "the risk register") still changes
+    the result. Adding, dropping, or substituting any lemma still changes it.
+
+    This is deliberately conservative. A faithful rewrite that moves the head
+    itself is still reported as changed -- the wrong answer, but in the safe
+    direction. Sentinels ("unspecified", "none", pronoun targets) are single
+    tokens and pass through unchanged.
     """
 
     tokens = phrase.split()
     if len(tokens) <= 1:
         return phrase
-    return " ".join(sorted(set(tokens)))
+    return " ".join(sorted(tokens[:-1]) + [tokens[-1]])
 
 
 def _claim_signature(actor: str, action: str, target: str, modality: str, polarity: str, status: str) -> str:
@@ -2237,13 +2254,13 @@ def _canonical_signature(signature: str) -> str:
 
     The stored signature keeps its readable, source-order actor and target so
     the manifest stays legible and its hash stable. Comparison, though, must not
-    treat a reordered noun phrase ("unseen phrasing" vs "phrasing unseen") as a
-    different claim, so here -- and only here -- the actor and target are folded
-    to their lemma sets. Every lemma is retained, so a different entity, number,
-    or an added or dropped word still changes the signature and is still
-    reported; only word order within a role is discarded, and word order there
-    carries no propositional weight once actor and target are already assigned.
-    Non-claim signatures pass through untouched.
+    treat a reordered modifier chain ("reliability platform team" vs "platform
+    reliability team") as a different claim, so here -- and only here -- the
+    actor and target are folded by ``_canonical_role_phrase``, which reorders
+    the lemmas before the final one and requires the final one to match. Every
+    lemma is retained with its multiplicity, so a different entity or number, an
+    added or dropped word, or a reversed of-relation still changes the signature
+    and is still reported. Non-claim signatures pass through untouched.
     """
 
     fields = _parse_claim_signature(signature)
