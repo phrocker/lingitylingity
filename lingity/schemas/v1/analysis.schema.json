@@ -19,7 +19,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "1.0.0"
+      "const": "1.1.0"
     },
     "analyzer_version": {
       "type": "string"
@@ -491,7 +491,8 @@
                 "additionalProperties": false,
                 "required": [
                   "sentence_index",
-                  "text"
+                  "text",
+                  "content"
                 ],
                 "properties": {
                   "sentence_index": {
@@ -500,6 +501,13 @@
                   },
                   "text": {
                     "type": "string"
+                  },
+                  "content": {
+                    "description": "Dependency fingerprint of the sentence's content words, as sorted 'lemma|role|head-lemma' triples. Lets a comparison reconcile the same uncovered proposition across a sentence split without re-parsing the text.",
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
                   }
                 }
               }

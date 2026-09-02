@@ -970,3 +970,25 @@ def test_a_use_claim_protects_its_target() -> None:
         )["equivalent"]
         is False
     )
+
+
+def test_protected_delta_names_signatures_the_manifests_actually_store() -> None:
+    """A reported delta must be restorable by name against `semantic_signature`.
+
+    Comparison folds actor and target so a reordered modifier chain does not
+    read as a different claim. Reporting that folded form would name a string
+    present in neither manifest -- "platform reliability team" when both texts
+    say "reliability platform team" -- and a caller matching against
+    `semantic_signature` to restore the element would find nothing.
+    """
+
+    source = "The reliability platform team must verify the failover runbook."
+    candidate = "The reliability platform team must verify the disaster runbook."
+    comparison = _comparison(source, candidate)
+
+    missing = cast(list[str], comparison["missing"])
+    added = cast(list[str], comparison["added"])
+    assert missing and added, "expected a reported delta for a changed target"
+
+    assert set(missing) <= set(_signature(source))
+    assert set(added) <= set(_signature(candidate))

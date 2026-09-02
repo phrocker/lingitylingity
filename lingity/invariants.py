@@ -271,6 +271,16 @@ _MAX_HEAD_WALK = 12
 # the gate needs to have understood.
 _CONTENT_POS = {"NOUN", "PROPN", "VERB", "AUX", "ADJ", "NUM"}
 
+# Dependency labels that describe how one clause hangs off another. Splitting a
+# sentence rewrites exactly these (a subordinate clause becomes its own root),
+# so the uncovered-sentence fingerprint folds them together and stays stable
+# across a split. Argument and modifier roles are deliberately absent: keeping
+# them distinct is what preserves who-does-what-to-whom under the fold.
+_CLAUSE_ROLE_FOLD = {
+    dep: "clause"
+    for dep in ("ROOT", "ccomp", "xcomp", "advcl", "acl", "relcl", "conj", "parataxis")
+}
+
 
 @dataclass(frozen=True)
 class ConceptSpan:
@@ -757,6 +767,44 @@ def _claim_span(document: Document, predicate: Token) -> tuple[int, int]:
         return predicate.start, predicate.end
     ordered = sorted(tokens, key=lambda token: token.index)
     return ordered[0].start, ordered[-1].end
+
+
+def _canonical_role_phrase(phrase: str) -> str:
+    """Order-independent form of an actor or target phrase, anchored on its last lemma.
+
+    The actor and target are normalized to content lemmas as an ordered join, so
+    "reliability platform team" and "platform reliability team" read as
+    different claims and a rewrite that only reorders modifiers is falsely
+    reported as a meaning change.
+
+    Folding the whole phrase to a bag is not safe. English noun phrases carry a
+    relation in their order, and reversing it reverses the claim: "the approval
+    of the board" and "the board of the approval" reduce to the same lemmas, as
+    do "the cost of delay" and "the delay of cost". A gate that certified those
+    as equivalent would be certifying a meaning change.
+
+    What separates the two cases is the final lemma. Attributive modifiers sit
+    before the head noun, so a reorder that is genuinely meaning-preserving
+    leaves the last lemma alone ("... platform *team*" either way). In an
+    of-construction the object of the preposition is last, so reversing the
+    relation moves it. Only the lemmas *before* the final one are reordered
+    here, and the final lemma must match exactly.
+
+    Ordering is discarded, but multiplicity is not: the leading lemmas are
+    sorted as a multiset rather than a set, so dropping one of a repeated pair
+    ("the risk of the risk register" versus "the risk register") still changes
+    the result. Adding, dropping, or substituting any lemma still changes it.
+
+    This is deliberately conservative. A faithful rewrite that moves the head
+    itself is still reported as changed -- the wrong answer, but in the safe
+    direction. Sentinels ("unspecified", "none", pronoun targets) are single
+    tokens and pass through unchanged.
+    """
+
+    tokens = phrase.split()
+    if len(tokens) <= 1:
+        return phrase
+    return " ".join(sorted(tokens[:-1]) + [tokens[-1]])
 
 
 def _claim_signature(actor: str, action: str, target: str, modality: str, polarity: str, status: str) -> str:
@@ -2016,12 +2064,33 @@ def _coverage(document: Document, items: list[dict[str, JsonValue]]) -> JsonValu
             continue
         if not any(token.pos in _CONTENT_POS for token in sentence.tokens):
             continue
+        # A dependency fingerprint of the content words: each triple binds a
+        # lemma to its grammatical role and to the lemma it attaches to. This
+        # lets a comparison reconcile the same proposition across sentence
+        # boundaries and word order -- the fingerprint is a multiset, so
+        # splitting "A; B" into "A. B." leaves it unchanged -- while a role
+        # swap or a changed attachment ("A stops B" vs "B stops A") alters a
+        # triple and is still reported. It clears doubt only when nothing else
+        # moved; it never certifies a change.
+        #
+        # Clause-attachment labels are folded to one bucket first: splitting a
+        # sentence turns a subordinate clause into a main one (ccomp/conj/... ->
+        # ROOT), which is a boundary change, not a meaning change. Argument
+        # roles (nsubj/dobj/...) are kept distinct, so who-does-what-to-whom
+        # still shows.
+        content = sorted(
+            f"{token.lemma or token.lower}|{_CLAUSE_ROLE_FOLD.get(token.dep, token.dep)}|"
+            f"{document.head_of(token).lemma or document.head_of(token).lower}"
+            for token in sentence.tokens
+            if token.pos in _CONTENT_POS
+        )
         uncovered.append(
             cast(
                 JsonValue,
                 {
                     "sentence_index": sentence.index,
                     "text": sentence.text.strip(),
+                    "content": content,
                 },
             )
         )
@@ -2094,6 +2163,41 @@ def _uncovered_reasons(manifest: dict[str, JsonValue], label: str) -> list[str]:
     return reasons
 
 
+_UNCOVERED_REASON_MARK = "no proposition or protected element could be extracted"
+
+
+def _uncovered_content(manifest: dict[str, JsonValue]) -> Counter[str] | None:
+    """Aggregate the dependency fingerprints of a manifest's uncovered sentences.
+
+    The result is order- and boundary-independent: it pools every uncovered
+    sentence's ``content`` triples into one multiset, so splitting a sentence
+    or reordering its clauses does not change it, while a role swap or a changed
+    attachment does. ``None`` means the fingerprint is unavailable -- an older
+    manifest, or an entry that recorded no ``content`` -- so the caller must
+    fall back to the stricter text-identity check and never claim equality on
+    missing evidence.
+    """
+
+    coverage = manifest.get("coverage")
+    if not isinstance(coverage, dict):
+        return None
+    uncovered = coverage.get("uncovered")
+    if not isinstance(uncovered, list):
+        return None
+    counter: Counter[str] = Counter()
+    for entry in uncovered:
+        if not isinstance(entry, dict):
+            return None
+        content = entry.get("content")
+        if not isinstance(content, list):
+            return None
+        for triple in content:
+            if not isinstance(triple, str):
+                return None
+            counter[triple] += 1
+    return counter
+
+
 def _parse_claim_signature(signature: str) -> dict[str, str] | None:
     if not signature.startswith("claim:"):
         return None
@@ -2109,6 +2213,7 @@ def _parse_claim_signature(signature: str) -> dict[str, str] | None:
 def _reconcile_actor_specification(
     missing: list[str],
     added: list[str],
+    candidate_originals: dict[str, list[str]] | None = None,
 ) -> tuple[list[str], list[str], list[str]]:
     """Allow naming a previously unnamed actor, but never un-naming one.
 
@@ -2118,6 +2223,11 @@ def _reconcile_actor_specification(
     where the source had none adds information without contradicting the
     source, so it is permitted and reported. The reverse -- dropping or
     swapping a named actor -- removes accountability and stays a violation.
+
+    Matching runs on canonical signatures, but the actor is *reported* from the
+    candidate's stored signature when ``candidate_originals`` supplies it, so
+    the message quotes the phrase the writer actually used rather than the
+    comparison's reordered form.
     """
 
     remaining_missing = list(missing)
@@ -2139,20 +2249,100 @@ def _reconcile_actor_specification(
                 continue
             remaining_missing.remove(source_signature)
             remaining_added.remove(candidate_signature)
+            reported = candidate_claim["actor"]
+            if candidate_originals:
+                stored = candidate_originals.get(candidate_signature)
+                if stored:
+                    stored_claim = _parse_claim_signature(stored[0])
+                    if stored_claim is not None and "actor" in stored_claim:
+                        reported = stored_claim["actor"]
             specified.append(
                 f"actor specified: {source_claim.get('action', '?')} "
-                f"assigned to '{candidate_claim['actor']}'"
+                f"assigned to '{reported}'"
             )
             break
     return remaining_missing, remaining_added, sorted(specified)
+
+
+def _restore_stored_signatures(
+    canonical: list[str], originals: dict[str, list[str]]
+) -> list[str]:
+    """Report the signature as the manifest stores it, not as comparison folded it.
+
+    Comparison folds actor and target so a reordered modifier chain does not
+    read as a different claim, but ``protected_delta`` is documented as naming
+    the exact elements a caller can restore *by name*. Reporting the folded
+    form would name a string that appears in neither manifest -- "platform
+    reliability team" when both texts say "reliability platform team" -- and a
+    consumer matching against ``semantic_signature`` would find nothing. Each
+    canonical form is therefore mapped back to a stored signature it came from.
+    """
+
+    available = {key: list(value) for key, value in originals.items()}
+    restored: list[str] = []
+    for signature in canonical:
+        stored = available.get(signature)
+        if not stored:
+            # Unreachable: every canonical form here was produced from one of
+            # these signatures. Raise rather than fall back to the folded form,
+            # which would silently reintroduce the unrestorable name.
+            raise ValueError(
+                f"no stored signature for canonical form {signature!r}; "
+                "protected_delta would name an element absent from the manifest"
+            )
+        restored.append(stored.pop(0))
+    return sorted(restored)
+
+
+def _canonical_signature(signature: str) -> str:
+    """Order-independent form of a claim signature for comparison only.
+
+    The stored signature keeps its readable, source-order actor and target so
+    the manifest stays legible and its hash stable. Comparison, though, must not
+    treat a reordered modifier chain ("reliability platform team" vs "platform
+    reliability team") as a different claim, so here -- and only here -- the
+    actor and target are folded by ``_canonical_role_phrase``, which reorders
+    the lemmas before the final one and requires the final one to match. Every
+    lemma is retained with its multiplicity, so a different entity or number, an
+    added or dropped word, or a reversed of-relation still changes the signature
+    and is still reported. Non-claim signatures pass through untouched.
+    """
+
+    fields = _parse_claim_signature(signature)
+    if fields is None:
+        return signature
+    actor = _canonical_role_phrase(fields.get("actor", ""))
+    target = _canonical_role_phrase(fields.get("target", ""))
+    return _claim_signature(
+        actor,
+        fields.get("action", ""),
+        target,
+        fields.get("modality", ""),
+        fields.get("polarity", ""),
+        fields.get("status", ""),
+    )
 
 
 def compare_protected(
     source_manifest: dict[str, JsonValue],
     candidate_manifest: dict[str, JsonValue],
 ) -> dict[str, JsonValue]:
-    source_signatures = cast(list[str], source_manifest["semantic_signature"])
-    candidate_signatures = cast(list[str], candidate_manifest["semantic_signature"])
+    source_pairs = [
+        (_canonical_signature(signature), signature)
+        for signature in cast(list[str], source_manifest["semantic_signature"])
+    ]
+    candidate_pairs = [
+        (_canonical_signature(signature), signature)
+        for signature in cast(list[str], candidate_manifest["semantic_signature"])
+    ]
+    source_signatures = [canonical for canonical, _ in source_pairs]
+    candidate_signatures = [canonical for canonical, _ in candidate_pairs]
+    source_originals: dict[str, list[str]] = {}
+    for canonical, stored in source_pairs:
+        source_originals.setdefault(canonical, []).append(stored)
+    candidate_originals: dict[str, list[str]] = {}
+    for canonical, stored in candidate_pairs:
+        candidate_originals.setdefault(canonical, []).append(stored)
     if source_manifest.get("source_sha256") == candidate_manifest.get("source_sha256"):
         # Unchanged text preserves its own meaning by construction. Incomplete
         # extraction is a reason to doubt a *rewrite*, not a reason to doubt
@@ -2171,7 +2361,11 @@ def compare_protected(
     candidate = Counter(candidate_signatures)
     missing = sorted((source - candidate).elements())
     added = sorted((candidate - source).elements())
-    missing, added, specified = _reconcile_actor_specification(missing, added)
+    missing, added, specified = _reconcile_actor_specification(
+        missing, added, candidate_originals
+    )
+    missing = _restore_stored_signatures(missing, source_originals)
+    added = _restore_stored_signatures(added, candidate_originals)
     unresolved = (
         _unresolved_claim_reasons(source_signatures, "source")
         + _unresolved_claim_reasons(candidate_signatures, "candidate")
@@ -2199,6 +2393,23 @@ def compare_protected(
         if extracted and source_reasons and source_reasons == candidate_reasons:
             unresolved = []
             equivalent = True
+        elif extracted and all(_UNCOVERED_REASON_MARK in reason for reason in unresolved):
+            # Every remaining doubt is a sentence the parser could not resolve
+            # into a proposition. When the two texts carry the same dependency
+            # fingerprint across all such sentences, the same content sits in
+            # the same grammatical roles -- splitting or reordering moved it
+            # without changing it -- so no hidden change can be lurking here. A
+            # role swap or a changed attachment alters a triple, so the counters
+            # differ and the doubt correctly stands.
+            source_content = _uncovered_content(source_manifest)
+            candidate_content = _uncovered_content(candidate_manifest)
+            if (
+                source_content is not None
+                and candidate_content is not None
+                and source_content == candidate_content
+            ):
+                unresolved = []
+                equivalent = True
     disposition = "equivalent" if equivalent else ("unresolved" if unresolved else "changed")
     return {
         "equivalent": equivalent,

@@ -113,6 +113,30 @@
       "left": "The board must perform a ratification of the migration.",
       "right": "The board must ratify the migration.",
       "rationale": "A light verb carrying a nominalized action versus the finite verb it names. The extractor reads the action as 'perform' and leaves 'ratification' inside the target, so the two claims never line up. LING-NOMINAL-001 asks a writer for exactly this rewrite."
+    },
+    {
+      "id": "eq-actor-reordered",
+      "left": "The reliability platform team must verify the failover runbook.",
+      "right": "The platform reliability team must verify the failover runbook.",
+      "rationale": "Reordering modifiers inside the actor noun phrase ('reliability platform' versus 'platform reliability') names the same team. The claim comparison reorders the lemmas ahead of the head lemma ('team'), which is unchanged, so word order among the modifiers no longer reads as a different claim while a different lemma, a different count of one, or a moved head still would."
+    },
+    {
+      "id": "eq-target-reordered",
+      "left": "Resolve the outstanding critical authorization gaps.",
+      "right": "Resolve the critical outstanding authorization gaps.",
+      "rationale": "Reordering the attributive adjectives in the target ('outstanding critical' versus 'critical outstanding') leaves the same gaps. The modifiers are reordered ahead of an unchanged head lemma ('gaps'), so the fold treats them as equivalent, whereas adding, dropping, or substituting a modifier -- or moving the head -- would still be reported."
+    },
+    {
+      "id": "eq-split-uncovered-sentence",
+      "left": "The scanner blocks the payload; the router drops the sender.",
+      "right": "The scanner blocks the payload. The router drops the sender.",
+      "rationale": "A present-tense clause the parser cannot resolve into a proposition (it tags the verb as a noun) is split at the semicolon. The dependency fingerprint of the uncovered content is a boundary-independent multiset, so the split leaves it unchanged; a role swap between the clauses would alter a triple and still be reported."
+    },
+    {
+      "id": "eq-head-moved-compound",
+      "left": "The team must record the approval of the board.",
+      "right": "The team must record the board approval.",
+      "rationale": "An of-construction and the compound that means the same thing. The gate reports this changed, which is the accepted cost of the role fold: 'board approval' and the meaning-reversing 'board of the approval' normalize to the same target, so certifying this faithful paraphrase would certify the reversal too. See known_gaps."
     }
   ],
   "changed_pairs": [
@@ -227,6 +251,27 @@
       "right": "Confirm the retention policy and decommission the legacy broker.",
       "mutation": "addition",
       "rationale": "A destructive directive absent from the source is introduced."
+    },
+    {
+      "id": "ch-role-relation-reversed",
+      "left": "The team must record the approval of the board.",
+      "right": "The team must record the board of the approval.",
+      "mutation": "target",
+      "rationale": "Reversing an of-relation inside one role reverses the claim: an approval given by the board is not a board belonging to the approval. Both sides reduce to the same lemmas, so a role comparison that discarded order entirely would certify this. The fold reorders only the lemmas before the last one and requires the last to match, and here it moves."
+    },
+    {
+      "id": "ch-role-duplicate-dropped",
+      "left": "The board must review the risk of the risk register.",
+      "right": "The board must review the risk register.",
+      "mutation": "omission",
+      "rationale": "A word is dropped, and the dropped word repeats one that remains. A role comparison that folded to a set rather than a multiset would collapse the repeat and report no change, so this pins multiplicity: the two targets differ by one 'risk' and must stay distinct."
+    },
+    {
+      "id": "ch-uncovered-role-swapped",
+      "left": "The scanner blocks the payload; the router drops the sender.",
+      "right": "The scanner blocks the sender; the router drops the payload.",
+      "mutation": "target",
+      "rationale": "The counterpart to eq-split-uncovered-sentence. The same clauses carry swapped objects, so the uncovered-sentence fingerprint must bind each lemma to its role and head rather than pooling lemmas alone; swapping them changes a triple and the pair stays reported."
     }
   ],
   "known_gaps": {
@@ -239,7 +284,8 @@
     "eq-order-preserved": "An ordering constraint stated as a subordinate 'after' clause is not yet aligned with the same constraint stated as a 'before' clause. Reported unresolved.",
     "eq-provisional-status": "Directive framing ('Treat X as a provisional baseline') is not aligned with predicative framing ('X is a provisional baseline'). Only the predicative side yields a state claim, so the gate sees an assertion the source did not make. Reported changed.",
     "eq-nominal-subject-deontic": "A nominalization promoted to subject of a deontic matrix verb ('Ratification of X is required') is not yet aligned with the obligation it names ('X must be ratified'). The gate answers 'changed', which is conservative. Closing it means reading the nominalization as its verb and the matrix verb as modality, without losing an agent the matrix verb carries ('required by the board'), so it is tracked here rather than guessed at.",
-    "eq-light-verb-nominalization": "A light verb carrying a nominalized action ('must perform a ratification of X') is not yet aligned with the finite verb it names ('must ratify X'). The extractor reads action=perform and leaves the real action inside target='ratification migration', so the claims never line up and the gate answers 'changed', which is conservative. Closing it means reading a light verb's nominalized object as the action and re-heading the target on that nominalization's own complement, without swallowing light verbs that carry real content ('perform a review of X before Y'), so it is tracked here rather than guessed at."
+    "eq-light-verb-nominalization": "A light verb carrying a nominalized action ('must perform a ratification of X') is not yet aligned with the finite verb it names ('must ratify X'). The extractor reads action=perform and leaves the real action inside target='ratification migration', so the claims never line up and the gate answers 'changed', which is conservative. Closing it means reading a light verb's nominalized object as the action and re-heading the target on that nominalization's own complement, without swallowing light verbs that carry real content ('perform a review of X before Y'), so it is tracked here rather than guessed at.",
+    "eq-head-moved-compound": "The role fold reorders the lemmas before the final one and requires the final one to match, so it certifies a reordered modifier chain but not a moved head. 'the approval of the board' and 'the board approval' mean the same thing, yet the compound normalizes to 'board approval' -- exactly what the meaning-reversing 'the board of the approval' normalizes to. The two are indistinguishable once the role string has dropped 'of', so the gate answers 'changed' for both. That is deliberate: certifying this pair would certify the reversal, and ch-role-relation-reversed pins that. Closing it means carrying the syntactic head through the role string rather than inferring it from position."
   },
   "known_gaps_note": "Documented extractor gaps, kept in the corpus rather than deleted so the score stays honest. Every gap is conservative: the gate answers 'unresolved' or 'changed', never 'equivalent'. tests/test_meaning_equivalence.py asserts that each entry still fails, still fails conservatively, and is removed once fixed."
 }

@@ -1527,7 +1527,7 @@ def analyze_text(text: str, profile: Profile | None = None) -> dict[str, JsonVal
     findings = _dedupe_findings(findings)
 
     result: dict[str, JsonValue] = {
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "analyzer_version": ANALYZER_VERSION,
         "linguistic_model": cast(dict[str, JsonValue], model_fingerprint()),
         "profile": selected_profile.reference(),
