@@ -351,3 +351,33 @@ The two data artifacts Lingity needs are not redistributed with it and are not
 declared as dependencies. Each is downloaded by the installing user under its
 own terms: the `en_core_web_sm` spaCy model under the MIT License, and the
 NLTK WordNet corpus under the WordNet 3.0 License. `NOTICE` records both.
+
+## Release
+
+Publishing is one command, run from a machine whose twine is already
+authenticated. No credential is read, written, or passed as an argument: twine
+resolves them itself from `~/.pypirc`, the system keyring, or `TWINE_*`
+environment variables.
+
+```
+python -m pip install -e ".[release]"
+python scripts/release.py --repository testpypi --dry-run
+python scripts/release.py --repository testpypi
+python scripts/release.py --repository pypi
+```
+
+`--repository` is required. There is no default, because the difference between
+the two indexes is not something to get wrong by omission.
+
+The script refuses to publish anything it cannot verify. It stops on an unclean
+working tree, a failing guard test, a version the index already holds, a direct
+URL dependency, missing licence metadata, or an unknown classifier. Three of
+those are invisible to `twine check`, which validates README rendering and
+nothing else, and are otherwise answered for the first time by an HTTP 400 from
+the index.
+
+An unreachable index stops the release rather than reading as an absent version.
+Uploads cannot be undone and a version number can never be reused, so a check
+that cannot run must say so rather than fall silent.
+
+`--dry-run` performs every check and builds the artifacts without uploading.

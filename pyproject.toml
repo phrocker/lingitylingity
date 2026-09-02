@@ -59,6 +59,13 @@ dev = [
   "trove-classifiers>=2024.10.0",
   "types-jsonschema>=4.23,<5",
 ]
+# Publishing only. Kept out of `dev` so a contributor does not install an upload
+# tool to run the tests, and so CI does not carry it.
+release = [
+  "build>=1.2,<2",
+  "twine>=5,<7",
+  "trove-classifiers>=2024.10.0",
+]
 
 [project.scripts]
 lingity = "lingity.cli:main"
@@ -76,7 +83,12 @@ testpaths = ["tests"]
 [tool.mypy]
 python_version = "3.11"
 strict = true
-files = ["lingity", "tests"]
+files = ["lingity", "tests", "scripts"]
+# `scripts` is not a package and is imported by tests through a sys.path insert,
+# so mypy needs the same search path to resolve it. It is checked rather than
+# excluded because it performs the one action in this repository that cannot be
+# undone.
+mypy_path = "scripts"
 
 # numpy arrives transitively through spaCy. On Python 3.12+ pip resolves a numpy
 # whose bundled stubs use PEP 695 `type` statements, which mypy refuses to parse
