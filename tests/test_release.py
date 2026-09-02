@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import email
 import io
+import subprocess
 import sys
 import urllib.error
 from email.message import Message
@@ -243,6 +244,68 @@ def test_importing_the_script_leaves_sys_path_as_it_found_it() -> None:
     """
     assert str(SCRIPTS) not in sys.path
     assert release.__file__ == str(SCRIPTS / "release.py")
+
+
+def test_a_failed_command_says_where_its_output_is(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Streamed output is not captured, so the refusal must not imply none exists.
+
+    `subprocess.run(capture_output=False)` leaves `stdout` and `stderr` as None,
+    so the detail branch can never fire for the streaming callers -- which is
+    every slow one. The message points at the output instead of trailing off.
+    """
+    def failed(*_: object, **__: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess([], 1, None, None)
+
+    monkeypatch.setattr("subprocess.run", failed)
+
+    with pytest.raises(release.ReleaseError, match=r"exited 1 \(its output is above\)"):
+        release._run(["some", "command"])
+
+
+def test_a_failed_command_quotes_captured_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When the output was captured, the caller sees it nowhere else."""
+    def failed(*_: object, **__: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess([], 2, "", "fatal: not a git repository")
+
+    monkeypatch.setattr("subprocess.run", failed)
+
+    with pytest.raises(release.ReleaseError, match="fatal: not a git repository"):
+        release._run(["git", "status"], capture=True)
+
+
+def test_an_unreachable_index_names_the_original_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The refusal translates the network error; the original must stay attached."""
+
+    def unreachable(*_: object, **__: object) -> object:
+        raise urllib.error.URLError("getaddrinfo failed")
+
+    monkeypatch.setattr("urllib.request.urlopen", unreachable)
+
+    with pytest.raises(release.ReleaseError) as caught:
+        release.index_holds("testpypi", "lingity", "0.1.0")
+
+    assert isinstance(caught.value.__cause__, urllib.error.URLError)
+
+
+def test_an_unexpected_index_status_names_the_original_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A 503 is not absence, and the refusal keeps the response that said so."""
+
+    def unavailable(*_: object, **__: object) -> object:
+        raise urllib.error.HTTPError("url", 503, "Service Unavailable", Message(), None)
+
+    monkeypatch.setattr("urllib.request.urlopen", unavailable)
+
+    with pytest.raises(release.ReleaseError, match="answered 503"):
+        release.index_holds("testpypi", "lingity", "0.1.0")
+
+    with pytest.raises(release.ReleaseError) as caught:
+        release.index_holds("testpypi", "lingity", "0.1.0")
+
+    assert isinstance(caught.value.__cause__, urllib.error.HTTPError)
 
 
 def test_the_declared_version_is_the_one_that_would_be_released() -> None:

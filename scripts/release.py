@@ -47,15 +47,21 @@ class ReleaseError(Exception):
 
 
 def _run(command: Sequence[str], *, capture: bool = False) -> str:
-    """Run `command` in the repository root, failing loudly on a non-zero exit."""
+    """Run `command` in the repository root, failing loudly on a non-zero exit.
+
+    Output is streamed rather than captured unless the caller wants the value,
+    because `build`, `twine` and the guard run are slow enough that hiding their
+    progress until they finish would be worse than not repeating it here. The
+    refusal therefore says where the explanation is instead of implying there
+    is none.
+    """
     printable = " ".join(command)
     print(f"  $ {printable}", flush=True)
     result = subprocess.run(command, cwd=REPO_ROOT, text=True, capture_output=capture)
     if result.returncode != 0:
         detail = (result.stderr or result.stdout or "").strip()
-        raise ReleaseError(
-            f"`{printable}` exited {result.returncode}" + (f":\n{detail}" if detail else "")
-        )
+        reason = f":\n{detail}" if detail else " (its output is above)"
+        raise ReleaseError(f"`{printable}` exited {result.returncode}{reason}")
     return (result.stdout or "") if capture else ""
 
 
@@ -117,9 +123,13 @@ def index_holds(index: str, name: str, version: str) -> bool:
     except urllib.error.HTTPError as error:
         if error.code == 404:
             return False
-        raise ReleaseError(f"{index} answered {error.code} for {url}, so it could not be checked")
+        raise ReleaseError(
+            f"{index} answered {error.code} for {url}, so it could not be checked"
+        ) from error
     except urllib.error.URLError as error:
-        raise ReleaseError(f"{index} could not be reached to check {name} {version}: {error.reason}")
+        raise ReleaseError(
+            f"{index} could not be reached to check {name} {version}: {error.reason}"
+        ) from error
     return True
 
 
