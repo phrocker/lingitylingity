@@ -143,6 +143,8 @@ def build() -> list[Path]:
     Clearing it first is not tidiness. `twine upload dist/*` uploads whatever is
     present, so an artifact left from an earlier version rides along unnoticed.
     """
+    if DIST.exists() and not DIST.is_dir():
+        raise ReleaseError(f"{DIST} exists but is not a directory, so it cannot be cleared or built into")
     if DIST.exists():
         shutil.rmtree(DIST)
     _run([sys.executable, "-m", "build"])
@@ -179,8 +181,14 @@ def require_no_direct_reference(metadata: Message) -> None:
         )
 
 
-def require_license(metadata: Message) -> None:
-    """Without stated terms, default copyright forbids use of what is published."""
+def require_license(metadata: Message) -> str:
+    """Without stated terms, default copyright forbids use of what is published.
+
+    Returns the terms it accepted so the caller reports the value that was
+    actually checked. Reading the field a second time at the print site let the
+    two disagree: this accepts either spelling, so a legacy `License` field
+    passed here and then printed `license None`.
+    """
     expression = metadata.get("License-Expression") or metadata.get("License")
     if not expression:
         raise ReleaseError(
@@ -188,6 +196,7 @@ def require_license(metadata: Message) -> None:
         )
     if not metadata.get_all("License-File"):
         raise ReleaseError(f"the built metadata declares {expression} but ships no license file")
+    return expression
 
 
 def require_known_classifiers(metadata: Message) -> None:
@@ -254,10 +263,10 @@ def _release(arguments: argparse.Namespace) -> int:
     wheel = next(path for path in artifacts if path.suffix == ".whl")
     metadata = wheel_metadata(wheel)
     require_no_direct_reference(metadata)
-    require_license(metadata)
+    license_terms = require_license(metadata)
     require_known_classifiers(metadata)
     print(
-        f"  no direct references, license {metadata.get('License-Expression')}, "
+        f"  no direct references, license {license_terms}, "
         f"{len(metadata.get_all('Classifier', []))} classifiers all known"
     )
     # Last of the artifact checks because it is the weakest: it reads the README

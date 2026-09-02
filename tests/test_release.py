@@ -89,10 +89,52 @@ def test_a_license_expression_with_no_file_stops_the_release() -> None:
 
 
 def test_the_legacy_license_field_is_still_accepted() -> None:
-    """Older metadata states its terms in `License`, and that is not a defect."""
+    """Older metadata states its terms in `License`, and that is not a defect.
+
+    The accepted terms are returned so the caller reports what was checked. When
+    the status line read `License-Expression` independently it printed
+    `license None` for exactly this artifact -- a run reporting no license while
+    the guard it just passed had certified one.
+    """
     artifact = built(HEALTHY.replace("License-Expression: Apache-2.0", "License: Apache-2.0"))
 
-    release.require_license(artifact)
+    assert release.require_license(artifact) == "Apache-2.0"
+
+
+def test_the_reported_license_is_the_one_that_was_checked() -> None:
+    """A status line that can disagree with its own check is worse than silence."""
+    for field in ("License-Expression", "License"):
+        artifact = built(HEALTHY.replace("License-Expression: Apache-2.0", f"{field}: Apache-2.0"))
+
+        assert release.require_license(artifact) == artifact.get(field)
+
+
+def test_a_dist_path_that_is_not_a_directory_stops_the_release(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`shutil.rmtree` raises `NotADirectoryError` on a file, bypassing the refusal path."""
+    dist = tmp_path / "dist"
+    dist.write_text("not a directory", encoding="utf-8")
+    monkeypatch.setattr(release, "DIST", dist)
+
+    with pytest.raises(release.ReleaseError, match="is not a directory"):
+        release.build()
+
+
+def test_a_dist_directory_is_cleared_rather_than_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The refusal must not fire on the ordinary case it sits in front of."""
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "lingity-0.0.1-py3-none-any.whl").write_text("stale", encoding="utf-8")
+    monkeypatch.setattr(release, "DIST", dist)
+    monkeypatch.setattr(release, "_run", lambda *_, **__: None)
+
+    with pytest.raises(release.ReleaseError, match="expected a wheel and an sdist"):
+        release.build()
+
+    assert not dist.exists(), "the stale artifact survived, so `twine upload dist/*` would ship it"
 
 
 def test_an_unknown_classifier_stops_the_release() -> None:
