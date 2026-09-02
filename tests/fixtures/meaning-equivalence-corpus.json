@@ -113,6 +113,24 @@
       "left": "The board must perform a ratification of the migration.",
       "right": "The board must ratify the migration.",
       "rationale": "A light verb carrying a nominalized action versus the finite verb it names. The extractor reads the action as 'perform' and leaves 'ratification' inside the target, so the two claims never line up. LING-NOMINAL-001 asks a writer for exactly this rewrite."
+    },
+    {
+      "id": "eq-actor-reordered",
+      "left": "The reliability platform team must verify the failover runbook.",
+      "right": "The platform reliability team must verify the failover runbook.",
+      "rationale": "Reordering modifiers inside the actor noun phrase ('reliability platform' versus 'platform reliability') names the same team. The claim comparison folds each role to its lemma set, so word order inside a role no longer reads as a different claim while a different lemma still would."
+    },
+    {
+      "id": "eq-target-reordered",
+      "left": "Resolve the outstanding critical authorization gaps.",
+      "right": "Resolve the critical outstanding authorization gaps.",
+      "rationale": "Reordering the attributive adjectives in the target ('outstanding critical' versus 'critical outstanding') leaves the same gaps. The role's lemma set is unchanged, so the reorder is equivalent, whereas adding, dropping, or substituting a modifier would change the set."
+    },
+    {
+      "id": "eq-split-uncovered-sentence",
+      "left": "The scanner blocks the payload; the router drops the sender.",
+      "right": "The scanner blocks the payload. The router drops the sender.",
+      "rationale": "A present-tense clause the parser cannot resolve into a proposition (it tags the verb as a noun) is split at the semicolon. The dependency fingerprint of the uncovered content is a boundary-independent multiset, so the split leaves it unchanged; a role swap between the clauses would alter a triple and still be reported."
     }
   ],
   "changed_pairs": [

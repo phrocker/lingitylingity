@@ -4,7 +4,7 @@ Every pair in ``meaning-equivalence-corpus.json`` was authored from the
 semantics of governance directives rather than from any profile pattern or
 shipped fixture. A gate that recognises phrasings instead of propositions
 scores near the degenerate baseline on this corpus: answering "changed" for
-every pair scores 16 of 34, so the changed-pair count alone proves nothing. The
+every pair scores 16 of 37, so the changed-pair count alone proves nothing. The
 equivalent-pair count is what distinguishes a semantic gate from a lookup
 table, and both are asserted here.
 

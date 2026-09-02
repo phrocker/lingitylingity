@@ -271,6 +271,16 @@ _MAX_HEAD_WALK = 12
 # the gate needs to have understood.
 _CONTENT_POS = {"NOUN", "PROPN", "VERB", "AUX", "ADJ", "NUM"}
 
+# Dependency labels that describe how one clause hangs off another. Splitting a
+# sentence rewrites exactly these (a subordinate clause becomes its own root),
+# so the uncovered-sentence fingerprint folds them together and stays stable
+# across a split. Argument and modifier roles are deliberately absent: keeping
+# them distinct is what preserves who-does-what-to-whom under the fold.
+_CLAUSE_ROLE_FOLD = {
+    dep: "clause"
+    for dep in ("ROOT", "ccomp", "xcomp", "advcl", "acl", "relcl", "conj", "parataxis")
+}
+
 
 @dataclass(frozen=True)
 class ConceptSpan:
@@ -757,6 +767,27 @@ def _claim_span(document: Document, predicate: Token) -> tuple[int, int]:
         return predicate.start, predicate.end
     ordered = sorted(tokens, key=lambda token: token.index)
     return ordered[0].start, ordered[-1].end
+
+
+def _canonical_role_phrase(phrase: str) -> str:
+    """Order-independent form of an actor or target phrase.
+
+    The actor and target are already normalized to content lemmas, but as an
+    ordered join: "unseen phrasing" and "phrasing unseen" then read as different
+    claims, so a rewrite that only reorders a noun phrase is falsely reported as
+    a meaning change. Comparing the *set* of lemmas removes that ordering
+    sensitivity while keeping every lemma: adding, dropping, or substituting a
+    word (a different entity or number) still changes the set and is still
+    reported. Word order inside a role carries no propositional weight here --
+    who-acts-on-what is already fixed by which phrase is the actor and which is
+    the target -- so folding it is safe. Sentinels ("unspecified", "none",
+    pronoun targets) are single tokens and pass through unchanged.
+    """
+
+    tokens = phrase.split()
+    if len(tokens) <= 1:
+        return phrase
+    return " ".join(sorted(set(tokens)))
 
 
 def _claim_signature(actor: str, action: str, target: str, modality: str, polarity: str, status: str) -> str:
@@ -2016,12 +2047,33 @@ def _coverage(document: Document, items: list[dict[str, JsonValue]]) -> JsonValu
             continue
         if not any(token.pos in _CONTENT_POS for token in sentence.tokens):
             continue
+        # A dependency fingerprint of the content words: each triple binds a
+        # lemma to its grammatical role and to the lemma it attaches to. This
+        # lets a comparison reconcile the same proposition across sentence
+        # boundaries and word order -- the fingerprint is a multiset, so
+        # splitting "A; B" into "A. B." leaves it unchanged -- while a role
+        # swap or a changed attachment ("A stops B" vs "B stops A") alters a
+        # triple and is still reported. It clears doubt only when nothing else
+        # moved; it never certifies a change.
+        #
+        # Clause-attachment labels are folded to one bucket first: splitting a
+        # sentence turns a subordinate clause into a main one (ccomp/conj/... ->
+        # ROOT), which is a boundary change, not a meaning change. Argument
+        # roles (nsubj/dobj/...) are kept distinct, so who-does-what-to-whom
+        # still shows.
+        content = sorted(
+            f"{token.lemma or token.lower}|{_CLAUSE_ROLE_FOLD.get(token.dep, token.dep)}|"
+            f"{document.head_of(token).lemma or document.head_of(token).lower}"
+            for token in sentence.tokens
+            if token.pos in _CONTENT_POS
+        )
         uncovered.append(
             cast(
                 JsonValue,
                 {
                     "sentence_index": sentence.index,
                     "text": sentence.text.strip(),
+                    "content": content,
                 },
             )
         )
@@ -2094,6 +2146,39 @@ def _uncovered_reasons(manifest: dict[str, JsonValue], label: str) -> list[str]:
     return reasons
 
 
+_UNCOVERED_REASON_MARK = "no proposition or protected element could be extracted"
+
+
+def _uncovered_content(manifest: dict[str, JsonValue]) -> Counter[str] | None:
+    """Aggregate the dependency fingerprints of a manifest's uncovered sentences.
+
+    The result is order- and boundary-independent: it pools every uncovered
+    sentence's ``content`` triples into one multiset, so splitting a sentence
+    or reordering its clauses does not change it, while a role swap or a changed
+    attachment does. ``None`` means the fingerprint is unavailable -- an older
+    manifest, or an entry that recorded no ``content`` -- so the caller must
+    fall back to the stricter text-identity check and never claim equality on
+    missing evidence.
+    """
+
+    coverage = manifest.get("coverage")
+    if not isinstance(coverage, dict):
+        return None
+    uncovered = coverage.get("uncovered")
+    if not isinstance(uncovered, list):
+        return None
+    counter: Counter[str] = Counter()
+    for entry in uncovered:
+        if not isinstance(entry, dict):
+            return None
+        content = entry.get("content")
+        if not isinstance(content, list):
+            return None
+        for triple in content:
+            counter[str(triple)] += 1
+    return counter
+
+
 def _parse_claim_signature(signature: str) -> dict[str, str] | None:
     if not signature.startswith("claim:"):
         return None
@@ -2147,12 +2232,47 @@ def _reconcile_actor_specification(
     return remaining_missing, remaining_added, sorted(specified)
 
 
+def _canonical_signature(signature: str) -> str:
+    """Order-independent form of a claim signature for comparison only.
+
+    The stored signature keeps its readable, source-order actor and target so
+    the manifest stays legible and its hash stable. Comparison, though, must not
+    treat a reordered noun phrase ("unseen phrasing" vs "phrasing unseen") as a
+    different claim, so here -- and only here -- the actor and target are folded
+    to their lemma sets. Every lemma is retained, so a different entity, number,
+    or an added or dropped word still changes the signature and is still
+    reported; only word order within a role is discarded, and word order there
+    carries no propositional weight once actor and target are already assigned.
+    Non-claim signatures pass through untouched.
+    """
+
+    fields = _parse_claim_signature(signature)
+    if fields is None:
+        return signature
+    actor = _canonical_role_phrase(fields.get("actor", ""))
+    target = _canonical_role_phrase(fields.get("target", ""))
+    return _claim_signature(
+        actor,
+        fields.get("action", ""),
+        target,
+        fields.get("modality", ""),
+        fields.get("polarity", ""),
+        fields.get("status", ""),
+    )
+
+
 def compare_protected(
     source_manifest: dict[str, JsonValue],
     candidate_manifest: dict[str, JsonValue],
 ) -> dict[str, JsonValue]:
-    source_signatures = cast(list[str], source_manifest["semantic_signature"])
-    candidate_signatures = cast(list[str], candidate_manifest["semantic_signature"])
+    source_signatures = [
+        _canonical_signature(signature)
+        for signature in cast(list[str], source_manifest["semantic_signature"])
+    ]
+    candidate_signatures = [
+        _canonical_signature(signature)
+        for signature in cast(list[str], candidate_manifest["semantic_signature"])
+    ]
     if source_manifest.get("source_sha256") == candidate_manifest.get("source_sha256"):
         # Unchanged text preserves its own meaning by construction. Incomplete
         # extraction is a reason to doubt a *rewrite*, not a reason to doubt
@@ -2199,6 +2319,23 @@ def compare_protected(
         if extracted and source_reasons and source_reasons == candidate_reasons:
             unresolved = []
             equivalent = True
+        elif extracted and all(_UNCOVERED_REASON_MARK in reason for reason in unresolved):
+            # Every remaining doubt is a sentence the parser could not resolve
+            # into a proposition. When the two texts carry the same dependency
+            # fingerprint across all such sentences, the same content sits in
+            # the same grammatical roles -- splitting or reordering moved it
+            # without changing it -- so no hidden change can be lurking here. A
+            # role swap or a changed attachment alters a triple, so the counters
+            # differ and the doubt correctly stands.
+            source_content = _uncovered_content(source_manifest)
+            candidate_content = _uncovered_content(candidate_manifest)
+            if (
+                source_content is not None
+                and candidate_content is not None
+                and source_content == candidate_content
+            ):
+                unresolved = []
+                equivalent = True
     disposition = "equivalent" if equivalent else ("unresolved" if unresolved else "changed")
     return {
         "equivalent": equivalent,
