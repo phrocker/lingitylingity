@@ -8,18 +8,48 @@ version = "0.1.0"
 description = "Deterministic governed text analysis"
 readme = "README.md"
 requires-python = ">=3.11"
+authors = [{ name = "phrocker" }]
+keywords = ["linguistics", "readability", "governance", "nlp", "deterministic"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Text Processing :: Linguistic",
+  "Typing :: Typed",
+]
+
+# en_core_web_sm is deliberately absent. It is not on PyPI, so the only way to
+# declare it here is a PEP 440 direct reference, and a public index rejects any
+# distribution whose metadata carries one ("Can't have direct dependency").
+# `twine check` does not catch this -- it validates only README rendering -- so
+# the failure would surface for the first time at upload.
+#
+# Nothing is lost by omitting it. The pin that matters is enforced in code:
+# lingity/nlp.py:load_pipeline refuses any version other than MODEL_VERSION and
+# names the exact wheel to install, so a wrong model fails closed at analysis
+# time rather than being silently tolerated. Installing it is a documented step
+# in the READMEs and its own CI step.
 dependencies = [
   "jsonschema>=4.23,<5",
   "markdown-it-py>=3,<4",
   "nltk>=3.9,<4",
   "spacy>=3.8,<3.9",
-  "en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
 ]
+
+[project.urls]
+Homepage = "https://github.com/phrocker/lingitylingity"
+Repository = "https://github.com/phrocker/lingitylingity"
+Issues = "https://github.com/phrocker/lingitylingity/issues"
 
 [project.optional-dependencies]
 dev = [
   "mypy>=1.13,<2",
   "pytest>=8.3,<9",
+  # The canonical Trove classifier list, used by tests/test_documentation.py to
+  # answer locally a question PyPI otherwise answers only at upload.
+  "trove-classifiers>=2024.10.0",
   "types-jsonschema>=4.23,<5",
 ]
 

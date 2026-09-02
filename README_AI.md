@@ -183,6 +183,7 @@ is an error rather than a quiet `no_material_change`.
 
 ```text
 python -m pip install -e '.[dev]'
+python -m pip install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
 python -m nltk.downloader wordnet omw-1.4
 python -m pytest
 python -m mypy
@@ -206,11 +207,13 @@ install-time steps on purpose: nothing downloads anything at analysis time, so a
 run cannot silently depend on the network or quietly change behaviour when a
 corpus is missing. Missing data is an error, not a fallback.
 
-The model is the pinned `en_core_web_sm` 3.8.0 wheel declared in
-`pyproject.toml`, so `pip install` already puts it in place. Do not substitute
-`python -m spacy download en_core_web_sm`: that resolves whatever model version
-is current at the time, and `lingity/nlp.py` rejects anything but 3.8.0.
-WordNet is not a Python distribution and stays a separate download.
+The model is the pinned `en_core_web_sm` 3.8.0 wheel, installed by explicit URL
+in its own step. It is deliberately not a declared dependency: it is not on a
+package index, so declaring it would require a direct URL reference, and a
+public index rejects any distribution whose metadata carries one. Do not
+substitute `python -m spacy download en_core_web_sm`: that resolves whatever
+model version is current at the time, and `lingity/nlp.py` rejects anything but
+3.8.0. WordNet is not a Python distribution and stays a separate download.
 
 WordNet drives morphology — deriving the verb behind a nominalization
 ("ratification" → "ratify") and separating a word from its antonyms — rather

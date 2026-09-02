@@ -88,6 +88,29 @@ bullet resume: `architecture-review` scores the weak version 91.56 and the
 strong version 94.95, `product-strategy` scores them 89.44 and 93.69, and
 `resume-review` scores them 66.43 and 100.00. Only `resume-review` ranks the two documents the way a reader would.
 
+## Installation
+
+Lingity is not yet published to a package index, so install it from a clone.
+Three commands are required, and the second and third are not optional:
+
+```text
+python -m pip install .
+python -m pip install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
+python -m nltk.downloader wordnet omw-1.4
+```
+
+The linguistic model and the WordNet corpus are installed separately because
+neither can be declared as a dependency. `en_core_web_sm` is not on a package
+index, so naming it in `pyproject.toml` would require a direct URL reference,
+and a public index rejects any distribution whose metadata carries one. WordNet
+is corpus data rather than a Python package, so `nltk` ships the downloader and
+not the corpus.
+
+Skipping either step does not degrade an analysis quietly. The model loader
+requires exactly the pinned version and raises `LinguisticModelError` on any
+other, and canonicalization raises `WordNetDataError` when the corpus is
+absent. Both name the command that fixes them.
+
 ## CLI
 
 ```text
@@ -265,6 +288,7 @@ is an error rather than a quiet `no_material_change`.
 
 ```text
 python -m pip install -e '.[dev]'
+python -m pip install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
 python -m nltk.downloader wordnet omw-1.4
 python -m pytest
 python -m mypy
@@ -288,11 +312,13 @@ install-time steps on purpose: nothing downloads anything at analysis time, so a
 run cannot silently depend on the network or quietly change behaviour when a
 corpus is missing. Missing data is an error, not a fallback.
 
-The model is the pinned `en_core_web_sm` 3.8.0 wheel declared in
-`pyproject.toml`, so `pip install` already puts it in place. Do not substitute
-`python -m spacy download en_core_web_sm`: that resolves whatever model version
-is current at the time, and `lingity/nlp.py` rejects anything but 3.8.0.
-WordNet is not a Python distribution and stays a separate download.
+The model is the pinned `en_core_web_sm` 3.8.0 wheel, installed by explicit URL
+in its own step. It is deliberately not a declared dependency: it is not on a
+package index, so declaring it would require a direct URL reference, and a
+public index rejects any distribution whose metadata carries one. Do not
+substitute `python -m spacy download en_core_web_sm`: that resolves whatever
+model version is current at the time, and `lingity/nlp.py` rejects anything but
+3.8.0. WordNet is not a Python distribution and stays a separate download.
 
 WordNet drives morphology — deriving the verb behind a nominalization
 ("ratification" → "ratify") and separating a word from its antonyms — rather

@@ -14,12 +14,15 @@ from __future__ import annotations
 
 import json
 import re
+import tomllib
 from pathlib import Path
 from typing import cast
 
 import pytest
+from trove_classifiers import classifiers as trove_classifiers
 
 from lingity.invariants import compare_protected, extract_protected
+from lingity.nlp import MODEL_NAME, MODEL_VERSION
 from lingity.profiles import load_profile
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -618,4 +621,247 @@ def test_the_documented_rejection_lists_elements_the_gate_really_reports(
     assert count is not None, f"{name} no longer states how many elements were dropped"
     assert int(count.group(1)) == len(missing), (
         f"{name} claims {count.group(1)} dropped element(s); the gate reports {len(missing)}"
+    )
+
+
+PYPROJECT = REPO_ROOT / "pyproject.toml"
+# PEP 508 marks a direct reference with `@` separating the name from a URL. The
+# space before it is optional in practice (`name@git+https://...` parses), and
+# the `//` is not required either: `name @ file:../wheels/x.whl` is a direct
+# reference with a scheme and a relative path, and PyPI rejects it on the same
+# terms. Matching on the scheme's colon rather than on `://` covers both. An
+# ordinary specifier carries no `@` at all, so this cannot collide with one.
+DIRECT_REFERENCE = re.compile(r"@\s*[a-zA-Z][a-zA-Z0-9+.\-]*:")
+# The trailing filename is matched in full, not just up to the version. Ending
+# the pattern at the version's hyphen accepted any artifact that happened to
+# start the right way: an ABI-specific wheel, a `.zip`, or a bare truncated URL
+# all satisfied it. Those fail at install time rather than at documentation
+# time, which is the failure this guard exists to move earlier.
+MODEL_WHEEL_URL = re.compile(
+    r"https://github\.com/explosion/spacy-models/releases/download/"
+    r"(?P<name>[a-z_]+)-(?P<tag>[0-9.]+)/(?P=name)-(?P<version>[0-9.]+)"
+    r"-py3-none-any\.whl(?![\w.\-])"
+)
+
+
+def _documented_model_command(commands: list[str]) -> str:
+    """Return the one documented command that installs the linguistic model."""
+    matches = [command for command in commands if "spacy-models" in command]
+    if len(matches) != 1:
+        raise AssertionError(
+            f"expected exactly one command installing the linguistic model, found {matches!r}"
+        )
+    return matches[0]
+
+
+@pytest.mark.parametrize("readme_name", READMES)
+def test_the_documented_model_wheel_matches_the_version_the_loader_requires(
+    readme_name: str,
+) -> None:
+    """The pinned model version is stated in four files and enforced in one.
+
+    `lingity/nlp.py` refuses any model but `MODEL_VERSION`, so a README or CI
+    line naming a different wheel does not degrade the analysis -- it fails
+    closed at load time. It does something worse: it tells a reader to install
+    the exact thing that will be rejected, and the error names the loader rather
+    than the instruction that caused it. Pinning the URL against the constant
+    keeps the advice and the enforcement in step.
+    """
+    command = _documented_model_command(_documented_commands(REPO_ROOT / readme_name))
+
+    url = MODEL_WHEEL_URL.search(command)
+    assert url is not None, f"{readme_name} installs a model from an unrecognised URL: {command!r}"
+    assert url.group("name") == MODEL_NAME, (
+        f"{readme_name} installs {url.group('name')!r}, but the loader requires {MODEL_NAME!r}"
+    )
+    assert url.group("version") == MODEL_VERSION == url.group("tag"), (
+        f"{readme_name} installs {MODEL_NAME} {url.group('version')} from release tag "
+        f"{url.group('tag')}, but lingity/nlp.py requires exactly {MODEL_VERSION}"
+    )
+
+
+def test_ci_installs_the_same_model_wheel_the_readmes_document() -> None:
+    """Parity already covers this, but only while the command stays in the block."""
+    command = _documented_model_command(_workflow_commands())
+
+    url = MODEL_WHEEL_URL.search(command)
+    assert url is not None, f"ci.yml installs a model from an unrecognised URL: {command!r}"
+    assert (url.group("name"), url.group("version")) == (MODEL_NAME, MODEL_VERSION), (
+        f"ci.yml installs {url.group('name')} {url.group('version')}, but lingity/nlp.py "
+        f"requires {MODEL_NAME} {MODEL_VERSION}"
+    )
+
+
+def _string_list(name: str, value: object) -> list[str]:
+    """Return `value` as a list of strings, refusing to guess at anything else.
+
+    Reading a malformed table as though it were well formed is the one failure
+    these guards must not have. A `dependencies` key holding a bare string is
+    iterable, so a scan would walk it character by character, match nothing, and
+    report the file clean -- the guard would be loudest about safety at exactly
+    the moment it had stopped looking. Failing here instead keeps a shape
+    problem from being reported as an absence of findings, and keeps the
+    message about the shape rather than about forty stray characters.
+    """
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise AssertionError(
+            f"pyproject.toml declares {name} as {type(value).__name__}, not a list of "
+            "strings. This guard cannot read it, so it cannot vouch for it."
+        )
+    return value
+
+
+def test_no_dependency_is_declared_as_a_direct_url() -> None:
+    """A public index rejects any distribution whose metadata carries one.
+
+    `en_core_web_sm` is not on PyPI, so declaring it here needs a PEP 440 direct
+    reference -- and PyPI answers `400 Can't have direct dependency`. Nothing
+    local catches it: the build succeeds, `pip install` succeeds, and `twine
+    check` passes because it validates only README rendering. The first signal
+    would be the upload itself, so the guard belongs here.
+
+    Every declared dependency list is checked, not just the required one. An
+    extra contributes `Requires-Dist: name @ url; extra == "..."` to the same
+    metadata field and is rejected on the same terms, so a direct reference
+    parked in `[project.optional-dependencies]` would fail an upload exactly as
+    a required one does.
+    """
+    project = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))["project"]
+
+    groups: dict[str, list[str]] = {
+        "dependencies": _string_list("dependencies", project.get("dependencies", []))
+    }
+    extras = project.get("optional-dependencies", {})
+    assert isinstance(extras, dict), (
+        f"pyproject.toml declares optional-dependencies as {type(extras).__name__}, "
+        "not a table. This guard cannot read it, so it cannot vouch for it."
+    )
+    for extra, requirements in extras.items():
+        name = f"optional-dependencies.{extra}"
+        groups[name] = _string_list(name, requirements)
+
+    direct = [
+        f"{group}: {requirement}"
+        for group, requirements in groups.items()
+        for requirement in requirements
+        if DIRECT_REFERENCE.search(requirement)
+    ]
+
+    assert not direct, (
+        "pyproject.toml declares a direct URL dependency, which PyPI rejects at upload: "
+        f"{direct}. Install it as a documented step instead."
+    )
+
+
+@pytest.mark.parametrize(
+    "requirement",
+    [
+        'en_core_web_sm @ https://example.invalid/en_core_web_sm-3.8.0-py3-none-any.whl',
+        "lingity@git+https://github.com/phrocker/lingitylingity",
+        "thing @ file:///tmp/thing-1.0-py3-none-any.whl",
+        "thing @ file:../wheels/thing-1.0-py3-none-any.whl",
+    ],
+)
+def test_a_direct_reference_is_recognised_in_any_form(requirement: str) -> None:
+    """The guard is worthless if it only matches the exact line that was removed.
+
+    The `file:` form without `//` is included deliberately: a scheme followed by
+    a relative path is still a direct reference, and a matcher keyed on `://`
+    would let it through while reporting the file clean.
+    """
+    assert DIRECT_REFERENCE.search(requirement) is not None
+
+
+@pytest.mark.parametrize("requirement", ["spacy>=3.8,<3.9", "nltk>=3.9,<4", 'mypy<2,>=1.13'])
+def test_an_ordinary_requirement_is_not_mistaken_for_a_direct_reference(
+    requirement: str,
+) -> None:
+    assert DIRECT_REFERENCE.search(requirement) is None
+
+
+MODEL_RELEASE = (
+    "https://github.com/explosion/spacy-models/releases/download/"
+    f"{MODEL_NAME}-{MODEL_VERSION}/{MODEL_NAME}-{MODEL_VERSION}"
+)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        f"{MODEL_RELEASE}-cp311-cp311-win_amd64.whl",
+        f"{MODEL_RELEASE}-py3-none-any.zip",
+        f"{MODEL_RELEASE}-py3-none-any.whl.asc",
+        f"{MODEL_RELEASE}-",
+        f"{MODEL_RELEASE}.tar.gz",
+    ],
+)
+def test_an_artifact_that_is_not_the_pinned_wheel_is_rejected(url: str) -> None:
+    """Naming the right version is not the same as naming the right artifact.
+
+    Every URL here carries the correct model name and version, so a matcher that
+    stops at the version accepts all of them. They install something other than
+    the pinned universal wheel -- a platform build, a signature, a source
+    archive, or nothing at all -- and the mismatch surfaces as a download
+    failure in CI rather than as a documentation defect here.
+    """
+    assert MODEL_WHEEL_URL.search(url) is None
+
+
+def test_the_pinned_wheel_url_is_accepted() -> None:
+    """The negative cases above prove nothing if the real URL fails too."""
+    match = MODEL_WHEEL_URL.search(f"{MODEL_RELEASE}-py3-none-any.whl")
+
+    assert match is not None
+    assert (match.group("name"), match.group("version")) == (MODEL_NAME, MODEL_VERSION)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "en_core_web_sm @ https://example.invalid/en_core_web_sm-3.8.0-py3-none-any.whl",
+        ["spacy>=3.8,<3.9", 3],
+        {"spacy": ">=3.8"},
+        None,
+    ],
+)
+def test_a_malformed_dependency_table_is_refused_rather_than_scanned(value: object) -> None:
+    """A shape this guard cannot read must not be reported as clean.
+
+    The string case is the dangerous one: it carries a direct reference and it
+    is iterable, so scanning it walks single characters, matches nothing, and
+    returns an empty finding list. The guard would then pass while the very
+    thing it exists to catch sat in the file.
+    """
+    with pytest.raises(AssertionError, match="cannot vouch for it"):
+        _string_list("dependencies", value)
+
+
+def test_a_well_formed_dependency_table_is_returned_unchanged() -> None:
+    """Refusing everything would satisfy the test above and guard nothing."""
+    requirements = ["spacy>=3.8,<3.9", "nltk>=3.9,<4"]
+
+    assert _string_list("dependencies", requirements) == requirements
+    assert _string_list("optional-dependencies.dev", []) == []
+
+
+def test_every_declared_classifier_is_a_real_trove_classifier() -> None:
+    """PyPI validates classifiers at upload and rejects any it does not know.
+
+    This is the same shape as the direct-reference blocker: the build succeeds,
+    the install succeeds, and `twine check` passes, because none of them consult
+    the classifier list. A typo would surface for the first time as a rejected
+    upload. `trove-classifiers` is the canonical list PyPI validates against, so
+    checking membership here answers the question locally.
+    """
+    classifiers = _string_list(
+        "classifiers",
+        tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))["project"].get("classifiers", []),
+    )
+    assert classifiers, "pyproject.toml declares no classifiers"
+
+    unknown = [name for name in classifiers if name not in trove_classifiers]
+
+    assert not unknown, (
+        f"pyproject.toml declares classifiers PyPI does not recognise: {unknown}. "
+        "An unknown classifier is rejected at upload."
     )
