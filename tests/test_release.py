@@ -187,3 +187,49 @@ def test_the_declared_version_is_the_one_that_would_be_released() -> None:
 
     assert name == "lingity"
     assert version.count(".") >= 1
+
+
+@pytest.mark.parametrize(
+    ("pyproject", "expected"),
+    [
+        ("name = 'lingity'\n", "no \\[project\\] table"),
+        ("[project]\nversion = '0.1.0'\n", "no project name"),
+        ("[project]\nname = 'lingity'\n", "no version"),
+        ("[project\nname =", "not valid TOML"),
+    ],
+)
+def test_an_unreadable_pyproject_stops_the_release(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pyproject: str, expected: str
+) -> None:
+    """A refusal must arrive as a sentence, not as whatever the parser raised.
+
+    Without this the missing-table case surfaces as `KeyError: 'project'` -- a
+    traceback naming a dictionary lookup, from a script whose entire contract is
+    to stop and say why.
+    """
+    (tmp_path / "pyproject.toml").write_text(pyproject, encoding="utf-8")
+    monkeypatch.setattr(release, "REPO_ROOT", tmp_path)
+
+    with pytest.raises(release.ReleaseError, match=expected):
+        release.declared_version()
+
+
+def test_the_release_extra_can_run_the_guards_it_depends_on() -> None:
+    """The documented install must support the script's default behaviour.
+
+    `scripts/release.py` runs the packaging guards unless `--skip-guards` is
+    passed, so an extra that cannot run pytest breaks the exact command the
+    READMEs give. Depending on `dev` rather than restating pieces of it keeps
+    that true when a guard grows a new dependency.
+    """
+    import tomllib
+
+    extras = tomllib.loads(
+        (release.REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    )["project"]["optional-dependencies"]
+
+    assert "release" in extras, "pyproject.toml declares no release extra"
+    assert any(requirement.startswith("lingity[") for requirement in extras["release"]), (
+        "the release extra does not pull in the dev extra, so `pip install -e '.[release]'` "
+        f"cannot run the guards the script invokes: {extras['release']}"
+    )

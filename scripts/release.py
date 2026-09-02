@@ -75,11 +75,30 @@ def require_clean_worktree() -> str:
 
 
 def declared_version() -> tuple[str, str]:
-    """Return the distribution name and version declared in pyproject.toml."""
-    project = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    """Return the distribution name and version declared in pyproject.toml.
+
+    Every failure here is reported as a refusal rather than raised as whatever
+    the parser happened to produce. A missing `[project]` table would otherwise
+    surface as a bare `KeyError: 'project'` -- a traceback naming a dictionary
+    lookup, from a script whose contract is to stop with a reason.
+    """
+    path = REPO_ROOT / "pyproject.toml"
+    try:
+        parsed = tomllib.loads(path.read_text(encoding="utf-8"))
+    except OSError as error:
+        raise ReleaseError(f"{path} could not be read: {error}") from error
+    except tomllib.TOMLDecodeError as error:
+        raise ReleaseError(f"{path} is not valid TOML: {error}") from error
+
+    project = parsed.get("project")
+    if not isinstance(project, dict):
+        raise ReleaseError(f"{path} declares no [project] table, so there is nothing to release")
+
     name, version = project.get("name"), project.get("version")
-    if not isinstance(name, str) or not isinstance(version, str):
-        raise ReleaseError("pyproject.toml declares no name and version to release")
+    if not isinstance(name, str) or not name:
+        raise ReleaseError(f"{path} declares no project name to release")
+    if not isinstance(version, str) or not version:
+        raise ReleaseError(f"{path} declares no version to release")
     return name, version
 
 
