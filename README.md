@@ -341,3 +341,13 @@ quality:
 No existing package was found that detects nominalizations, noun stacks, hidden
 agency, or bureaucratic phrasing as attributed findings, or that gates a rewrite
 on preserved governed meaning, so those are implemented here.
+
+## License
+
+Apache License 2.0. The full text is in [LICENSE](LICENSE), and [NOTICE](NOTICE)
+carries the copyright statement and the attribution required by section 4(d).
+
+The two data artifacts Lingity needs are not redistributed with it and are not
+declared as dependencies. Each is downloaded by the installing user under its
+own terms: the `en_core_web_sm` spaCy model under the MIT License, and the
+NLTK WordNet corpus under the WordNet 3.0 License. `NOTICE` records both.

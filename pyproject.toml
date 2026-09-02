@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=75"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -9,6 +9,13 @@ description = "Deterministic governed text analysis"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "phrocker" }]
+# PEP 639 SPDX expression rather than the legacy free-text field, which is
+# deprecated and which PyPI no longer renders. This form needs setuptools>=77,
+# which the build-system requirement above pins. It also forbids a
+# `License :: ...` classifier: declaring both is an error, not a duplication,
+# so the classifier list below deliberately carries none.
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
 keywords = ["linguistics", "readability", "governance", "nlp", "deterministic"]
 classifiers = [
   "Development Status :: 3 - Alpha",
