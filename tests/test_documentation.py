@@ -692,6 +692,25 @@ def test_ci_installs_the_same_model_wheel_the_readmes_document() -> None:
     )
 
 
+def _string_list(name: str, value: object) -> list[str]:
+    """Return `value` as a list of strings, refusing to guess at anything else.
+
+    Reading a malformed table as though it were well formed is the one failure
+    these guards must not have. A `dependencies` key holding a bare string is
+    iterable, so a scan would walk it character by character, match nothing, and
+    report the file clean -- the guard would be loudest about safety at exactly
+    the moment it had stopped looking. Failing here instead keeps a shape
+    problem from being reported as an absence of findings, and keeps the
+    message about the shape rather than about forty stray characters.
+    """
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise AssertionError(
+            f"pyproject.toml declares {name} as {type(value).__name__}, not a list of "
+            "strings. This guard cannot read it, so it cannot vouch for it."
+        )
+    return value
+
+
 def test_no_dependency_is_declared_as_a_direct_url() -> None:
     """A public index rejects any distribution whose metadata carries one.
 
@@ -710,14 +729,16 @@ def test_no_dependency_is_declared_as_a_direct_url() -> None:
     project = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))["project"]
 
     groups: dict[str, list[str]] = {
-        "dependencies": cast(list[str], project.get("dependencies", [])),
+        "dependencies": _string_list("dependencies", project.get("dependencies", []))
     }
-    for extra, requirements in cast(
-        dict[str, list[str]], project.get("optional-dependencies", {})
-    ).items():
-        groups[f"optional-dependencies.{extra}"] = requirements
-
-    assert "dependencies" in groups, "pyproject.toml declares no dependencies table"
+    extras = project.get("optional-dependencies", {})
+    assert isinstance(extras, dict), (
+        f"pyproject.toml declares optional-dependencies as {type(extras).__name__}, "
+        "not a table. This guard cannot read it, so it cannot vouch for it."
+    )
+    for extra, requirements in extras.items():
+        name = f"optional-dependencies.{extra}"
+        groups[name] = _string_list(name, requirements)
 
     direct = [
         f"{group}: {requirement}"
@@ -794,6 +815,35 @@ def test_the_pinned_wheel_url_is_accepted() -> None:
     assert (match.group("name"), match.group("version")) == (MODEL_NAME, MODEL_VERSION)
 
 
+@pytest.mark.parametrize(
+    "value",
+    [
+        "en_core_web_sm @ https://example.invalid/en_core_web_sm-3.8.0-py3-none-any.whl",
+        ["spacy>=3.8,<3.9", 3],
+        {"spacy": ">=3.8"},
+        None,
+    ],
+)
+def test_a_malformed_dependency_table_is_refused_rather_than_scanned(value: object) -> None:
+    """A shape this guard cannot read must not be reported as clean.
+
+    The string case is the dangerous one: it carries a direct reference and it
+    is iterable, so scanning it walks single characters, matches nothing, and
+    returns an empty finding list. The guard would then pass while the very
+    thing it exists to catch sat in the file.
+    """
+    with pytest.raises(AssertionError, match="cannot vouch for it"):
+        _string_list("dependencies", value)
+
+
+def test_a_well_formed_dependency_table_is_returned_unchanged() -> None:
+    """Refusing everything would satisfy the test above and guard nothing."""
+    requirements = ["spacy>=3.8,<3.9", "nltk>=3.9,<4"]
+
+    assert _string_list("dependencies", requirements) == requirements
+    assert _string_list("optional-dependencies.dev", []) == []
+
+
 def test_every_declared_classifier_is_a_real_trove_classifier() -> None:
     """PyPI validates classifiers at upload and rejects any it does not know.
 
@@ -803,8 +853,8 @@ def test_every_declared_classifier_is_a_real_trove_classifier() -> None:
     upload. `trove-classifiers` is the canonical list PyPI validates against, so
     checking membership here answers the question locally.
     """
-    classifiers = cast(
-        list[str],
+    classifiers = _string_list(
+        "classifiers",
         tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))["project"].get("classifiers", []),
     )
     assert classifiers, "pyproject.toml declares no classifiers"
