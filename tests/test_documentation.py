@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import re
+import tomllib
 from pathlib import Path
 from typing import cast
 
@@ -623,6 +624,10 @@ def test_the_documented_rejection_lists_elements_the_gate_really_reports(
 
 
 PYPROJECT = REPO_ROOT / "pyproject.toml"
+# PEP 508 marks a direct reference with `@` separating the name from a URL. The
+# space before it is optional in practice (`name@git+https://...` parses), so it
+# is not required here.
+DIRECT_REFERENCE = re.compile(r"@\s*[a-zA-Z][a-zA-Z0-9+.\-]*://")
 MODEL_WHEEL_URL = re.compile(
     r"https://github\.com/explosion/spacy-models/releases/download/"
     r"(?P<name>[a-z_]+)-(?P<tag>[0-9.]+)/(?P=name)-(?P<version>[0-9.]+)-"
@@ -685,18 +690,53 @@ def test_no_dependency_is_declared_as_a_direct_url() -> None:
     local catches it: the build succeeds, `pip install` succeeds, and `twine
     check` passes because it validates only README rendering. The first signal
     would be the upload itself, so the guard belongs here.
+
+    Every declared dependency list is checked, not just the required one. An
+    extra contributes `Requires-Dist: name @ url; extra == "..."` to the same
+    metadata field and is rejected on the same terms, so a direct reference
+    parked in `[project.optional-dependencies]` would fail an upload exactly as
+    a required one does.
     """
-    text = PYPROJECT.read_text(encoding="utf-8")
-    dependency_block = re.search(r"^dependencies = \[(.*?)^\]", text, re.MULTILINE | re.DOTALL)
-    assert dependency_block is not None, "pyproject.toml declares no dependencies table"
+    project = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))["project"]
+
+    groups: dict[str, list[str]] = {
+        "dependencies": cast(list[str], project.get("dependencies", [])),
+    }
+    for extra, requirements in cast(
+        dict[str, list[str]], project.get("optional-dependencies", {})
+    ).items():
+        groups[f"optional-dependencies.{extra}"] = requirements
+
+    assert "dependencies" in groups, "pyproject.toml declares no dependencies table"
 
     direct = [
-        line.strip()
-        for line in dependency_block.group(1).splitlines()
-        if "@" in line and "://" in line
+        f"{group}: {requirement}"
+        for group, requirements in groups.items()
+        for requirement in requirements
+        if DIRECT_REFERENCE.search(requirement)
     ]
 
     assert not direct, (
         "pyproject.toml declares a direct URL dependency, which PyPI rejects at upload: "
         f"{direct}. Install it as a documented step instead."
     )
+
+
+@pytest.mark.parametrize(
+    "requirement",
+    [
+        'en_core_web_sm @ https://example.invalid/en_core_web_sm-3.8.0-py3-none-any.whl',
+        "lingity@git+https://github.com/phrocker/lingitylingity",
+        "thing @ file:///tmp/thing-1.0-py3-none-any.whl",
+    ],
+)
+def test_a_direct_reference_is_recognised_in_any_form(requirement: str) -> None:
+    """The guard is worthless if it only matches the exact line that was removed."""
+    assert DIRECT_REFERENCE.search(requirement) is not None
+
+
+@pytest.mark.parametrize("requirement", ["spacy>=3.8,<3.9", "nltk>=3.9,<4", 'mypy<2,>=1.13'])
+def test_an_ordinary_requirement_is_not_mistaken_for_a_direct_reference(
+    requirement: str,
+) -> None:
+    assert DIRECT_REFERENCE.search(requirement) is None
