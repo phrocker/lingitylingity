@@ -47,6 +47,9 @@ Issues = "https://github.com/phrocker/lingitylingity/issues"
 dev = [
   "mypy>=1.13,<2",
   "pytest>=8.3,<9",
+  # The canonical Trove classifier list, used by tests/test_documentation.py to
+  # answer locally a question PyPI otherwise answers only at upload.
+  "trove-classifiers>=2024.10.0",
   "types-jsonschema>=4.23,<5",
 ]
 

@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import cast
 
 import pytest
+from trove_classifiers import classifiers as trove_classifiers
 
 from lingity.invariants import compare_protected, extract_protected
 from lingity.nlp import MODEL_NAME, MODEL_VERSION
@@ -625,9 +626,12 @@ def test_the_documented_rejection_lists_elements_the_gate_really_reports(
 
 PYPROJECT = REPO_ROOT / "pyproject.toml"
 # PEP 508 marks a direct reference with `@` separating the name from a URL. The
-# space before it is optional in practice (`name@git+https://...` parses), so it
-# is not required here.
-DIRECT_REFERENCE = re.compile(r"@\s*[a-zA-Z][a-zA-Z0-9+.\-]*://")
+# space before it is optional in practice (`name@git+https://...` parses), and
+# the `//` is not required either: `name @ file:../wheels/x.whl` is a direct
+# reference with a scheme and a relative path, and PyPI rejects it on the same
+# terms. Matching on the scheme's colon rather than on `://` covers both. An
+# ordinary specifier carries no `@` at all, so this cannot collide with one.
+DIRECT_REFERENCE = re.compile(r"@\s*[a-zA-Z][a-zA-Z0-9+.\-]*:")
 MODEL_WHEEL_URL = re.compile(
     r"https://github\.com/explosion/spacy-models/releases/download/"
     r"(?P<name>[a-z_]+)-(?P<tag>[0-9.]+)/(?P=name)-(?P<version>[0-9.]+)-"
@@ -728,10 +732,16 @@ def test_no_dependency_is_declared_as_a_direct_url() -> None:
         'en_core_web_sm @ https://example.invalid/en_core_web_sm-3.8.0-py3-none-any.whl',
         "lingity@git+https://github.com/phrocker/lingitylingity",
         "thing @ file:///tmp/thing-1.0-py3-none-any.whl",
+        "thing @ file:../wheels/thing-1.0-py3-none-any.whl",
     ],
 )
 def test_a_direct_reference_is_recognised_in_any_form(requirement: str) -> None:
-    """The guard is worthless if it only matches the exact line that was removed."""
+    """The guard is worthless if it only matches the exact line that was removed.
+
+    The `file:` form without `//` is included deliberately: a scheme followed by
+    a relative path is still a direct reference, and a matcher keyed on `://`
+    would let it through while reporting the file clean.
+    """
     assert DIRECT_REFERENCE.search(requirement) is not None
 
 
@@ -740,3 +750,26 @@ def test_an_ordinary_requirement_is_not_mistaken_for_a_direct_reference(
     requirement: str,
 ) -> None:
     assert DIRECT_REFERENCE.search(requirement) is None
+
+
+def test_every_declared_classifier_is_a_real_trove_classifier() -> None:
+    """PyPI validates classifiers at upload and rejects any it does not know.
+
+    This is the same shape as the direct-reference blocker: the build succeeds,
+    the install succeeds, and `twine check` passes, because none of them consult
+    the classifier list. A typo would surface for the first time as a rejected
+    upload. `trove-classifiers` is the canonical list PyPI validates against, so
+    checking membership here answers the question locally.
+    """
+    classifiers = cast(
+        list[str],
+        tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))["project"].get("classifiers", []),
+    )
+    assert classifiers, "pyproject.toml declares no classifiers"
+
+    unknown = [name for name in classifiers if name not in trove_classifiers]
+
+    assert not unknown, (
+        f"pyproject.toml declares classifiers PyPI does not recognise: {unknown}. "
+        "An unknown classifier is rejected at upload."
+    )
