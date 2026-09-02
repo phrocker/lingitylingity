@@ -2192,7 +2192,9 @@ def _uncovered_content(manifest: dict[str, JsonValue]) -> Counter[str] | None:
         if not isinstance(content, list):
             return None
         for triple in content:
-            counter[str(triple)] += 1
+            if not isinstance(triple, str):
+                return None
+            counter[triple] += 1
     return counter
 
 
@@ -2211,6 +2213,7 @@ def _parse_claim_signature(signature: str) -> dict[str, str] | None:
 def _reconcile_actor_specification(
     missing: list[str],
     added: list[str],
+    candidate_originals: dict[str, list[str]] | None = None,
 ) -> tuple[list[str], list[str], list[str]]:
     """Allow naming a previously unnamed actor, but never un-naming one.
 
@@ -2220,6 +2223,11 @@ def _reconcile_actor_specification(
     where the source had none adds information without contradicting the
     source, so it is permitted and reported. The reverse -- dropping or
     swapping a named actor -- removes accountability and stays a violation.
+
+    Matching runs on canonical signatures, but the actor is *reported* from the
+    candidate's stored signature when ``candidate_originals`` supplies it, so
+    the message quotes the phrase the writer actually used rather than the
+    comparison's reordered form.
     """
 
     remaining_missing = list(missing)
@@ -2241,12 +2249,49 @@ def _reconcile_actor_specification(
                 continue
             remaining_missing.remove(source_signature)
             remaining_added.remove(candidate_signature)
+            reported = candidate_claim["actor"]
+            if candidate_originals:
+                stored = candidate_originals.get(candidate_signature)
+                if stored:
+                    stored_claim = _parse_claim_signature(stored[0])
+                    if stored_claim is not None and "actor" in stored_claim:
+                        reported = stored_claim["actor"]
             specified.append(
                 f"actor specified: {source_claim.get('action', '?')} "
-                f"assigned to '{candidate_claim['actor']}'"
+                f"assigned to '{reported}'"
             )
             break
     return remaining_missing, remaining_added, sorted(specified)
+
+
+def _restore_stored_signatures(
+    canonical: list[str], originals: dict[str, list[str]]
+) -> list[str]:
+    """Report the signature as the manifest stores it, not as comparison folded it.
+
+    Comparison folds actor and target so a reordered modifier chain does not
+    read as a different claim, but ``protected_delta`` is documented as naming
+    the exact elements a caller can restore *by name*. Reporting the folded
+    form would name a string that appears in neither manifest -- "platform
+    reliability team" when both texts say "reliability platform team" -- and a
+    consumer matching against ``semantic_signature`` would find nothing. Each
+    canonical form is therefore mapped back to a stored signature it came from.
+    """
+
+    available = {key: list(value) for key, value in originals.items()}
+    restored: list[str] = []
+    for signature in canonical:
+        stored = available.get(signature)
+        if not stored:
+            # Unreachable: every canonical form here was produced from one of
+            # these signatures. Raise rather than fall back to the folded form,
+            # which would silently reintroduce the unrestorable name.
+            raise ValueError(
+                f"no stored signature for canonical form {signature!r}; "
+                "protected_delta would name an element absent from the manifest"
+            )
+        restored.append(stored.pop(0))
+    return sorted(restored)
 
 
 def _canonical_signature(signature: str) -> str:
@@ -2282,14 +2327,22 @@ def compare_protected(
     source_manifest: dict[str, JsonValue],
     candidate_manifest: dict[str, JsonValue],
 ) -> dict[str, JsonValue]:
-    source_signatures = [
-        _canonical_signature(signature)
+    source_pairs = [
+        (_canonical_signature(signature), signature)
         for signature in cast(list[str], source_manifest["semantic_signature"])
     ]
-    candidate_signatures = [
-        _canonical_signature(signature)
+    candidate_pairs = [
+        (_canonical_signature(signature), signature)
         for signature in cast(list[str], candidate_manifest["semantic_signature"])
     ]
+    source_signatures = [canonical for canonical, _ in source_pairs]
+    candidate_signatures = [canonical for canonical, _ in candidate_pairs]
+    source_originals: dict[str, list[str]] = {}
+    for canonical, stored in source_pairs:
+        source_originals.setdefault(canonical, []).append(stored)
+    candidate_originals: dict[str, list[str]] = {}
+    for canonical, stored in candidate_pairs:
+        candidate_originals.setdefault(canonical, []).append(stored)
     if source_manifest.get("source_sha256") == candidate_manifest.get("source_sha256"):
         # Unchanged text preserves its own meaning by construction. Incomplete
         # extraction is a reason to doubt a *rewrite*, not a reason to doubt
@@ -2308,7 +2361,11 @@ def compare_protected(
     candidate = Counter(candidate_signatures)
     missing = sorted((source - candidate).elements())
     added = sorted((candidate - source).elements())
-    missing, added, specified = _reconcile_actor_specification(missing, added)
+    missing, added, specified = _reconcile_actor_specification(
+        missing, added, candidate_originals
+    )
+    missing = _restore_stored_signatures(missing, source_originals)
+    added = _restore_stored_signatures(added, candidate_originals)
     unresolved = (
         _unresolved_claim_reasons(source_signatures, "source")
         + _unresolved_claim_reasons(candidate_signatures, "candidate")

@@ -32,6 +32,28 @@ def test_analysis_validates(recommendation_fixture: dict[str, str]) -> None:
     validator.validate(analyze_text(recommendation_fixture["original"]))
 
 
+def test_analysis_with_uncovered_sentence_validates() -> None:
+    """An uncovered sentence carries a dependency fingerprint, and the schema declares it.
+
+    The corpora used by the other schema tests happen to parse cleanly, so
+    every ``coverage.uncovered`` list they produce is empty and the shape of an
+    uncovered entry goes unchecked. This text does not parse into a claim, so
+    it exercises that branch. The non-empty assertion is the point: without it
+    the validation below would pass vacuously on an empty list and would not
+    notice a field the schema forbids.
+    """
+
+    validator = Draft202012Validator(_json(SCHEMA_DIR / "analysis.schema.json"))
+    artifact = analyze_text("Defer retirement of the legacy broker.")
+    protected = cast(dict[str, Any], artifact["protected"])
+    uncovered = cast(list[dict[str, Any]], cast(dict[str, Any], protected["coverage"])["uncovered"])
+
+    assert uncovered, "text no longer produces an uncovered sentence; pick one that does"
+    assert all(entry["content"] for entry in uncovered)
+
+    validator.validate(artifact)
+
+
 def test_analysis_finding_values_reject_null(recommendation_fixture: dict[str, str]) -> None:
     validator = Draft202012Validator(_json(SCHEMA_DIR / "analysis.schema.json"))
     artifact = analyze_text(recommendation_fixture["original"])

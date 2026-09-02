@@ -76,7 +76,7 @@ def _analysis_artifact(
 ) -> dict[str, JsonValue]:
     text = "Synthetic source sentence."
     artifact: dict[str, JsonValue] = {
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "analyzer_version": "test",
         "linguistic_model": cast(dict[str, JsonValue], model_fingerprint()),
         "profile": profile.reference(),
