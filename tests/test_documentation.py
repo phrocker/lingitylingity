@@ -20,6 +20,7 @@ from typing import cast
 import pytest
 
 from lingity.invariants import compare_protected, extract_protected
+from lingity.nlp import MODEL_NAME, MODEL_VERSION
 from lingity.profiles import load_profile
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -618,4 +619,84 @@ def test_the_documented_rejection_lists_elements_the_gate_really_reports(
     assert count is not None, f"{name} no longer states how many elements were dropped"
     assert int(count.group(1)) == len(missing), (
         f"{name} claims {count.group(1)} dropped element(s); the gate reports {len(missing)}"
+    )
+
+
+PYPROJECT = REPO_ROOT / "pyproject.toml"
+MODEL_WHEEL_URL = re.compile(
+    r"https://github\.com/explosion/spacy-models/releases/download/"
+    r"(?P<name>[a-z_]+)-(?P<tag>[0-9.]+)/(?P=name)-(?P<version>[0-9.]+)-"
+)
+
+
+def _documented_model_command(commands: list[str]) -> str:
+    """Return the one documented command that installs the linguistic model."""
+    matches = [command for command in commands if "spacy-models" in command]
+    if len(matches) != 1:
+        raise AssertionError(
+            f"expected exactly one command installing the linguistic model, found {matches!r}"
+        )
+    return matches[0]
+
+
+@pytest.mark.parametrize("readme_name", READMES)
+def test_the_documented_model_wheel_matches_the_version_the_loader_requires(
+    readme_name: str,
+) -> None:
+    """The pinned model version is stated in four files and enforced in one.
+
+    `lingity/nlp.py` refuses any model but `MODEL_VERSION`, so a README or CI
+    line naming a different wheel does not degrade the analysis -- it fails
+    closed at load time. It does something worse: it tells a reader to install
+    the exact thing that will be rejected, and the error names the loader rather
+    than the instruction that caused it. Pinning the URL against the constant
+    keeps the advice and the enforcement in step.
+    """
+    command = _documented_model_command(_documented_commands(REPO_ROOT / readme_name))
+
+    url = MODEL_WHEEL_URL.search(command)
+    assert url is not None, f"{readme_name} installs a model from an unrecognised URL: {command!r}"
+    assert url.group("name") == MODEL_NAME, (
+        f"{readme_name} installs {url.group('name')!r}, but the loader requires {MODEL_NAME!r}"
+    )
+    assert url.group("version") == MODEL_VERSION == url.group("tag"), (
+        f"{readme_name} installs {MODEL_NAME} {url.group('version')} from release tag "
+        f"{url.group('tag')}, but lingity/nlp.py requires exactly {MODEL_VERSION}"
+    )
+
+
+def test_ci_installs_the_same_model_wheel_the_readmes_document() -> None:
+    """Parity already covers this, but only while the command stays in the block."""
+    command = _documented_model_command(_workflow_commands())
+
+    url = MODEL_WHEEL_URL.search(command)
+    assert url is not None, f"ci.yml installs a model from an unrecognised URL: {command!r}"
+    assert (url.group("name"), url.group("version")) == (MODEL_NAME, MODEL_VERSION), (
+        f"ci.yml installs {url.group('name')} {url.group('version')}, but lingity/nlp.py "
+        f"requires {MODEL_NAME} {MODEL_VERSION}"
+    )
+
+
+def test_no_dependency_is_declared_as_a_direct_url() -> None:
+    """A public index rejects any distribution whose metadata carries one.
+
+    `en_core_web_sm` is not on PyPI, so declaring it here needs a PEP 440 direct
+    reference -- and PyPI answers `400 Can't have direct dependency`. Nothing
+    local catches it: the build succeeds, `pip install` succeeds, and `twine
+    check` passes because it validates only README rendering. The first signal
+    would be the upload itself, so the guard belongs here.
+    """
+    text = PYPROJECT.read_text(encoding="utf-8")
+    dependency_block = re.search(r"^dependencies = \[(.*?)^\]", text, re.MULTILINE | re.DOTALL)
+    assert dependency_block is not None, "pyproject.toml declares no dependencies table"
+
+    direct = [
+        line.strip()
+        for line in dependency_block.group(1).splitlines()
+        if "@" in line and "://" in line
+    ]
+
+    assert not direct, (
+        "pyproject.toml declares a direct URL dependency, which PyPI rejects at upload: "
+        f"{direct}. Install it as a documented step instead."
     )

@@ -88,6 +88,29 @@ bullet resume: `architecture-review` scores the weak version 91.56 and the
 strong version 94.95, `product-strategy` scores them 89.44 and 93.69, and
 `resume-review` scores them 66.43 and 100.00. Only `resume-review` ranks the two documents the way a reader would.
 
+## Installation
+
+Lingity is not yet published to a package index, so install it from a clone.
+Three commands are required, and the second and third are not optional:
+
+```text
+python -m pip install .
+python -m pip install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
+python -m nltk.downloader wordnet omw-1.4
+```
+
+The linguistic model and the WordNet corpus are installed separately because
+neither can be declared as a dependency. `en_core_web_sm` is not on a package
+index, so naming it in `pyproject.toml` would require a direct URL reference,
+and a public index rejects any distribution whose metadata carries one. WordNet
+is corpus data rather than a Python package, so `nltk` ships the downloader and
+not the corpus.
+
+Skipping either step does not degrade an analysis quietly. The model loader
+requires exactly the pinned version and raises `LinguisticModelError` on any
+other, and canonicalization raises `WordNetDataError` when the corpus is
+absent. Both name the command that fixes them.
+
 ## CLI
 
 ```text
@@ -265,6 +288,7 @@ is an error rather than a quiet `no_material_change`.
 
 ```text
 python -m pip install -e '.[dev]'
+python -m pip install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
 python -m nltk.downloader wordnet omw-1.4
 python -m pytest
 python -m mypy

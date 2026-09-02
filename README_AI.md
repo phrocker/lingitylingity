@@ -183,6 +183,7 @@ is an error rather than a quiet `no_material_change`.
 
 ```text
 python -m pip install -e '.[dev]'
+python -m pip install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
 python -m nltk.downloader wordnet omw-1.4
 python -m pytest
 python -m mypy
