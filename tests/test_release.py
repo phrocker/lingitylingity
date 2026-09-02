@@ -19,9 +19,19 @@ from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+# `scripts/` is not a package, so it has to be reachable for the import below --
+# but only for the import. Leaving it at the front of sys.path would outrank the
+# standard library for the rest of the session, so a script added later under a
+# stdlib name would silently shadow it for every test in the suite. Restoring the
+# path immediately removes that possibility rather than relying on nobody doing
+# it. `sys.modules` keeps the module, so the import still costs nothing after.
+SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
 
-import release  # noqa: E402
+sys.path.insert(0, str(SCRIPTS))
+try:
+    import release  # noqa: E402
+finally:
+    sys.path.remove(str(SCRIPTS))
 
 HEALTHY = """\
 Metadata-Version: 2.4
@@ -221,6 +231,18 @@ def test_the_repository_argument_has_no_default() -> None:
     """A default would eventually publish to the wrong index quietly."""
     with pytest.raises(SystemExit):
         release.main([])
+
+
+def test_importing_the_script_leaves_sys_path_as_it_found_it() -> None:
+    """`scripts/` must not outrank the standard library for the whole session.
+
+    The import above needs the directory on the path; nothing after it does. Had
+    it stayed at index 0, a later `scripts/io.py` or `scripts/types.py` would
+    shadow the stdlib module of that name for all of the suite, and the failure
+    would surface as an unrelated test breaking somewhere else.
+    """
+    assert str(SCRIPTS) not in sys.path
+    assert release.__file__ == str(SCRIPTS / "release.py")
 
 
 def test_the_declared_version_is_the_one_that_would_be_released() -> None:
