@@ -239,7 +239,7 @@ by a different pipeline rather than re-analysing it under new assumptions.
 
 A profile carries the weights, thresholds, and vocabulary for one kind of
 document. The analyzer is shared; the profile decides what counts as a defect
-and how much it costs. Four profiles ship, and a project may install more.
+and how much it costs. Five profiles ship, and a project may install more.
 
 `architecture-review` reads review decisions. `product-strategy` reads need
 statements, value propositions, and positioning. The second weights agency and
