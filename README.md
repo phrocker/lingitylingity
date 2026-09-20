@@ -42,12 +42,36 @@ source text
   -> accept, iterate, reject, or require human review
 ```
 
-Four profiles ship. `architecture-review` reads recommendations, ADR summaries,
+Five profiles ship. `architecture-review` reads recommendations, ADR summaries,
 findings, risks, and review decisions that must remain precise while reading
 like professional human communication. `product-strategy` reads need
 statements, value propositions, positioning, and go-to-market plans.
 `web-copy` reads public-facing prose: landing pages, product descriptions,
 job listings. `resume-review` reads resume and CV accomplishment bullets.
+`local-service` reads a trade's page for a place — a plumber in one county, an
+electrician in the next.
+
+`local-service` is the case for a profile rather than a set of weights. Given a
+page about HVAC repair in Howard County built from stock phrases — family owned
+and operated, no job too big or too small, licensed and insured, free
+estimates — `web-copy` scores it 87.27 and calls it `clear`, with lexical
+clarity at a clean 100. Its jargon lists know `growth hack` and `viral loop`
+and nothing a plumber would write. The same page under `local-service` needs
+revision.
+
+That gap matters more than a score usually does. A business running twenty-two
+county pages off one template is structurally a doorway farm, and the
+judgement is made on the writing: two pages side by side, ninety percent
+identical. Stock phrases are what make them identical, so an instrument that
+cannot see them cannot see the risk. It weights lexical clarity at 32 and
+agency at 22, bands stricter than `web-copy`, and adds the trade vocabulary —
+HVAC, SEER, AFUE, GFCI — so a page cannot be penalised for naming its own
+subject.
+
+Its trust-claim group is flagged for substantiation rather than deletion.
+"Licensed and insured" is true, legally meaningful, and worth saying — with
+the licence number beside it, which is the same move that stops twenty-two
+pages being one page.
 
 A strategy document fails differently from an architecture review. It claims
 something unfalsifiable, or it claims it without naming who acts, so
