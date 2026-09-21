@@ -527,12 +527,69 @@ def _is_numeral_determiner(token: Token) -> bool:
     return token.lower == "both" or token.lower in NUMBER_WORDS
 
 
-def _normalize_target_tokens(tokens: Iterable[Token]) -> str:
+def _hollow_modifier_lemmas(profile: Profile) -> frozenset[str]:
+    """Words the profile has certified as asserting nothing checkable.
+
+    A term listed under the jargon class `unfalsifiable superlative` has been
+    declared to make no verifiable claim. Removing it therefore cannot change
+    what a sentence asserts, because it asserted nothing -- which is what makes
+    it safe for this reading. Without it, deleting a word the analyzer told you
+    to delete is reported as a change of meaning, and `improve` cannot apply its
+    own advice.
+
+    `qualifiers` is deliberately *not* read, though an earlier version of this
+    did read it. That list exists to catch prose that hedges, not prose that
+    asserts nothing, and the two are different sets. It contains epistemic
+    hedges (`potentially`, `presumably`, `arguably`), quantity words
+    (`numerous`, `countless`, `myriad`, `plethora`) and scope and precision
+    hedges (`virtually`, `roughly`, `largely`, `substantially`). Erasing any of
+    those changes the claim: "potentially available" became "available",
+    "roughly forty percent" became "forty percent", and "virtually all defects"
+    became "all defects" -- possibility certified as fact, and precision and
+    quantity dropped, by the gate that exists to refuse exactly that.
+
+    A profile that wants terms erased beyond the superlatives states them
+    explicitly under `rules.hollow_modifiers`. Nothing is inferred from a list
+    that was built to answer a different question.
+
+    Only single-word entries are read. Decomposing a multi-word phrase into its
+    component words put "edge" in the set via "cutting edge", and "the edge
+    case" then compared equal to "the case" -- a real change certified as
+    equivalent. A phrase is hollow as a phrase, not word by word, and matching
+    it as one would have to happen before lemmas are canonicalised and
+    reordered. Until then a multi-word superlative keeps its content, which
+    costs a rewrite an acceptance it deserved but never certifies one it did
+    not.
+    """
+
+    rules = profile.rules
+    words: set[str] = set()
+    jargon = cast(dict[str, list[str]], rules.get("jargon", {}) or {})
+    for phrase in jargon.get("unfalsifiable superlative", []):
+        if len(phrase.split()) == 1:
+            words.add(phrase.lower())
+    for phrase in cast(list[str], rules.get("hollow_modifiers", []) or []):
+        if len(phrase.split()) == 1:
+            words.add(phrase.lower())
+    return frozenset(words)
+
+
+def _normalize_target_tokens(
+    tokens: Iterable[Token], hollow: frozenset[str] = frozenset()
+) -> str:
     content = _content_tokens(tokens)
     if len(content) == 1 and content[0].lower in PRONOUN_TARGETS:
         return content[0].lower
     words: list[str] = []
+    # The head is whatever sits last; only what modifies it can be hollow. This
+    # is what keeps the reading safe: dropping the noun, the actor, a quantity
+    # or the action still changes the claim.
+    head_index = content[-1].index if content else None
     for token in content:
+        if token.index != head_index and (
+            (token.lemma or token.lower).lower() in hollow or token.lower in hollow
+        ):
+            continue
         if token.pos == "NUM" or token.lower == "both":
             # Numerals are propositional content: "two hypotheses" and "three
             # hypotheses" are different claims. Canonicalise the surface form so
@@ -828,13 +885,13 @@ def _add_claim(
     claims.append((start, end, _claim_signature(actor, action, target, modality, polarity, status)))
 
 
-def _claim_parts(document: Document, predicate: Token) -> ClaimParts:
-    deferral = _deferral_parts(document, predicate)
+def _claim_parts(document: Document, predicate: Token, hollow: frozenset[str] = frozenset()) -> ClaimParts:
+    deferral = _deferral_parts(document, predicate, hollow)
     if deferral is not None:
         return deferral
     start, end = _claim_span(document, predicate)
     action = _resolve_action(predicate)
-    target = _normalize_target_tokens(_target_tokens(document, predicate))
+    target = _normalize_target_tokens(_target_tokens(document, predicate), hollow)
     subject = _subject_tokens(document, predicate)
     actor = _normalize_subject_tokens(document, subject) if subject else "unspecified"
     polarity = _predicate_polarity(document, predicate)
@@ -895,12 +952,12 @@ def _is_deferral_operator(document: Document, token: Token) -> bool:
     return lemma in DEFERRAL_OPERATORS
 
 
-def _deferral_parts(document: Document, predicate: Token) -> ClaimParts | None:
-    parts = _deferral_parts_list(document, predicate)
+def _deferral_parts(document: Document, predicate: Token, hollow: frozenset[str] = frozenset()) -> ClaimParts | None:
+    parts = _deferral_parts_list(document, predicate, hollow)
     return parts[0] if parts else None
 
 
-def _deferral_parts_list(document: Document, predicate: Token) -> list[ClaimParts]:
+def _deferral_parts_list(document: Document, predicate: Token, hollow: frozenset[str] = frozenset()) -> list[ClaimParts]:
     """Rewrite a deferral into a negated, deferred claim about its complement.
 
     "Defer architecture ratification", "propose deferring architecture
@@ -924,7 +981,7 @@ def _deferral_parts_list(document: Document, predicate: Token) -> list[ClaimPart
     for root in complements:
         if root.pos in {"VERB", "AUX"}:
             action = _resolve_action(root)
-            target = _normalize_target_tokens(_target_tokens(document, root))
+            target = _normalize_target_tokens(_target_tokens(document, root), hollow)
         else:
             nominal = _nominal_action(root)
             modifiers = [
@@ -936,10 +993,10 @@ def _deferral_parts_list(document: Document, predicate: Token) -> list[ClaimPart
             ]
             if nominal is not None:
                 action = nominal
-                target = _normalize_target_tokens(modifiers)
+                target = _normalize_target_tokens(modifiers, hollow)
             else:
                 action = ACTION_NORMALIZATION.get("begin", "begin")
-                target = _normalize_target_tokens(document.subtree(root))
+                target = _normalize_target_tokens(document.subtree(root), hollow)
         parts.append(
             ClaimParts(
                 start=start,
@@ -1147,6 +1204,7 @@ def _generic_claims(
     concepts: Iterable[ConceptSpan],
     authorization_predicates: set[int],
     claims: list[tuple[int, int, str]],
+    hollow: frozenset[str] = frozenset(),
 ) -> None:
     # Concepts no longer suppress parsed claims. Suppression existed so that a
     # memorised concept claim would not be duplicated by the parse; with the
@@ -1170,7 +1228,7 @@ def _generic_claims(
                     deferred.status,
                 )
             continue
-        parts = _claim_parts(document, predicate)
+        parts = _claim_parts(document, predicate, hollow)
         if _skip_generic_claim(predicate, parts, concept_ranges, authorization_predicates):
             continue
         _add_claim(
@@ -1447,7 +1505,7 @@ def _is_descendant(document: Document, token: Token, ancestor: Token) -> bool:
     )
 
 
-def _state_claim_predicates(document: Document) -> Iterable[tuple[Token, list[Token], str]]:
+def _state_claim_predicates(document: Document, hollow: frozenset[str] = frozenset()) -> Iterable[tuple[Token, list[Token], str]]:
     """Linking predicates that assert a state, with their normalized states."""
 
     for predicate in document:
@@ -1460,7 +1518,7 @@ def _state_claim_predicates(document: Document) -> Iterable[tuple[Token, list[To
             continue
         states = sorted(
             {
-                _normalize_target_tokens(_complement_tokens(document, complement, complements))
+                _normalize_target_tokens(_complement_tokens(document, complement, complements), hollow)
                 for complement in complements
             }
         )
@@ -1470,7 +1528,7 @@ def _state_claim_predicates(document: Document) -> Iterable[tuple[Token, list[To
         yield predicate, complements, target
 
 
-def _state_claims(document: Document, claims: list[tuple[int, int, str]]) -> set[int]:
+def _state_claims(document: Document, claims: list[tuple[int, int, str]], hollow: frozenset[str] = frozenset()) -> set[int]:
     """Extract what a text asserts a thing *is*, not only what it does.
 
     "The fix is complete and fail-closed" commits the author to a state. Without
@@ -1480,7 +1538,7 @@ def _state_claims(document: Document, claims: list[tuple[int, int, str]]) -> set
     """
 
     claimed: set[int] = set()
-    for predicate, complements, target in _state_claim_predicates(document):
+    for predicate, complements, target in _state_claim_predicates(document, hollow):
         start = min([predicate.start, *(token.start for token in complements)])
         end = max([predicate.end, *(token.end for token in complements)])
         polarity = _predicate_polarity(document, predicate)
@@ -1499,11 +1557,11 @@ def _state_claims(document: Document, claims: list[tuple[int, int, str]]) -> set
     return claimed
 
 
-def _semantic_claim_signatures(document: Document, concepts: Iterable[ConceptSpan]) -> list[str]:
+def _semantic_claim_signatures(document: Document, concepts: Iterable[ConceptSpan], hollow: frozenset[str] = frozenset()) -> list[str]:
     concept_list = list(concepts)
     claims: list[tuple[int, int, str]] = []
-    state_predicates = _state_claims(document, claims)
-    _generic_claims(document, concept_list, state_predicates, claims)
+    state_predicates = _state_claims(document, claims, hollow)
+    _generic_claims(document, concept_list, state_predicates, claims, hollow)
     _status_claims(document, claims)
     unique = sorted(set(claims), key=lambda item: (item[0], item[1], item[2]))
     return [signature for _, _, signature in unique]
@@ -2022,7 +2080,7 @@ def extract_protected(text: str, profile: Profile) -> dict[str, JsonValue]:
     )
     signature = sorted(
         _element_signatures(ordered)
-        + _semantic_claim_signatures(document, concept_spans)
+        + _semantic_claim_signatures(document, concept_spans, _hollow_modifier_lemmas(profile))
     )
     manifest: dict[str, JsonValue] = {
         "items": cast(list[JsonValue], ordered),
