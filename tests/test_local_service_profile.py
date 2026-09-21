@@ -147,7 +147,7 @@ def test_trust_claims_are_flagged_for_substantiation_not_deletion(
     profile = load_profile("local-service").data
     claims = profile["rules"]["jargon"]["unverifiable trust claim"]
     assert "license and insure" in claims
-    assert "years of experience" in claims
+    assert "year of experience" in claims
 
 
 def test_no_phrase_is_penalised_twice(local_service: Profile) -> None:
@@ -158,3 +158,97 @@ def test_no_phrase_is_penalised_twice(local_service: Profile) -> None:
     for phrase in phrases:
         containing = [other for other in phrases if other != phrase and phrase in other]
         assert not containing, f"{phrase!r} is contained by {containing}"
+
+
+# One surface sentence per phrase this profile adds. The reviewer on #22 asked
+# for it and was right: five of the fifty-one lemmas shipped in a form that
+# never fired — `trust name`, `full license`, `certified technician`,
+# `years of experience`, `no hidden fee` — and a rule that never fires is
+# indistinguishable from a rule nobody wrote. Hand-picked examples cannot catch
+# that; only enumerating every phrase can.
+SURFACES: dict[str, str] = {
+    '100 percent satisfaction': 'We offer 100 percent satisfaction.',
+    '24 7 emergency service': 'We offer 24 7 emergency service.',
+    'a plus rating': 'We hold an A plus rating.',
+    'attention to detail': 'Our attention to detail sets us apart.',
+    'available 24 7': 'Our team is available 24 7.',
+    'background check technician': 'Every background checked technician arrives in uniform.',
+    'big or small': 'Every repair, big or small, gets the same crew.',
+    'bond and insure': 'We are bonded and insured.',
+    'certify technician': 'A certified technician performs the work.',
+    'competitive rate': 'Our competitive rates beat the area.',
+    'decade of experience': 'We bring decades of experience.',
+    'exceptional customer service': 'We deliver exceptional customer service.',
+    'factory train': 'Our factory trained technicians handle every brand.',
+    'family own': 'We are a family owned business.',
+    'fast and friendly': 'Our crews are fast and friendly.',
+    'free estimate': 'We offer free estimates.',
+    'free quote': 'Call today for a free quote.',
+    'fully insure': 'Every technician is fully insured.',
+    'fully license': 'Our company is fully licensed.',
+    'hassle free': 'Booking is hassle free.',
+    'here for you': 'We are here for you.',
+    'hidden fee': 'We never charge a hidden fee.',
+    'honest and reliable': 'We are honest and reliable.',
+    'license and insure': 'We are licensed and insured.',
+    'local expert': 'Our local experts arrive the same day.',
+    'money back guarantee': 'We offer a money back guarantee.',
+    'no job be too big': 'No job is too big for our crew.',
+    'no job be too small': 'No job is too small for us.',
+    'no obligation quote': 'Ask for a no obligation quote.',
+    'one stop shop': 'We are your one stop shop for heating.',
+    'peace of mind': 'A new system buys you peace of mind.',
+    'pride ourselves': 'We pride ourselves on our service.',
+    'prompt and professional': 'Our team is prompt and professional.',
+    'quality workmanship': 'We stand behind our quality workmanship.',
+    'same day service guarantee': 'Ask about our same day service guarantee.',
+    'satisfaction be our top priority': 'Customer satisfaction is our top priority.',
+    'satisfaction guarantee': 'Every visit carries a satisfaction guarantee.',
+    'serve homeowner since': 'We have served homeowners since 1998.',
+    'serve the area since': 'We have served the area since 1998.',
+    'thousand of satisfied customer': 'We have thousands of satisfied customers.',
+    'top notch': 'The workmanship is top notch.',
+    'transparent pricing': 'Our transparent pricing has no surprises.',
+    'trust by homeowner': 'We are trusted by homeowners across the county.',
+    'trusted name': 'We are a trusted name in the county.',
+    'unbeatable price': 'We offer unbeatable prices.',
+    'upfront pricing': 'We believe in upfront pricing.',
+    'we be here to help': 'We are here to help.',
+    'we have you cover': 'Whatever breaks, we have you covered.',
+    'we treat your home like our own': 'We treat your home like our own.',
+    'year of experience': 'We bring thirty years of experience.',
+    'your satisfaction be our': 'Your satisfaction is our promise.',
+}
+
+
+def _added_groups(profile: Profile) -> dict[str, list[str]]:
+    """The groups this profile adds over `web-copy`, which it inherits from."""
+    import json as _json
+    from pathlib import Path as _Path
+
+    from lingity.profiles import PROFILE_DIR
+
+    inherited = _json.loads((_Path(PROFILE_DIR) / "web-copy.v1.json").read_text())
+    base = set(inherited["rules"]["jargon"])
+    return {
+        group: phrases
+        for group, phrases in profile.data["rules"]["jargon"].items()
+        if group not in base
+    }
+
+
+@pytest.mark.parametrize("phrase", sorted(SURFACES))
+def test_every_added_phrase_actually_fires(phrase: str, local_service: Profile) -> None:
+    """A malformed lemma is silent, not loud. Five were."""
+    assert "LING-JARGON-001" in _rule_ids(SURFACES[phrase], local_service), (
+        f"{phrase!r} never fires on {SURFACES[phrase]!r}"
+    )
+
+
+def test_the_fixture_covers_every_phrase_the_profile_adds(local_service: Profile) -> None:
+    """The half that keeps the test above honest: a phrase added to the profile
+    and not to the fixture is a rule nobody has ever seen fire."""
+    stored = {
+        phrase for phrases in _added_groups(local_service).values() for phrase in phrases
+    }
+    assert stored == set(SURFACES)
