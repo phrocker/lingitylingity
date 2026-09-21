@@ -992,3 +992,89 @@ def test_protected_delta_names_signatures_the_manifests_actually_store() -> None
 
     assert set(missing) <= set(_signature(source))
     assert set(added) <= set(_signature(candidate))
+
+
+# ── Words the profile itself declares carry no content ────────────────────────
+#
+# analyze tells you "seamless" is an unfalsifiable superlative and to remove it.
+# The gate then reported the removal as a change of meaning, so `improve` could
+# not apply the analyzer's own advice: the largest dimension in web-copy was
+# unfixable by the loop that exists to fix it.
+#
+# The reading is confined to modifiers. The head of a phrase is kept whatever it
+# is, so what a sentence is *about* still decides equivalence.
+
+
+def _web_copy_comparison(source: str, candidate: str) -> str:
+    profile = load_profile("web-copy")
+    comparison = compare_protected(
+        extract_protected(source, profile), extract_protected(candidate, profile)
+    )
+    return cast(str, comparison["disposition"])
+
+
+@pytest.mark.parametrize(
+    ("source", "candidate"),
+    [
+        ("The platform delivers seamless failover.", "The platform delivers failover."),
+        ("The service is highly available and fast.", "The service is available and fast."),
+        ("Our world class team ships on Friday.", "Our team ships on Friday."),
+    ],
+)
+def test_deleting_a_hollow_modifier_preserves_the_claim(source: str, candidate: str) -> None:
+    assert _web_copy_comparison(source, candidate) == "equivalent"
+
+
+@pytest.mark.parametrize(
+    ("source", "candidate"),
+    [
+        # Substitution is not deletion. Replacing an empty superlative with a
+        # falsifiable adjective states something the source did not, so the gate
+        # is right to refuse it -- this is not the bug, and must not become one.
+        ("The platform delivers seamless failover.", "The platform delivers reliable failover."),
+        ("The service is highly available.", "The service is 99.9% available."),
+        # The head is never hollow, whatever it is.
+        ("We deliver uptime.", "We deliver downtime."),
+        ("The team owns the runbook.", "The platform owns the runbook."),
+    ],
+)
+def test_the_reading_does_not_reach_a_real_change(source: str, candidate: str) -> None:
+    assert _web_copy_comparison(source, candidate) != "equivalent"
+
+
+def test_a_multi_word_phrase_does_not_hollow_its_component_words() -> None:
+    """The bug this guard exists for was introduced and caught here.
+
+    Decomposing "cutting edge" into its words put "edge" in the hollow set, and
+    "the edge case" then compared equal to "the case" -- a real change certified
+    as equivalent. A phrase is hollow as a phrase, not word by word.
+    """
+    assert _web_copy_comparison("The edge case is handled.", "The case is handled.") != "equivalent"
+    assert _web_copy_comparison("We deliver class uptime.", "We deliver uptime.") != "equivalent"
+
+
+def test_only_the_two_contentless_classes_are_read() -> None:
+    """A recruiting cliche still says something; folding it away would certify a change."""
+    from lingity.invariants import _hollow_modifier_lemmas
+
+    hollow = _hollow_modifier_lemmas(load_profile("web-copy"))
+    assert "seamless" in hollow and "highly" in hollow  # superlative, qualifier
+    assert "edge" not in hollow and "class" not in hollow  # multi-word components
+    assert "dynamic" not in hollow  # recruiting cliche, carries content
+    assert "leverage" not in hollow  # ai cadence, replaced not deleted
+
+
+def test_a_profile_that_declares_nothing_hollow_is_unchanged() -> None:
+    """The reading is opt-in through the profile's own lists, like every other rule."""
+    from lingity.invariants import _hollow_modifier_lemmas
+
+    for name in ("architecture-review", "product-strategy"):
+        profile = load_profile(name)
+        hollow = _hollow_modifier_lemmas(profile)
+        listed = {w.lower() for w in cast(list[str], profile.rules.get("qualifiers", []))}
+        assert hollow <= listed | {
+            w.lower()
+            for w in cast(dict[str, list[str]], profile.rules.get("jargon", {})).get(
+                "unfalsifiable superlative", []
+            )
+        }
