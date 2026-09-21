@@ -528,24 +528,35 @@ def _is_numeral_determiner(token: Token) -> bool:
 
 
 def _hollow_modifier_lemmas(profile: Profile) -> frozenset[str]:
-    """Words the profile itself declares carry no falsifiable content.
+    """Words the profile has certified as asserting nothing checkable.
 
-    A profile that lists "highly" under `qualifiers` and "seamless" under the
-    jargon class `unfalsifiable superlative` has already stated that neither
-    asserts anything. A word that asserts nothing cannot be part of what a
-    sentence claims, so it must not decide whether two sentences claim the same
-    thing. Without this, deleting a word the analyzer told you to delete is
-    reported as a change of meaning, and `improve` cannot apply its own advice.
+    A term listed under the jargon class `unfalsifiable superlative` has been
+    declared to make no verifiable claim. Removing it therefore cannot change
+    what a sentence asserts, because it asserted nothing -- which is what makes
+    it safe for this reading. Without it, deleting a word the analyzer told you
+    to delete is reported as a change of meaning, and `improve` cannot apply its
+    own advice.
 
-    Only these two classes are read. The other jargon classes name things that
-    do carry content -- a "recruiting cliche" still says the team is dynamic --
-    and folding them away would certify a real change as equivalent.
+    `qualifiers` is deliberately *not* read, though an earlier version of this
+    did read it. That list exists to catch prose that hedges, not prose that
+    asserts nothing, and the two are different sets. It contains epistemic
+    hedges (`potentially`, `presumably`, `arguably`), quantity words
+    (`numerous`, `countless`, `myriad`, `plethora`) and scope and precision
+    hedges (`virtually`, `roughly`, `largely`, `substantially`). Erasing any of
+    those changes the claim: "potentially available" became "available",
+    "roughly forty percent" became "forty percent", and "virtually all defects"
+    became "all defects" -- possibility certified as fact, and precision and
+    quantity dropped, by the gate that exists to refuse exactly that.
+
+    A profile that wants terms erased beyond the superlatives states them
+    explicitly under `rules.hollow_modifiers`. Nothing is inferred from a list
+    that was built to answer a different question.
 
     Only single-word entries are read. Decomposing a multi-word phrase into its
-    component words is not safe: "cutting edge" would contribute "edge", and
-    "the edge case" would then compare equal to "the case", certifying a real
-    change as equivalent. A phrase is hollow as a phrase, not word by word, and
-    matching it as one would have to happen before lemmas are canonicalised and
+    component words put "edge" in the set via "cutting edge", and "the edge
+    case" then compared equal to "the case" -- a real change certified as
+    equivalent. A phrase is hollow as a phrase, not word by word, and matching
+    it as one would have to happen before lemmas are canonicalised and
     reordered. Until then a multi-word superlative keeps its content, which
     costs a rewrite an acceptance it deserved but never certifies one it did
     not.
@@ -553,11 +564,11 @@ def _hollow_modifier_lemmas(profile: Profile) -> frozenset[str]:
 
     rules = profile.rules
     words: set[str] = set()
-    for phrase in cast(list[str], rules.get("qualifiers", []) or []):
-        if len(phrase.split()) == 1:
-            words.add(phrase.lower())
     jargon = cast(dict[str, list[str]], rules.get("jargon", {}) or {})
     for phrase in jargon.get("unfalsifiable superlative", []):
+        if len(phrase.split()) == 1:
+            words.add(phrase.lower())
+    for phrase in cast(list[str], rules.get("hollow_modifiers", []) or []):
         if len(phrase.split()) == 1:
             words.add(phrase.lower())
     return frozenset(words)

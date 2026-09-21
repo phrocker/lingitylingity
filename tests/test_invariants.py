@@ -994,15 +994,15 @@ def test_protected_delta_names_signatures_the_manifests_actually_store() -> None
     assert set(added) <= set(_signature(candidate))
 
 
-# ── Words the profile itself declares carry no content ────────────────────────
+# ── Words the profile has certified as asserting nothing ──────────────────────
 #
 # analyze tells you "seamless" is an unfalsifiable superlative and to remove it.
 # The gate then reported the removal as a change of meaning, so `improve` could
-# not apply the analyzer's own advice: the largest dimension in web-copy was
-# unfixable by the loop that exists to fix it.
+# not apply the analyzer's own advice.
 #
-# The reading is confined to modifiers. The head of a phrase is kept whatever it
-# is, so what a sentence is *about* still decides equivalence.
+# The reading is confined to modifiers, and to terms a profile has explicitly
+# declared unfalsifiable. Both limits exist because widening either one
+# certified a real change as equivalent during development.
 
 
 def _web_copy_comparison(source: str, candidate: str) -> str:
@@ -1017,64 +1017,92 @@ def _web_copy_comparison(source: str, candidate: str) -> str:
     ("source", "candidate"),
     [
         ("The platform delivers seamless failover.", "The platform delivers failover."),
-        ("The service is highly available and fast.", "The service is available and fast."),
-        ("Our world class team ships on Friday.", "Our team ships on Friday."),
+        ("We ship a frictionless upgrade path.", "We ship an upgrade path."),
+        ("The vendor offers turnkey deployment.", "The vendor offers deployment."),
+        ("We deliver unmatched throughput.", "We deliver throughput."),
     ],
 )
-def test_deleting_a_hollow_modifier_preserves_the_claim(source: str, candidate: str) -> None:
+def test_deleting_a_declared_unfalsifiable_modifier_preserves_the_claim(
+    source: str, candidate: str
+) -> None:
+    """Each modifier here is a single-word entry in the profile's own
+    `unfalsifiable superlative` class, so it is the reading under test that
+    spares these and not some unrelated normalisation."""
     assert _web_copy_comparison(source, candidate) == "equivalent"
 
 
 @pytest.mark.parametrize(
-    ("source", "candidate"),
+    ("source", "candidate", "why"),
     [
         # Substitution is not deletion. Replacing an empty superlative with a
-        # falsifiable adjective states something the source did not, so the gate
-        # is right to refuse it -- this is not the bug, and must not become one.
-        ("The platform delivers seamless failover.", "The platform delivers reliable failover."),
-        ("The service is highly available.", "The service is 99.9% available."),
+        # falsifiable adjective states something the source did not.
+        ("The platform delivers seamless failover.", "The platform delivers reliable failover.", "substitution"),
         # The head is never hollow, whatever it is.
-        ("We deliver uptime.", "We deliver downtime."),
-        ("The team owns the runbook.", "The platform owns the runbook."),
+        ("We deliver uptime.", "We deliver downtime.", "head noun"),
+        ("The team owns the runbook.", "The platform owns the runbook.", "actor"),
+        # A `qualifiers` entry is NOT a certificate that a word asserts nothing.
+        # An earlier version read that list and certified every one of these.
+        ("The service is potentially available.", "The service is available.", "possibility to fact"),
+        ("The change is presumably safe.", "The change is safe.", "epistemic hedge"),
+        ("We found numerous failures.", "We found failures.", "quantity dropped"),
+        ("The team fixed virtually all defects.", "The team fixed all defects.", "scope widened"),
+        # A phrase is hollow as a phrase, not word by word: decomposing
+        # "cutting edge" put "edge" in the set and made this equivalent.
+        ("The edge case is handled.", "The case is handled.", "multi-word component"),
+        ("We deliver class uptime.", "We deliver uptime.", "multi-word component"),
     ],
 )
-def test_the_reading_does_not_reach_a_real_change(source: str, candidate: str) -> None:
-    assert _web_copy_comparison(source, candidate) != "equivalent"
+def test_the_reading_does_not_reach_a_real_change(source: str, candidate: str, why: str) -> None:
+    assert _web_copy_comparison(source, candidate) != "equivalent", why
 
 
-def test_a_multi_word_phrase_does_not_hollow_its_component_words() -> None:
-    """The bug this guard exists for was introduced and caught here.
-
-    Decomposing "cutting edge" into its words put "edge" in the hollow set, and
-    "the edge case" then compared equal to "the case" -- a real change certified
-    as equivalent. A phrase is hollow as a phrase, not word by word.
-    """
-    assert _web_copy_comparison("The edge case is handled.", "The case is handled.") != "equivalent"
-    assert _web_copy_comparison("We deliver class uptime.", "We deliver uptime.") != "equivalent"
-
-
-def test_only_the_two_contentless_classes_are_read() -> None:
-    """A recruiting cliche still says something; folding it away would certify a change."""
+def test_only_terms_the_profile_declares_unfalsifiable_are_read() -> None:
     from lingity.invariants import _hollow_modifier_lemmas
 
     hollow = _hollow_modifier_lemmas(load_profile("web-copy"))
-    assert "seamless" in hollow and "highly" in hollow  # superlative, qualifier
+    assert "seamless" in hollow and "frictionless" in hollow  # declared unfalsifiable
     assert "edge" not in hollow and "class" not in hollow  # multi-word components
     assert "dynamic" not in hollow  # recruiting cliche, carries content
-    assert "leverage" not in hollow  # ai cadence, replaced not deleted
+    assert "leverage" not in hollow  # ai cadence, replaced rather than deleted
+    # The whole of `qualifiers` stays out, hedges and quantity words included.
+    for word in ("potentially", "presumably", "numerous", "countless", "roughly", "virtually", "highly"):
+        assert word not in hollow, f"{word} is a qualifier, not a certificate of emptiness"
 
 
-def test_a_profile_that_declares_nothing_hollow_is_unchanged() -> None:
-    """The reading is opt-in through the profile's own lists, like every other rule."""
-    from lingity.invariants import _hollow_modifier_lemmas
+def test_the_reading_does_not_reach_a_subject() -> None:
+    """Known limit, pinned so it is a decision rather than a surprise.
 
-    for name in ("architecture-review", "product-strategy"):
-        profile = load_profile(name)
-        hollow = _hollow_modifier_lemmas(profile)
-        listed = {w.lower() for w in cast(list[str], profile.rules.get("qualifiers", []))}
-        assert hollow <= listed | {
-            w.lower()
-            for w in cast(dict[str, list[str]], profile.rules.get("jargon", {})).get(
-                "unfalsifiable superlative", []
-            )
-        }
+    `hollow` is threaded into target normalisation only; `_normalize_subject_tokens`
+    takes a different, text-based path. So a superlative on the subject is still
+    reported as a change, and `improve` cannot delete it. That is the safe
+    direction to be wrong in, but it is a gap rather than a design, and the
+    assertion here is what will fail loudly when it is closed.
+    """
+    assert _web_copy_comparison(
+        "The premier platform indexes logs.", "The platform indexes logs."
+    ) != "equivalent"
+
+
+def test_an_empty_set_leaves_normalisation_exactly_as_it_was() -> None:
+    """The reading is opt-in, asserted against the function rather than the lists.
+
+    The previous version of this test asserted the hollow set was a subset of
+    the lists it is built from, which is true by construction and would have
+    passed with the comparison completely broken.
+    """
+    from lingity.invariants import _hollow_modifier_lemmas, _normalize_target_tokens
+    from lingity.nlp import parse
+
+    document = parse("The platform delivers seamless failover.")
+    tokens = list(document.tokens)
+
+    assert "seamless" in _normalize_target_tokens(tokens)
+    assert "seamless" in _normalize_target_tokens(tokens, frozenset())
+    assert "seamless" not in _normalize_target_tokens(
+        tokens, _hollow_modifier_lemmas(load_profile("web-copy"))
+    )
+
+    for name in ("architecture-review", "resume-review"):
+        assert _hollow_modifier_lemmas(load_profile(name)) == frozenset(), (
+            f"{name} declares no unfalsifiable superlatives, so it must get an empty set"
+        )
