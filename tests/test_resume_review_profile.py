@@ -181,10 +181,18 @@ def test_the_prose_profiles_cannot_see_the_hidden_accomplishment() -> None:
 
 
 def test_the_threshold_is_opt_in() -> None:
-    """The shipped profiles do not set it, so their behaviour must not change."""
+    """A profile that does not ask for the reading must not get it.
+
+    web-copy opts in under the renamed key, because public copy drops the
+    subject to address the reader. The document profiles do not: an
+    architecture review or a strategy document that will not say who acts is
+    reporting the defect this rule exists to find. Both names are checked, so
+    opting in by the legacy spelling cannot slip past this either.
+    """
     for name in ("architecture-review", "product-strategy"):
         profile = load_profile(name)
-        assert "allow_implied_first_person" not in profile.thresholds
+        for key in ("allow_implied_first_person", "allow_implied_subject"):
+            assert key not in profile.thresholds
 
 
 def test_an_overt_subject_is_never_read_as_the_author(resume: Profile) -> None:

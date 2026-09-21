@@ -177,3 +177,109 @@ def test_added_phrases_do_not_overlap_each_other(web_copy: Profile) -> None:
         if long != short and f" {short} " in f" {long} "
     ]
     assert not overlaps, overlaps
+
+
+# ── The implied second person ─────────────────────────────────────────────────
+#
+# Public copy addresses the reader and drops the subject to do it. "Find the
+# median for your age band" names the reader as surely as "you find the median"
+# does, so the profile reads a subjectless directive as its genre's actor. The
+# permission is the one resume-review already uses for the implied first
+# person; only its name changed, because the parse cannot tell the pronouns
+# apart and does not need to.
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Find the median for your age band.",
+        "Ignore the mean entirely.",
+        "Check the year behind any number you read.",
+    ],
+)
+def test_an_imperative_addressed_to_the_reader_is_not_a_missing_actor(
+    text: str, web_copy: Profile
+) -> None:
+    assert "LING-ACTOR-001" not in _rule_ids(text, web_copy)
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("The migration must be completed before the release.", "LING-PASSIVE-001"),
+        ("A decision should be made about the rollout.", "LING-AGENCY-001"),
+        ("Value must be delivered to the customer.", "LING-AGENCY-001"),
+    ],
+)
+def test_the_permission_leaves_the_other_agency_passes_alone(
+    text: str, expected: str, web_copy: Profile
+) -> None:
+    """It reaches the absent subject only, so hidden agency is still reported.
+
+    Without this the reading would excuse the defect it exists to expose: copy
+    that says a thing must happen and never says who does it. An imperative
+    tells the reader to act; an agentless passive tells nobody to.
+    """
+    assert expected in _rule_ids(text, web_copy)
+
+
+def test_the_permission_is_named_for_the_shape_not_the_pronoun(web_copy: Profile) -> None:
+    assert web_copy.thresholds.get("allow_implied_subject") == 1
+    assert "allow_implied_first_person" not in web_copy.thresholds
+
+
+def test_the_name_this_shipped_under_is_still_read() -> None:
+    """A profile written against 0.1.0 keeps its behaviour and its digest.
+
+    resume-review still carries the old key, so this is the path it takes.
+    """
+    from lingity.analyzer import _allows_implied_subject
+
+    legacy = Profile(data={"thresholds": {"allow_implied_first_person": 1}}, digest="test")
+    renamed = Profile(data={"thresholds": {"allow_implied_subject": 1}}, digest="test")
+    neither = Profile(data={"thresholds": {"max_sentence_words": 20}}, digest="test")
+
+    assert _allows_implied_subject(legacy)
+    assert _allows_implied_subject(renamed)
+    assert not _allows_implied_subject(neither)
+
+
+def test_the_shipped_resume_profile_still_reaches_the_reading() -> None:
+    """The alias is load-bearing, not decorative -- resume-review depends on it."""
+    from lingity.analyzer import _allows_implied_subject
+
+    assert _allows_implied_subject(load_profile("resume-review"))
+
+
+# ── Nouns that carry a suffix but name a thing ────────────────────────────────
+
+
+@pytest.mark.parametrize("word", ["age", "average", "figure"])
+def test_measurement_nouns_are_not_treated_as_nominalizations(
+    word: str, web_copy: Profile
+) -> None:
+    """"age", "average" and "figure" end in a nominalization suffix and hide no actor.
+
+    They are unavoidable in copy about money, where the subject is often an
+    average figure for an age group. The list already applies this reasoning to
+    "coverage", "percentage", "usage" and "measure".
+    """
+    assert word in cast(list[str], web_copy.rules["nominalization_exclusions"])
+
+
+def test_a_sentence_of_those_nouns_reports_nothing(web_copy: Profile) -> None:
+    text = "The average figure for that age group tells you little."
+    assert "LING-NOMINALIZATION-001" not in _rule_ids(text, web_copy)
+
+
+def test_the_exclusions_are_what_spares_that_sentence(web_copy: Profile) -> None:
+    """Prove the guard can fail, so the test above cannot pass for another reason."""
+    stripped = json.loads(json.dumps(web_copy.data))
+    stripped["rules"]["nominalization_exclusions"] = [
+        word
+        for word in stripped["rules"]["nominalization_exclusions"]
+        if word not in {"age", "average", "figure"}
+    ]
+    without = Profile(data=stripped, digest="test")
+    text = "The average figure for that age group tells you little."
+    assert "LING-NOMINALIZATION-001" in _rule_ids(text, without)

@@ -1,7 +1,7 @@
 {
   "$schema": "https://lingity.dev/schemas/v1/profile.schema.json",
   "name": "web-copy",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "language": "en",
   "weights": {
     "sentence_load": 20,
@@ -42,7 +42,8 @@
     "max_inline_list_items": 3,
     "max_sentence_purposes": 2,
     "max_qualifiers_per_sentence": 1,
-    "max_compound_parts": 2
+    "max_compound_parts": 2,
+    "allow_implied_subject": 1
   },
   "rules": {
     "nominalization_suffixes": [
@@ -57,10 +58,12 @@
       "age"
     ],
     "nominalization_exclusions": [
+      "age",
       "agreement",
       "architecture",
       "argument",
       "audience",
+      "average",
       "compliance",
       "coverage",
       "document",
@@ -68,6 +71,7 @@
       "evidence",
       "experience",
       "feature",
+      "figure",
       "governance",
       "government",
       "heritage",
