@@ -301,13 +301,17 @@ This does not let governed content through. Dropping a governance term entirely
 still reports it missing, and losing one of two requirements that share a term
 still fails on the claim that carried the target.
 
-### A profile can read an absent subject as the author
+### A profile can read an absent subject as its genre's actor
 
 "Led migration of forty services" has no subject, by convention rather than by
-evasion. A profile may set `allow_implied_first_person`, and under it a
-directive that carries no subject at all is read as the work of the author
-instead of as missing agency. The other shipped profiles do not set it and
-behave as before.
+evasion. Neither does "Find the median for your age band". A profile may set
+`allow_implied_subject`, and under it a directive that carries no subject at all
+is read as the genre's implied actor instead of as missing agency — the author
+in a resume, the reader on a page. The threshold is named for the shape the
+parse sees rather than for either pronoun, because the parse cannot distinguish
+them. `allow_implied_first_person`, the name this shipped under, is still read.
+The document profiles set neither and behave as before: an architecture review
+that will not say who acts is reporting the defect this rule exists to find.
 
 The rule this corrects was not failing the way it looked. `LING-ACTOR-001`
 reports a directive, and a directive is an obligation auxiliary or an

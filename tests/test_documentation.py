@@ -992,3 +992,57 @@ def test_the_readmes_name_the_licence_that_is_declared(readme_name: str) -> None
         f"{readme_name} opens its License section with {opening.strip()!r}, which does "
         f"not state {phrase!r} as declared in pyproject.toml."
     )
+
+
+IMPLIED_SUBJECT_KEYS = ("allow_implied_subject", "allow_implied_first_person")
+
+
+def _sentences(document: Path) -> list[str]:
+    """Sentence-ish split. A paragraph is too coarse: prose that contrasts the two
+    profiles names both in one block, which pairs nothing."""
+    flat = " ".join(document.read_text(encoding="utf-8").split())
+    return [part for part in re.split(r"(?<=[.:])\s+", flat) if part.strip()]
+
+
+@pytest.mark.parametrize("readme_name", READMES)
+def test_the_readme_names_the_threshold_key_each_profile_actually_sets(readme_name: str) -> None:
+    """A rename is easy to document one profile too far.
+
+    The first draft of the rename said `resume-review` sets
+    `allow_implied_subject`. It sets `allow_implied_first_person`, deliberately,
+    so that its pinned version and its digest do not move -- and a reader who
+    believed the README would have "fixed" the profile and moved them. The two
+    spellings are read interchangeably by the analyzer, so nothing else in the
+    suite could catch the prose being wrong.
+
+    Any paragraph that names exactly one profile and exactly one spelling is
+    asserting that this profile carries that key, so it has to be true.
+    """
+    document = REPO_ROOT / readme_name
+    if not document.exists():
+        pytest.skip(f"{readme_name} does not exist")
+
+    shipped = {name: load_profile(name).thresholds for name in _shipped_profiles()}
+    checked = 0
+
+    if not any(key in document.read_text(encoding="utf-8") for key in IMPLIED_SUBJECT_KEYS):
+        pytest.skip(f"{readme_name} does not discuss the implied-subject threshold")
+
+    for sentence in _sentences(document):
+        named = [name for name in shipped if f"`{name}`" in sentence]
+        spelled = [key for key in IMPLIED_SUBJECT_KEYS if key in sentence]
+        if len(named) != 1 or len(spelled) != 1:
+            continue
+        profile_name, key = named[0], spelled[0]
+        checked += 1
+        assert key in shipped[profile_name], (
+            f"{readme_name} puts `{key}` in a sentence about `{profile_name}`, "
+            f"but that profile sets {sorted(k for k in shipped[profile_name] if k.startswith('allow_implied')) or 'neither spelling'}. "
+            "Describe the key the profile really carries: the legacy spelling is "
+            "kept on purpose so the profile's digest does not move."
+        )
+
+    assert checked, (
+        f"{readme_name} no longer pairs a profile with an implied-subject key, "
+        "so this guard is checking nothing -- update or remove it."
+    )

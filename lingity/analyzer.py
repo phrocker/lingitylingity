@@ -613,6 +613,20 @@ def _has_responsible_actor(
     return any(token.pos == "PROPN" and token.entity_type in {"ORG", "PERSON"} for token in sentence.tokens)
 
 
+# A subjectless directive means different people in different genres, but it
+# reaches the parse as one shape: a directive with no subject at all. A resume
+# bullet drops the subject to mean "I". Web copy drops it to mean "you". Both
+# are the same permission, so the threshold is named for the shape rather than
+# for either pronoun. `allow_implied_first_person` is the name this shipped
+# under and is still read, so a profile written against 0.1.0 keeps its
+# behaviour and its digest.
+_IMPLIED_SUBJECT_KEYS = ("allow_implied_subject", "allow_implied_first_person")
+
+
+def _allows_implied_subject(profile: Profile) -> bool:
+    return any(bool(profile.thresholds.get(key, 0)) for key in _IMPLIED_SUBJECT_KEYS)
+
+
 def _actor_action_findings(document: Document, profile: Profile, agency_spans: list[tuple[int, int]]) -> list[Finding]:
     findings: list[Finding] = []
     for sentence in document.sentences:
@@ -623,8 +637,12 @@ def _actor_action_findings(document: Document, profile: Profile, agency_spans: l
         # In some genres an absent subject is a convention rather than a defect.
         # A resume bullet drops the subject on every line, so "Own the incident
         # process" names the author as surely as "I own the incident process"
-        # does. A profile may therefore read a directive that carries no subject
-        # at all as the work of the author.
+        # does. Web copy drops it the same way in the second person: "Find the
+        # median for your age band" names the reader as surely as "you find the
+        # median" does. A profile may therefore read a directive that carries no
+        # subject at all as its genre's implied actor -- the author in a resume,
+        # the reader on a page. The parse cannot tell the two apart, and does
+        # not need to: both are a directive whose subject the genre omits.
         #
         # The example is a bare infinitive on purpose. This reading is reached
         # only through _directive_marker, which recognises an obligation
@@ -644,7 +662,7 @@ def _actor_action_findings(document: Document, profile: Profile, agency_spans: l
         # hides the work, which is what this reading exists to expose rather than
         # excuse. test_the_narrow_permission_leaves_the_other_passes_alone pins
         # the rule each example reports, so the identifiers cannot drift.
-        if bool(profile.thresholds.get("allow_implied_first_person", 0)) and not _directive_subjects(document, verb):
+        if _allows_implied_subject(profile) and not _directive_subjects(document, verb):
             continue
         # A profile may require that the subject of a directive be an actor the
         # profile recognises. Without it, any overt noun satisfies the rule, so

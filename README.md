@@ -91,9 +91,19 @@ The difference is measurable. On the same hyped paragraph,
 profile penalises prose that names a number, an actor, and a limit.
 
 A resume fails differently again. A bullet drops its subject by convention, so
-`resume-review` sets `allow_implied_first_person`: a directive that carries no
-subject at all is read as the author rather than as missing agency. The reading
-is narrow on purpose. It suppresses the missing-subject finding and nothing
+`resume-review` reads a directive that carries no subject at all as the author
+rather than as missing agency. Web copy drops the subject the same way in the
+second person — "Find the median for your age band" names the reader as surely
+as "you find the median" does — so `web-copy` takes the same reading. The parse
+cannot tell the two pronouns apart, and does not need to: both are a directive
+whose subject the genre omits.
+
+The threshold is therefore named for that shape rather than for either pronoun.
+`web-copy` sets it as `allow_implied_subject`. `resume-review` still carries the
+name it shipped under, `allow_implied_first_person`, which is still read — so
+its behaviour, its pinned version and its digest are unchanged, and it does not
+need editing. Either spelling turns the reading on. The reading is narrow on
+purpose. It suppresses the missing-subject finding and nothing
 else, so "Must be completed before the release" still reports both
 `LING-AGENCY-001` and `LING-PASSIVE-001` — a resume written in the passive
 hides the work, which is the defect this profile exists to find.
