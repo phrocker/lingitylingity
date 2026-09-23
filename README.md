@@ -1,131 +1,19 @@
 # Lingity
 
-Lingity currently provides deterministic, governed text analysis for
-LLM-authored or human-authored content. This milestone ships two local CLI
-commands: `analyze` produces a reproducible JSON analysis artifact, and
-`verify` validates and replays that artifact.
+Lingity provides deterministic, governed analysis and rewrite validation for
+English Markdown or plain text written by people or language models. Use it
+when readability may improve but facts, identifiers, quantities, modality,
+negation, citations, ownership, and governance status must not change.
 
-There are no network calls or LLM calls in the current runtime. Provider
-interfaces and schemas exist for planned rewrite-proposal and semantic-drift
-adapters, but they are not invoked by `analyze` or `verify`.
+The local `analyze` and `verify` commands make no network or LLM calls.
+Rewriting commands can use a host agent or an explicitly configured provider,
+but deterministic code remains the authority that accepts or rejects a
+candidate.
 
-## Core contract
+## Prerequisites and installation
 
-1. The source text is immutable.
-2. Every score is reproducible from a versioned profile and analyzer.
-3. The current runtime must not emit success-shaped fallback results.
-4. Protected facts, identifiers, quantities, modality, negation, citations,
-   ownership, and governance status must survive unchanged.
-5. Planned rewrite candidates must improve the configured linguistic
-   thresholds without introducing a hard-gate violation.
-6. Planned rewrite runs must surface semantic uncertainty as `needs_human`,
-   not disguise it as success.
-
-## Current workflow
-
-```text
-source text
-  -> deterministic analysis
-  -> schema-valid analysis artifact
-  -> deterministic verification replay
-```
-
-## Planned workflow
-
-```text
-source text
-  -> deterministic analysis
-  -> bounded LLM proposal
-  -> invariant validation
-  -> deterministic rescoring
-  -> semantic-drift challenge
-  -> accept, iterate, reject, or require human review
-```
-
-Five profiles ship. `architecture-review` reads recommendations, ADR summaries,
-findings, risks, and review decisions that must remain precise while reading
-like professional human communication. `product-strategy` reads need
-statements, value propositions, positioning, and go-to-market plans.
-`web-copy` reads public-facing prose: landing pages, product descriptions,
-job listings. `resume-review` reads resume and CV accomplishment bullets.
-`local-service` reads a trade's page for a place — a plumber in one county, an
-electrician in the next.
-
-`local-service` is the case for a profile rather than a set of weights. Given a
-page about HVAC repair in Howard County built from stock phrases — family owned
-and operated, no job too big or too small, licensed and insured, free
-estimates — `web-copy` scores it 87.27 and calls it `clear`, with lexical
-clarity at a clean 100. Its jargon lists know `growth hack` and `viral loop`
-and nothing a plumber would write. The same page under `local-service` needs
-revision.
-
-That gap matters more than a score usually does. A business running twenty-two
-county pages off one template is structurally a doorway farm, and the
-judgement is made on the writing: two pages side by side, ninety percent
-identical. Stock phrases are what make them identical, so an instrument that
-cannot see them cannot see the risk. It weights lexical clarity at 32 and
-agency at 22, bands stricter than `web-copy`, and adds the trade vocabulary —
-HVAC, SEER, AFUE, GFCI — so a page cannot be penalised for naming its own
-subject.
-
-Its trust-claim group is flagged for substantiation rather than deletion.
-"Licensed and insured" is true, legally meaningful, and worth saying — with
-the licence number beside it, which is the same move that stops twenty-two
-pages being one page.
-
-A strategy document fails differently from an architecture review. It claims
-something unfalsifiable, or it claims it without naming who acts, so
-`product-strategy` weights agency and lexical clarity highest and structure
-lowest.
-
-It also sets `require_responsible_actor`. Under that threshold a directive must
-name an actor the profile recognises, rather than any noun at all, and
-`product-strategy` omits "market", "industry", and "space" from its actor
-terms. "The market should prioritize retention" therefore reports
-`LING-ACTOR-001`, because a sentence whose only actor is the market names
-nobody who can act.
-
-The difference is measurable. On the same hyped paragraph,
-`architecture-review` scores 88.65 and reports no jargon at all, while
-`product-strategy` scores 69.53 and reports five jargon findings. Neither
-profile penalises prose that names a number, an actor, and a limit.
-
-A resume fails differently again. A bullet drops its subject by convention, so
-`resume-review` reads a directive that carries no subject at all as the author
-rather than as missing agency. Web copy drops the subject the same way in the
-second person — "Find the median for your age band" names the reader as surely
-as "you find the median" does — so `web-copy` takes the same reading. The parse
-cannot tell the two pronouns apart, and does not need to: both are a directive
-whose subject the genre omits.
-
-The threshold is therefore named for that shape rather than for either pronoun.
-`web-copy` sets it as `allow_implied_subject`. `resume-review` still carries the
-name it shipped under, `allow_implied_first_person`, which is still read — so
-its behaviour, its pinned version and its digest are unchanged, and it does not
-need editing. Either spelling turns the reading on. The reading is narrow on
-purpose. It suppresses the missing-subject finding and nothing
-else, so "Must be completed before the release" still reports both
-`LING-AGENCY-001` and `LING-PASSIVE-001` — a resume written in the passive
-hides the work, which is the defect this profile exists to find.
-
-`resume-review` also sets `count_repetition_across_blocks`. Redundancy is
-otherwise counted within a single block, which a bullet list defeats: every
-bullet is its own block, so a verb opening six of them never repeats inside
-one. The flag compares the document as one bucket, and widens which tokens are
-compared rather than which are read.
-
-Without the threshold the actor rule taxes the wrong lines. "Cut checkout
-latency from 1.2 seconds to 300 milliseconds" reports `LING-ACTOR-001` under
-both prose profiles, while "Responsible for the migration of the reporting
-platform" reports nothing at all under either. The measured effect on a six
-bullet resume: `architecture-review` scores the weak version 91.56 and the
-strong version 94.95, `product-strategy` scores them 89.44 and 93.69, and
-`resume-review` scores them 66.43 and 100.00. Only `resume-review` ranks the two documents the way a reader would.
-
-## Installation
-
-Lingity is not yet published to a package index, so install it from a clone.
-Three commands are required, and the second and third are not optional:
+Lingity is not yet published to a package index. Install it from a clone with
+Python 3.11 or later:
 
 ```text
 python -m pip install .
@@ -133,173 +21,104 @@ python -m pip install https://github.com/explosion/spacy-models/releases/downloa
 python -m nltk.downloader wordnet omw-1.4
 ```
 
-The linguistic model and the WordNet corpus are installed separately because
-neither can be declared as a dependency. `en_core_web_sm` is not on a package
-index, so naming it in `pyproject.toml` would require a direct URL reference,
-and a public index rejects any distribution whose metadata carries one. WordNet
-is corpus data rather than a Python package, so `nltk` ships the downloader and
-not the corpus.
+All three commands are required. The spaCy model must be exactly
+`en_core_web_sm` 3.8.0; do not substitute
+`python -m spacy download en_core_web_sm`, which can resolve a different
+version. WordNet and `omw-1.4` are corpus data and must be downloaded
+separately.
 
-Skipping either step does not degrade an analysis quietly. The model loader
-requires exactly the pinned version and raises `LinguisticModelError` on any
-other, and canonicalization raises `WordNetDataError` when the corpus is
-absent. Both name the command that fixes them.
+Lingity fails closed when these prerequisites are wrong or absent.
+`LinguisticModelError` names the model installation command, and
+`WordNetDataError` names the corpus command. Analysis never downloads data or
+quietly falls back to a different model or rule.
 
-## CLI
+## Run the first analysis
+
+1. Analyze a document with a profile:
+
+   ```text
+   lingity analyze review.md --profile architecture-review
+   ```
+
+   The command writes a deterministic, schema-valid JSON artifact to standard
+   output. Redirect it when you want to verify or retain it:
+
+   ```text
+   lingity analyze review.md --profile architecture-review > analysis.json
+   ```
+
+2. Verify the artifact:
+
+   ```text
+   lingity verify analysis.json
+   ```
+
+   `verify` validates the schema and hashes, resolves the recorded profile, and
+   replays the analysis. An altered artifact, unavailable profile, different
+   parser pipeline, or non-reproducible result fails explicitly.
+
+The artifact contains located findings, the attributed Human Readability Index,
+protected-element manifests, source and profile hashes, ingest coverage, and
+the pinned linguistic model identity. The same source, profile, analyzer, model,
+and parser produce the same result.
+
+## Choose a profile
+
+Five profiles ship:
+
+| Profile | Use it for |
+| --- | --- |
+| `architecture-review` | Recommendations, ADR summaries, findings, risks, and review decisions. |
+| `product-strategy` | Need statements, value propositions, positioning, and go-to-market plans. |
+| `web-copy` | Landing pages, product descriptions, and job listings. |
+| `resume-review` | Resume and CV accomplishment bullets. |
+| `local-service` | Location-specific pages for trades and local services. |
+
+Profiles are versioned analysis policy, not interchangeable labels. They set
+different weights, thresholds, vocabulary, and genre rules. For example,
+`product-strategy` requires a responsible actor, `resume-review` recognizes the
+implied first-person subject of accomplishment bullets, and `local-service`
+distinguishes trade terms from generic promotional language.
+
+Run the same document under another profile only when that profile matches the
+document's purpose:
 
 ```text
-lingity analyze review.md --profile architecture-review
-lingity verify analysis.json
-
-lingity critique review.md --output brief.json
-lingity critique review.md --style architecture-review --output styled-brief.json
-lingity judge review.md --candidate rewrite.md
-lingity improve review.md --provider subagent --candidate rewrite.md --style architecture-review
-
-lingity styles
-lingity style technical-writer --format json
-lingity style technical-writer --format prompt
+lingity analyze strategy.md --profile product-strategy
 ```
 
-`analyze` emits a deterministic, schema-valid JSON artifact containing located
-findings, the attributed Human Readability Index, protected-element manifests,
-and content/profile hashes. `verify` validates the schema and hashes, resolves
-the recorded profile, and replays the analysis; altered or non-reproducible
-artifacts fail explicitly. Both commands are pure and offline.
+See [DESIGN.md](DESIGN.md) for profile rationale, threshold behavior, scoring,
+parser boundaries, and rule details.
 
-`critique`, `judge`, and `improve` drive rewriting. `critique` emits an
-improvement brief — the ranked defects and the elements a rewrite may not
-change. `judge` decides a single candidate. `improve` runs the bounded loop,
-feeding each rejection back into the next brief. All three exit `0` on success,
-`1` on a reasoned rejection, and `2` on an error, so a host agent can branch on
-the exit code alone.
+## Rewrite a document
 
-Four versioned JSON style contracts ship: `architecture-review`,
-`conservative-web-editor`, `local-service-guide`, and `technical-writer`.
-`styles` lists them, and `style` emits either the canonical structured contract
-or its deterministic provider instruction rendering. `critique` and `improve`
-accept `--style`; the selected contract, digest-bound reference, and rendered
-instructions enter the critique brief and proposal prompt. Omitting `--style`
-preserves the existing brief and prompt behavior.
+Lingity separates proposal generation from acceptance. A model may propose a
+rewrite; only deterministic checks decide whether to accept it.
 
-Style contracts guide generation; they do not score rhetorical fit. Current
-profiles still validate shared clarity, economy, and protected meaning, and
-`judge` remains style-independent. A profile score must not be interpreted as a
-contract-fit score.
+### Create a critique
 
-Proposal providers are instructed to act as conservative editors rather than
-content generators. Profiles publish a readable-word growth budget, and
-`judge` rejects a candidate that exceeds it even when its readability score
-improves. The copy-ready host-agent prompt is in
-[`docs/conservative-editing-prompt.md`](docs/conservative-editing-prompt.md).
+```text
+lingity critique review.md --output brief.json
+lingity critique review.md --profile architecture-review --style technical-writer --output styled-brief.json
+```
 
-The current analyzer is a versioned English dependency-parse model covering
-every deterministic signal published in the [DESIGN.md](DESIGN.md) dimension
-table:
+`critique` ranks defects and records the elements a rewrite may not change.
+Add `--style` to include a versioned style contract and deterministic provider
+instructions. Omitting `--style` preserves the unstyled brief behavior.
 
-- **Sentence load** — words, clauses, punctuation depth, and actions per
-  sentence.
-- **Morphology** — nominalization density and weak verb constructions.
-- **Noun stacking** — consecutive noun modifiers and hyphenated compound depth.
-  A stack must be contiguous, and a named entity counts as one unit, so
-  `Azure Kubernetes Service cluster` is two units rather than four and a
-  person's name is never reported as a stack. Detection reads the dependency
-  relation rather than the part-of-speech tag, because the tagger reads
-  `messaging` in `messaging loss hypotheses` as a noun in one sentence and a
-  verb in another. The finding reports `words` for the span and `units` for the
-  naming units the threshold compares.
-- **Agency** — agentless directives and missing explicit actor-action pairs.
-- **Voice** — passive constructions and indirect predicates. Passive detection
-  is structural: it requires a passive auxiliary or passive subject relation
-  (`auxpass`/`nsubjpass`), so the active perfect (`has expired`) can never be
-  mistaken for the passive (`has been approved`).
-- **Lexical clarity** — jargon, uncommon compounds, and undefined abbreviation
-  density.
-- **Structure** — paragraph length, list suitability, and mixed-purpose
-  sentences.
-- **Redundancy** — repeated qualifiers, duplicated recommendations, and filler
-  phrases. Lingity counts a repeated content word within one block, not across
-  the whole text. Governance prose has to call one concept by one name in every
-  section, so a term that recurs between sections shows consistency. Counting
-  document-wide made a finding depend on wording far away from it. Joining clear
-  paragraphs then manufactured findings that no paragraph had alone.
+### Judge one candidate
 
-Every rule is block-scoped: the findings for a document are exactly the findings
-of its blocks. A passage therefore scores the same alone as it does inside the
-document that contains it.
+```text
+lingity judge review.md --candidate rewrite.md --profile architecture-review
+```
 
-A finding quotes source text the way the parser read it. The parser joins a
-block's wrapped lines with a single space, so an observed value never carries a
-line break or a list marker's indentation.
+A candidate is accepted only when protected meaning is equivalent, the Human
+Readability Index strictly improves, no new high-severity finding appears, the
+profile's readable-word growth budget is met, and no semantic-drift challenge
+raises material doubt. A higher score never compensates for changed meaning.
 
-Noun stacking findings are reported under the `morphology` dimension and voice
-findings under `agency`, so the score always resolves to the six weighted
-dimensions.
-
-Lingity reads Markdown structure before it parses prose. Headings, list items,
-blockquotes, and paragraphs carry prose. Fenced code, indented code, tables, and
-thematic breaks do not, so the analyzer never reads them. Each prose block
-parses on its own, so a heading cannot glue itself onto the paragraph beneath it
-and a table row cannot register as one long sentence. An identifier written
-inside a code span is a name a rewrite must not change, so a finding falling
-wholly inside one is dropped.
-
-Each block is parsed as one unit, so a sentence wrapped across two source lines
-stays one sentence and neither the wrap point nor the line-ending style changes
-a score.
-
-Block structure comes from `markdown-it-py`, which is CommonMark compliant and
-tested against the specification's own suite. The parser is part of the analysis
-contract exactly as the linguistic model is: its identity is published in every
-artifact under `ingest`, and a major-version change is refused rather than
-silently re-segmented. The artifact also publishes `unresolved_lines` and
-`uncovered_lines`, so text that left the analysis is counted rather than lost in
-silence. `verify` replays the segmentation.
-
-Every finding carries a rule ID, severity, character location, observed value,
-threshold, and remediation. Overlapping spans within a dimension are
-de-duplicated so a single defect is not penalised twice.
-
-Rules read sentence structure rather than surface strings, so detection
-generalises to unseen wording. They inspect predicates, subjects, auxiliaries,
-negation, and modifier chains. The parse is part of the analysis contract, so
-Lingity pins the pipeline to `en_core_web_sm` at an exact version and loads it
-fail-closed. It records the parser name, version, runtime, and digest as
-`linguistic_model` inside the hashed artifact. `verify` refuses any artifact
-produced by a different pipeline instead of silently re-analysing it.
-
-The Human Readability Index weights those six dimensions and converts each
-dimension's deducted points into a score with a half-life decay, so worse text
-never scores higher than better text. The exact arithmetic is published in the
-artifact's `score.formula` field.
-
-Provider protocols exist for future proposal and semantic-challenge adapters,
-but `analyze` and `verify` themselves perform no network or LLM calls.
-
-See [DESIGN.md](DESIGN.md), the
-[AgenticTuner comparison](docs/agentictuner-comparison.md), and the
-[implementation plan](docs/implementation-plan.md).
-
-## Rewriting
-
-A model may *propose* a rewrite. Only deterministic code decides whether to
-accept one. A candidate is accepted when, and only when, all of the following
-hold:
-
-- protected meaning is equivalent to the source,
-- the Human Readability Index strictly improves,
-- no new high-severity finding appears,
-- and no semantic-drift challenge raised material doubt.
-
-Lingity never accepts a regression, never accepts a tie, and never accepts an
-unresolved meaning comparison. When nothing qualifies, it returns the source
-text unchanged together with the reasons every candidate failed. It rejects a
-candidate that scores a perfect 100 but drops a protected claim. A higher score
-never buys a change in meaning.
-
-Rejections are actionable. Every verdict carries `protected_delta`, naming the
-exact elements dropped, introduced, or left unresolved, so the next attempt can
-restore them by name instead of guessing:
+Every rejection reports its reasons and a `protected_delta` so the next edit can
+restore named elements instead of guessing:
 
 ```text
 $ lingity judge source.txt --candidate shorter.txt
@@ -311,40 +130,118 @@ accepted False   70.46 -> 89.50
   ...
 ```
 
-The gate compares meaning as propositions rather than as wording. It parses
-each sentence into a claim signature: action, actor, target, modality,
-polarity, and status. It also records the ordering relations between claims.
-"Close the findings before sign-off" therefore agrees with "sign-off happens
-only after the findings are closed". "Approve" and "ratify" do not agree. The
-gate reads linking verbs as state claims. "The fix is complete and
-fail-closed" therefore disagrees with "the fix is incomplete and fail-open".
-No profile contains protected sentence patterns.
+When no candidate qualifies, Lingity returns the source unchanged with the
+rejection reasons. It never accepts a regression, tie, unresolved meaning
+comparison, or candidate that drops a protected claim.
 
-A held-out corpus of 32 pairs measures how well the gate generalises. It shares
-no wording with any profile or fixture. The corpus documents the eight pairs
-the gate does not resolve, with the linguistic reason for each. Every one of
-them answers `unresolved` or `changed` rather than `equivalent`. The corpus is
-evidence, not proof: it once masked a false `equivalent` on copular text behind
-an unrelated coverage failure. Treat a passing corpus as a floor.
+### Run the bounded improvement loop
 
-Providers are transports, never authorities:
+```text
+lingity improve review.md --provider subagent --candidate rewrite.md --style technical-writer
+```
 
-- **`subagent`** (default) — no network and no API key. The host agent, such as
-  Agency, *is* the model: Lingity hands it a brief, the host writes a candidate,
-  and Lingity judges the result. Use `critique` and `judge` interactively, or
-  pass `--candidate` files to `improve`.
-- **`openai`** and **`anthropic`** — direct API calls over the standard library.
-  Credentials come only from `OPENAI_API_KEY` and `ANTHROPIC_API_KEY`, and are
-  never accepted as arguments, logged, or written to an artifact. There is no
-  default model: omitting `--model` is an error rather than a guess.
+`improve` feeds each rejection into the next critique until a candidate is
+accepted or the bounded run ends. The copy-ready host-agent instructions are in
+[`docs/conservative-editing-prompt.md`](docs/conservative-editing-prompt.md).
 
-A drift challenger may only *raise* doubt. It can block an acceptance, but it
-can never clear a deterministic failure, and an unparseable challenge response
-is an error rather than a quiet `no_material_change`.
+Proposal providers are transports, never authorities:
 
-Optional style guidance does not change those acceptance rules. It influences
-proposal generation only; no shipped profile claims to validate whether a
-candidate led with impact, a local requirement, or a proposed change.
+- `subagent` is the default. It makes no network call and needs no API key. The
+  host agent writes a candidate and Lingity judges it.
+- `openai` and `anthropic` make direct API calls. Credentials come only from
+  `OPENAI_API_KEY` and `ANTHROPIC_API_KEY`; they are not accepted as arguments,
+  logged, or written to artifacts. These providers require `--model`; Lingity
+  has no default model.
+
+A drift challenger can block acceptance but cannot clear a deterministic
+failure. An unparseable challenge response is an error.
+
+### Exit codes
+
+`critique`, `judge`, and `improve` use:
+
+- `0`: success
+- `1`: reasoned rejection
+- `2`: error
+
+This contract lets a host process branch on the exit code without parsing
+human-readable output.
+
+## Choose a style contract
+
+Four versioned JSON style contracts ship:
+
+- `architecture-review`
+- `conservative-web-editor`
+- `local-service-guide`
+- `technical-writer`
+
+List and inspect them with:
+
+```text
+lingity styles
+lingity style technical-writer --format json
+lingity style technical-writer --format prompt
+```
+
+Style contracts guide proposal generation. They do not score rhetorical fit,
+and `judge` remains style-independent. Profiles validate deterministic
+readability and protected meaning; a profile score is not a style-contract fit
+score. Optional style guidance never changes the acceptance gates.
+
+See [`docs/style-contract-experiment.md`](docs/style-contract-experiment.md)
+for the style-contract evaluation and examples.
+
+## Analysis and safety contract
+
+Lingity's current workflow is:
+
+```text
+source text
+  -> deterministic analysis
+  -> schema-valid analysis artifact
+  -> deterministic verification replay
+```
+
+Rewrite validation adds a bounded proposal between analysis and deterministic
+acceptance:
+
+```text
+source text
+  -> deterministic analysis
+  -> bounded proposal
+  -> invariant validation
+  -> deterministic rescoring
+  -> semantic-drift challenge
+  -> accept, iterate, reject, or require human review
+```
+
+The core guarantees are:
+
+1. The source text is immutable.
+2. Every score is reproducible from a versioned profile and analyzer.
+3. The runtime does not emit success-shaped fallback results.
+4. Protected facts, identifiers, quantities, modality, negation, citations,
+   ownership, and governance status must survive unchanged.
+5. A candidate must improve the configured thresholds without a hard-gate
+   violation.
+6. Semantic uncertainty is `needs_human`, not success.
+
+The analyzer covers sentence load, morphology, noun stacking, agency, voice,
+lexical clarity, structure, and redundancy. It reads Markdown prose blocks but
+not fenced or indented code, tables, or thematic breaks. Inline-code identifiers
+are protected. Findings include a rule ID, severity, source location, observed
+value, threshold, and remediation.
+
+The parser, linguistic model, profile, analyzer, and ingest coverage are part of
+the hashed analysis contract. `verify` refuses incompatible inputs instead of
+silently reanalyzing them. The exact dimensions, score formula, block-scoping
+rules, CommonMark behavior, protected-meaning model, held-out corpus limits, and
+provider protocols are documented in [DESIGN.md](DESIGN.md).
+
+Additional background is available in the
+[AgenticTuner comparison](docs/agentictuner-comparison.md) and the
+[implementation plan](docs/implementation-plan.md).
 
 ## Development
 
@@ -357,89 +254,58 @@ python -m mypy
 python -m compileall -q lingity tests
 ```
 
-These are the commands CI runs, in this order, on Python 3.11 and 3.12, for
-every push to `main` and every pull request; see `.github/workflows/ci.yml`.
-`tests/test_documentation.py` compares this block against the workflow and fails
-if the two diverge. The command strings are identical; CI differs only in when
-it runs the second one, skipping the corpora download when its cache restores
-`~/nltk_data`. Locally that step is unconditional, and repeating it once the
-corpora are present is a no-op. Each tool is invoked through `python -m` so it
-runs under the interpreter that has the package installed rather than whichever
-console script happens to be first on `PATH`, and the extras spec is quoted
-because `zsh` treats the brackets as a glob. `pytest` and `mypy` take their settings from `pyproject.toml`, so no flags
-are needed.
+These are the commands CI runs, in this order, on Python 3.11 and 3.12 for every
+push to `main` and every pull request; see `.github/workflows/ci.yml`. CI skips
+the corpus download when its `~/nltk_data` cache is restored. Locally, rerunning
+the download after the corpora are present is a no-op.
 
-Analysis needs the spaCy model and the WordNet corpora present locally. Both are
-install-time steps on purpose: nothing downloads anything at analysis time, so a
-run cannot silently depend on the network or quietly change behaviour when a
-corpus is missing. Missing data is an error, not a fallback.
-
-The model is the pinned `en_core_web_sm` 3.8.0 wheel, installed by explicit URL
-in its own step. It is deliberately not a declared dependency: it is not on a
-package index, so declaring it would require a direct URL reference, and a
-public index rejects any distribution whose metadata carries one. Do not
-substitute `python -m spacy download en_core_web_sm`: that resolves whatever
-model version is current at the time, and `lingity/nlp.py` rejects anything but
-3.8.0. WordNet is not a Python distribution and stays a separate download.
-
-WordNet drives morphology — deriving the verb behind a nominalization
-("ratification" → "ratify") and separating a word from its antonyms — rather
-than a hand-maintained suffix list.
+Use `python -m` so each tool runs under the interpreter where Lingity is
+installed. Keep the extras spec quoted because `zsh` treats brackets as a glob.
+`pytest` and `mypy` read their settings from `pyproject.toml`.
 
 ## Prior art
 
-The rule families follow published work on requirements and plain-language
-quality:
+The rule families follow:
 
 - Femmer, Méndez Fernández, Wagner, Eder, *Rapid Quality Assurance with
-  Requirements Smells* (Journal of Systems and Software, 2017) — the
-  smell-detection framing behind nominalization, passive voice, and vague-term
-  rules.
-- INCOSE-TP-010-009, *Guide to Writing Requirements* (2019) — rules on
-  imperatives, ambiguity, and quantification.
-- U.S. Federal Plain Language Guidelines (PLAIN) — actor-first sentences, active
-  voice, and short sentence targets.
+  Requirements Smells* (Journal of Systems and Software, 2017).
+- INCOSE-TP-010-009, *Guide to Writing Requirements* (2019).
+- U.S. Federal Plain Language Guidelines (PLAIN).
 
-No existing package was found that detects nominalizations, noun stacks, hidden
-agency, or bureaucratic phrasing as attributed findings, or that gates a rewrite
-on preserved governed meaning, so those are implemented here.
+These sources inform the smell-detection, imperative, ambiguity,
+quantification, actor-first, active-voice, and sentence-length rules. Lingity
+adds attributed findings and governed-meaning rewrite gates.
 
 ## License
 
 Apache License 2.0. The full text is in [LICENSE](LICENSE), and [NOTICE](NOTICE)
-carries the copyright statement and the attribution required by section 4(d).
+carries the copyright statement and required section 4(d) attribution.
 
-The two data artifacts Lingity needs are not redistributed with it and are not
-declared as dependencies. Each is downloaded by the installing user under its
-own terms: the `en_core_web_sm` spaCy model under the MIT License, and the
-NLTK WordNet corpus under the WordNet 3.0 License. `NOTICE` records both.
+Lingity does not redistribute or declare its two data artifacts as
+dependencies. Users download the `en_core_web_sm` spaCy model under the MIT
+License and the NLTK WordNet corpus under the WordNet 3.0 License. `NOTICE`
+records both.
 
 ## Release
 
-Publishing is one command, run from a machine whose twine is already
-authenticated. No credential is read, written, or passed as an argument: twine
-resolves them itself from `~/.pypirc`, the system keyring, or `TWINE_*`
-environment variables.
+Publishing requires an authenticated `twine` configuration. Credentials are
+resolved from `~/.pypirc`, the system keyring, or `TWINE_*` environment
+variables; no credential is passed as an argument or written by the script.
 
-```
+Run:
+
+```text
 python -m pip install -e ".[release]"
 python scripts/release.py --repository testpypi --dry-run
 python scripts/release.py --repository testpypi
 python scripts/release.py --repository pypi
 ```
 
-`--repository` is required. There is no default, because the difference between
-the two indexes is not something to get wrong by omission.
+`--repository` is required; there is no default. Use `--dry-run` to run every
+check and build the artifacts without uploading.
 
-The script refuses to publish anything it cannot verify. It stops on an unclean
-working tree, a failing guard test, a version the index already holds, a direct
-URL dependency, missing licence metadata, or an unknown classifier. Three of
-those are invisible to `twine check`, which validates README rendering and
-nothing else, and are otherwise answered for the first time by an HTTP 400 from
-the index.
-
-An unreachable index stops the release rather than reading as an absent version.
-Uploads cannot be undone and a version number can never be reused, so a check
-that cannot run must say so rather than fall silent.
-
-`--dry-run` performs every check and builds the artifacts without uploading.
+The release script stops on an unclean working tree, failing guard test,
+already-published version, direct URL dependency, missing license metadata,
+unknown classifier, or unreachable index. Uploads cannot be undone and a
+version cannot be reused, so an unavailable check is an error rather than an
+assumed success.
