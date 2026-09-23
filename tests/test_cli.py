@@ -222,3 +222,47 @@ def test_prose_free_texts_produce_a_verdict_and_a_brief(tmp_path: Path) -> None:
     assert constraints["maximum_candidate_readable_words"] == (
         constraints["max_readable_word_growth_absolute"]
     )
+
+
+@pytest.mark.parametrize("command", [["styles"], ["style", "architecture-review"]])
+def test_style_output_may_not_overwrite_an_installed_contract(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    command: list[str],
+) -> None:
+    installed = tmp_path / "architecture-review.v1.json"
+    original = json.dumps(styles.load_style("architecture-review").data)
+    installed.write_text(original, encoding="utf-8")
+    monkeypatch.setattr(styles, "STYLE_DIR", tmp_path)
+
+    assert main([*command, "--output", str(installed)]) == 2
+    assert "installed style directory" in capsys.readouterr().err
+    assert installed.read_text(encoding="utf-8") == original
+
+
+def test_improve_rejects_style_for_the_subagent_provider(
+    tmp_path: Path,
+    recommendation_fixture: dict[str, str],
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    source = tmp_path / "source.txt"
+    candidate = tmp_path / "candidate.txt"
+    source.write_text(recommendation_fixture["original"], encoding="utf-8")
+    candidate.write_text(recommendation_fixture["rewrite"], encoding="utf-8")
+
+    code = main(
+        [
+            "improve",
+            str(source),
+            "--provider",
+            "subagent",
+            "--candidate",
+            str(candidate),
+            "--style",
+            "architecture-review",
+        ]
+    )
+
+    assert code == 2
+    assert "lingity critique --style" in capsys.readouterr().err

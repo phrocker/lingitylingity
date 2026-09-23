@@ -258,6 +258,39 @@ def test_an_identified_earlier_framing_block_may_be_removed() -> None:
     assert cast(dict[str, JsonValue], evidence["economy"])["passed"] is True
 
 
+def test_keeping_a_removable_framing_block_is_not_a_meaning_change() -> None:
+    """Deleting a restated intro is allowed, never required."""
+    profile = load_profile("local-service")
+    source = (
+        "# HVAC in Howard County\n\n"
+        "Permits, inspections, and what tends to be wrong with the heating and "
+        "cooling in a Howard County house.\n\n"
+        "- Howard County permits and inspections\n"
+        "- Local prices, dated at the source\n"
+        "- No national averages\n\n"
+        "## On this page\n\n"
+        "1. Do you actually need a permit?\n"
+        "2. What the permit costs\n"
+        "3. The inspections\n"
+        "4. What Howard County houses are, and what goes wrong in them\n\n"
+        "Permits, inspections, what the county actually charges, and what tends "
+        "to be wrong with the heating and cooling in a Howard County house."
+    )
+    candidate = source.replace(
+        "1. Do you actually need a permit?", "1. Do you need a permit?", 1
+    )
+
+    _, _, evidence = judge_candidate(source, candidate, profile)
+
+    assert evidence["protected_disposition"] == "equivalent"
+    assert evidence["protected_delta"] == {
+        "missing": [],
+        "added": [],
+        "unresolved": [],
+        "specified": [],
+    }
+
+
 def test_earlier_framing_block_with_unique_claims_may_not_be_removed() -> None:
     """Framing detection is partial term overlap, not meaning equivalence.
 

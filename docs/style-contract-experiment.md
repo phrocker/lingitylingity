@@ -13,9 +13,12 @@ contracts remain executable, versioned JSON guidance in
 `technical-writer` contract. Four contracts now ship and are validated by
 [`style-contract.schema.json`](../lingity/schemas/v1/style-contract.schema.json).
 They can be listed with `lingity styles`, rendered with
-`lingity style <name> --format prompt`, and passed to `critique` or `improve`
-with `--style <name>`. Their digest-bound structured data and rendered
-instructions enter the critique brief and proposal prompt.
+`lingity style <name> --format prompt`, and passed to `critique`, or to
+`improve` with an API provider, with `--style <name>`. Their digest-bound
+structured data and rendered instructions enter the critique brief and proposal
+prompt. The `subagent` provider serves candidates written before the loop runs,
+so `improve` rejects `--style` for it; the host agent reads the styled brief
+from `critique --style` instead.
 
 This execution path does not turn the contracts into deterministic authorities.
 They guide proposal generation only. `judge` remains style-independent, and

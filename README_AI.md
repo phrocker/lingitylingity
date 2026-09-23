@@ -1,13 +1,15 @@
 # Lingity
 
-Lingity currently provides deterministic, governed text analysis for
-LLM-authored or human-authored content. This milestone ships two local CLI
-commands: `analyze` produces a reproducible JSON analysis artifact, and
-`verify` validates and replays that artifact.
+Lingity provides deterministic, governed text analysis and rewrite validation
+for LLM-authored or human-authored content. `analyze` produces a reproducible
+JSON analysis artifact and `verify` validates and replays it; `critique`,
+`judge`, and `improve` drive bounded rewriting; `styles` and `style` expose
+versioned style contracts that guide rewrite generation.
 
-There are no network calls or LLM calls in the current runtime. Provider
-interfaces and schemas exist for planned rewrite-proposal and semantic-drift
-adapters, but they are not invoked by `analyze` or `verify`.
+`analyze` and `verify` make no network or LLM calls. Rewriting uses the host
+agent by default (`subagent`), or an explicitly configured `openai` or
+`anthropic` provider, but deterministic code alone accepts or rejects a
+candidate.
 
 ## Core contract
 
@@ -16,12 +18,13 @@ adapters, but they are not invoked by `analyze` or `verify`.
 3. The current runtime must not emit success-shaped fallback results.
 4. Protected facts, identifiers, quantities, modality, negation, citations,
    ownership, and governance status must survive unchanged.
-5. Planned rewrite candidates must improve the configured linguistic
-   thresholds without introducing a hard-gate violation.
-6. Planned rewrite runs must surface semantic uncertainty as `needs_human`,
-   not disguise it as success.
+5. Rewrite candidates must improve the configured linguistic thresholds
+   without introducing a hard-gate violation or exceeding the profile's
+   readable-word growth budget.
+6. Rewrite runs must surface semantic uncertainty as `needs_human`, not
+   disguise it as success.
 
-## Current workflow
+## Analysis workflow
 
 ```text
 source text
@@ -30,7 +33,7 @@ source text
   -> deterministic verification replay
 ```
 
-## Planned workflow
+## Rewrite workflow
 
 ```text
 source text
@@ -53,8 +56,12 @@ lingity analyze review.md --profile architecture-review
 lingity verify analysis.json
 
 lingity critique review.md --output brief.json
+lingity critique review.md --style technical-writer --output styled-brief.json
 lingity judge review.md --candidate rewrite.md
 lingity improve review.md --provider subagent --candidate rewrite.md
+
+lingity styles
+lingity style technical-writer --format prompt
 ```
 
 `analyze` emits a deterministic, schema-valid JSON artifact containing located
@@ -69,6 +76,11 @@ change. `judge` decides a single candidate. `improve` runs the bounded loop,
 feeding each rejection back into the next brief. All three exit `0` on success,
 `1` on a reasoned rejection, and `2` on an error, so a host agent can branch on
 the exit code alone.
+
+`styles` lists the installed style contracts and `style` emits one as JSON or
+as rendered provider instructions. `critique --style` embeds a digest-bound
+contract in the brief. A style contract is generation guidance only: it is not
+a deterministic style-fit score and has no acceptance authority.
 
 The current analyzer is a versioned English dependency-parse model covering
 every deterministic signal published in the [DESIGN.md](DESIGN.md) dimension
@@ -87,8 +99,8 @@ table:
   density.
 - **Structure** — paragraph length, list suitability, and mixed-purpose
   sentences.
-- **Redundancy** — repeated qualifiers, duplicated recommendations, and filler
-  phrases.
+- **Redundancy** — repeated qualifiers, duplicated recommendations, duplicated
+  nearby framing, and filler phrases.
 
 Noun stacking findings are reported under the `morphology` dimension and voice
 findings under `agency`, so the score always resolves to the six weighted
@@ -111,8 +123,8 @@ dimension's deducted points into a score with a half-life decay, so worse text
 never scores higher than better text. The exact arithmetic is published in the
 artifact's `score.formula` field.
 
-Provider protocols exist for future proposal and semantic-challenge adapters,
-but `analyze` and `verify` themselves perform no network or LLM calls.
+`analyze` and `verify` perform no network or LLM calls; only the rewriting
+commands can reach a configured provider.
 
 See [DESIGN.md](DESIGN.md), the
 [AgenticTuner comparison](docs/agentictuner-comparison.md), and the
@@ -127,6 +139,7 @@ hold:
 - protected meaning is equivalent to the source,
 - the Human Readability Index strictly improves,
 - no new high-severity finding appears,
+- the candidate stays within the profile's readable-word growth budget,
 - and no semantic-drift challenge raised material doubt.
 
 A regression is never accepted, a tie is never accepted, and an unresolved
@@ -169,7 +182,9 @@ Providers are transports, never authorities:
 - **`subagent`** (default) — no network and no API key. The host agent, such as
   Agency, *is* the model: Lingity hands it a brief, the host writes a candidate,
   and Lingity judges the result. Use `critique` and `judge` interactively, or
-  pass `--candidate` files to `improve`.
+  pass `--candidate` files to `improve`. Because those candidates are written
+  before the loop runs, `improve --style` is rejected for `subagent`; give the
+  host agent `critique --style` instead.
 - **`openai`** and **`anthropic`** — direct API calls over the standard library.
   Credentials come only from `OPENAI_API_KEY` and `ANTHROPIC_API_KEY`, and are
   never accepted as arguments, logged, or written to an artifact. There is no

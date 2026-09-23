@@ -1396,6 +1396,10 @@ def _duplicated_framing_findings(
             distance = index - earlier_index
             if list_items_before[index] == list_items_before[earlier_index + 1]:
                 continue
+            # A profile may set min_shared to 0, which admits blocks with no
+            # content terms; two such blocks share nothing to call framing.
+            if not terms or not earlier_terms:
+                continue
             shared = sorted(terms & earlier_terms)
             similarity = len(shared) / min(len(terms), len(earlier_terms))
             if len(shared) < min_shared or similarity < min_similarity:

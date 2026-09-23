@@ -17,8 +17,9 @@ never returns a success-shaped result it cannot justify.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
+from itertools import combinations
 from typing import Final, cast
 
 from lingity.analyzer import analyze_text
@@ -37,6 +38,9 @@ from lingity.styles import StyleContract
 
 DEFAULT_MAX_ATTEMPTS: Final = 3
 HIGH_SEVERITY: Final = "high"
+# Subsets of removable framing blocks are enumerated up to this many blocks;
+# each subset costs one protected-element extraction.
+MAX_FRAMING_SUBSET_BLOCKS: Final = 4
 
 
 class ImprovementError(RuntimeError):
@@ -204,16 +208,14 @@ def _restated_by(
     )
 
 
-def _meaning_source_text(
+def _removable_framing_spans(
     source_text: str, source_analysis: dict[str, JsonValue], profile: Profile
-) -> str:
-    """Remove earlier framing blocks that the later block fully restates.
+) -> list[tuple[int, int]]:
+    """Earlier framing blocks that the later block fully restates.
 
-    The later block remains the canonical statement of the page's scope. This
-    keeps the meaning gate strict while allowing the exact remediation the
-    duplicated-framing rule prescribes instead of requiring both restatements.
-    An earlier block is only exempted when its protected elements are all
-    present in the retained block, so removing it cannot hide lost content.
+    The later block remains the canonical statement of the page's scope. An
+    earlier block is only listed when its protected elements are all present
+    in the retained block, so removing it cannot hide lost content.
     """
     findings = source_analysis.get("findings")
     if not isinstance(findings, list):
@@ -231,11 +233,58 @@ def _meaning_source_text(
         retained = _span(raw.get("location"), source_text, "location")
         if _restated_by(source_text, earlier, retained, profile):
             spans.add(earlier)
+    return sorted(spans)
 
-    meaning_text = source_text
-    for start, end in sorted(spans, reverse=True):
-        meaning_text = meaning_text[:start] + meaning_text[end:]
-    return meaning_text
+
+def _reduced_baselines(
+    source_text: str, removable: Sequence[tuple[int, int]]
+) -> Iterator[str]:
+    """The source with each subset of removable framing blocks deleted.
+
+    Subsets are tried smallest first, so a candidate may delete some removable
+    blocks and keep others. Past MAX_FRAMING_SUBSET_BLOCKS the subsets are not
+    enumerated and only the all-removed baseline is offered.
+    """
+    if len(removable) > MAX_FRAMING_SUBSET_BLOCKS:
+        subsets: Iterable[tuple[tuple[int, int], ...]] = [tuple(removable)]
+    else:
+        subsets = (
+            subset
+            for size in range(1, len(removable) + 1)
+            for subset in combinations(removable, size)
+        )
+    for subset in subsets:
+        text = source_text
+        for start, end in sorted(subset, reverse=True):
+            text = text[:start] + text[end:]
+        yield text
+
+
+def _compare_meaning(
+    source_text: str,
+    candidate_text: str,
+    source_analysis: dict[str, JsonValue],
+    profile: Profile,
+) -> dict[str, JsonValue]:
+    """Compare against the full source, then against reduced baselines.
+
+    The full source is authoritative, so a candidate that keeps a removable
+    framing block is judged exactly as it would be without the exemption:
+    deletion is an allowed remediation, never a required one. Only when the
+    full comparison fails are the reduced baselines tried, and when none of
+    them is equivalent either, the full comparison is reported so the delta
+    names what moved relative to the text as written.
+    """
+    candidate = extract_protected(candidate_text, profile)
+    full = compare_protected(extract_protected(source_text, profile), candidate)
+    if full["disposition"] == "equivalent":
+        return full
+    removable = _removable_framing_spans(source_text, source_analysis, profile)
+    for baseline in _reduced_baselines(source_text, removable):
+        comparison = compare_protected(extract_protected(baseline, profile), candidate)
+        if comparison["disposition"] == "equivalent":
+            return comparison
+    return full
 
 
 def judge_candidate(
@@ -259,11 +308,8 @@ def judge_candidate(
     candidate_score = _score_of(candidate_analysis)
     economy = _economy_evidence(source_analysis, candidate_analysis, profile)
 
-    comparison = compare_protected(
-        extract_protected(
-            _meaning_source_text(source_text, source_analysis, profile), profile
-        ),
-        extract_protected(candidate_text, profile),
+    comparison = _compare_meaning(
+        source_text, candidate_text, source_analysis, profile
     )
     disposition = cast(str, comparison["disposition"])
 

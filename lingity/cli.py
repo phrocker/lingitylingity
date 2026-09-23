@@ -25,6 +25,7 @@ from lingity.providers import (
     create_challenge_provider,
     create_proposal_provider,
 )
+import lingity.styles as style_store
 from lingity.styles import available_style_names, load_style
 
 CLI_ERRORS = (
@@ -86,6 +87,22 @@ def _normalized_path(path: Path) -> str:
 def _reject_input_output_alias(input_path: Path, output: Path | None) -> None:
     if output is not None and _normalized_path(input_path) == _normalized_path(output):
         raise ValueError("input and output paths must be different")
+
+
+def _reject_style_store_output(output: Path | None) -> None:
+    """Refuse to write into the installed style directory.
+
+    Stale output is removed before a style is loaded, so an output path naming
+    a shipped contract would delete it before discovery could read it.
+    """
+    if output is None:
+        return
+    store = Path(_normalized_path(style_store.STYLE_DIR))
+    if store in Path(_normalized_path(output)).parents:
+        raise ValueError(
+            f"output path {output} is inside the installed style directory; "
+            "write style output elsewhere"
+        )
 
 
 def _remove_stale_output(output: Path | None) -> None:
@@ -271,6 +288,12 @@ def _improve(args: argparse.Namespace) -> int:
         options: dict[str, Any] = {}
         provider_name = cast(str, args.provider)
         if provider_name == "subagent":
+            if style is not None:
+                raise ValueError(
+                    "--style cannot guide the subagent provider, whose candidates "
+                    "are written before the loop runs; give the host agent "
+                    "`lingity critique --style` and judge what it writes"
+                )
             candidates = cast(list[Path] | None, args.candidate)
             if not candidates:
                 raise ValueError(
@@ -318,6 +341,7 @@ def _improve(args: argparse.Namespace) -> int:
 def _styles(args: argparse.Namespace) -> int:
     output = cast(Path | None, args.output)
     try:
+        _reject_style_store_output(output)
         _remove_stale_output(output)
         _write_json(list(available_style_names()), output)
     except CLI_ERRORS as exc:
@@ -329,6 +353,7 @@ def _styles(args: argparse.Namespace) -> int:
 def _style(args: argparse.Namespace) -> int:
     output = cast(Path | None, args.output)
     try:
+        _reject_style_store_output(output)
         _remove_stale_output(output)
         style = load_style(cast(str, args.name))
         if cast(str, args.format) == "json":

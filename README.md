@@ -137,11 +137,15 @@ comparison, or candidate that drops a protected claim.
 ### Run the bounded improvement loop
 
 ```text
-lingity improve review.md --provider subagent --candidate rewrite.md --style technical-writer
+lingity improve review.md --provider subagent --candidate rewrite.md
+lingity improve review.md --provider anthropic --model <model> --style technical-writer
 ```
 
 `improve` feeds each rejection into the next critique until a candidate is
-accepted or the bounded run ends. The copy-ready host-agent instructions are in
+accepted or the bounded run ends. `--style` passes the contract to an API
+provider. The `subagent` provider serves candidates written before the loop
+runs, so it rejects `--style`; give the host agent `lingity critique --style`
+instead. The copy-ready host-agent instructions are in
 [`docs/conservative-editing-prompt.md`](docs/conservative-editing-prompt.md).
 
 Proposal providers are transports, never authorities:

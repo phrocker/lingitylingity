@@ -22,13 +22,14 @@ about the genre, and this genre fails in its own way.
 
 from __future__ import annotations
 
+import copy
 from typing import cast
 
 import pytest
 
 from lingity.analyzer import analyze_text
 from lingity.models import JsonValue
-from lingity.profiles import Profile, load_profile
+from lingity.profiles import Profile, load_profile, sha256_json
 
 # What a model writes when asked for a page about a trade in a county. Written
 # at the length a real page is: the score is penalty-based, so a fragment scores
@@ -299,3 +300,14 @@ def test_the_fixture_covers_every_phrase_the_profile_adds(local_service: Profile
         phrase for phrases in _added_groups(local_service).values() for phrase in phrases
     }
     assert stored == set(SURFACES)
+
+
+def test_framing_blocks_without_content_terms_are_not_compared(
+    local_service: Profile,
+) -> None:
+    """A zero shared-term minimum admits termless blocks; it must not divide by zero."""
+    data = copy.deepcopy(local_service.data)
+    data["thresholds"]["min_duplicate_framing_shared_terms"] = 0
+    permissive = Profile(data=data, digest=sha256_json(data))
+    text = "It is so.\n\n- a list item here\n\nIt is so.\n"
+    assert "LING-DUPLICATED-FRAMING-001" not in _rule_ids(text, permissive)
