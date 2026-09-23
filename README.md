@@ -157,8 +157,8 @@ lingity judge review.md --candidate rewrite.md
 lingity improve review.md --provider subagent --candidate rewrite.md --style architecture-review
 
 lingity styles
-lingity style local-service-guide --format json
-lingity style local-service-guide --format prompt
+lingity style technical-writer --format json
+lingity style technical-writer --format prompt
 ```
 
 `analyze` emits a deterministic, schema-valid JSON artifact containing located
@@ -174,13 +174,13 @@ feeding each rejection back into the next brief. All three exit `0` on success,
 `1` on a reasoned rejection, and `2` on an error, so a host agent can branch on
 the exit code alone.
 
-Three versioned JSON style contracts ship: `conservative-web-editor`,
-`local-service-guide`, and `architecture-review`. `styles` lists them, and
-`style` emits either the canonical structured contract or its deterministic
-provider instruction rendering. `critique` and `improve` accept `--style`; the
-selected contract, digest-bound reference, and rendered instructions enter the
-critique brief and proposal prompt. Omitting `--style` preserves the existing
-brief and prompt behavior.
+Four versioned JSON style contracts ship: `architecture-review`,
+`conservative-web-editor`, `local-service-guide`, and `technical-writer`.
+`styles` lists them, and `style` emits either the canonical structured contract
+or its deterministic provider instruction rendering. `critique` and `improve`
+accept `--style`; the selected contract, digest-bound reference, and rendered
+instructions enter the critique brief and proposal prompt. Omitting `--style`
+preserves the existing brief and prompt behavior.
 
 Style contracts guide generation; they do not score rhetorical fit. Current
 profiles still validate shared clarity, economy, and protected meaning, and

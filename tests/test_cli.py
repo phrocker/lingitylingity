@@ -121,15 +121,19 @@ def test_styles_and_style_cli_are_deterministic(
         "architecture-review",
         "conservative-web-editor",
         "local-service-guide",
+        "technical-writer",
     ]
 
-    assert main(["style", "local-service-guide", "--format", "json"]) == 0
+    assert main(["style", "technical-writer", "--format", "json"]) == 0
     contract = cast(dict[str, Any], json.loads(capsys.readouterr().out))
-    assert contract["name"] == "local-service-guide"
+    assert contract["name"] == "technical-writer"
+    assert len(cast(list[object], contract["positive_examples"])) >= 2
+    assert len(cast(list[object], contract["negative_examples"])) >= 2
 
-    assert main(["style", "local-service-guide", "--format", "prompt"]) == 0
+    assert main(["style", "technical-writer", "--format", "prompt"]) == 0
     prompt = capsys.readouterr().out
-    assert "Lead with the practical requirement." in prompt
+    assert "Lead with the task or reader outcome" in prompt
+    assert "one primary action per step" in prompt
     assert "not a deterministic style-fit score" in prompt
 
 

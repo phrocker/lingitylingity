@@ -19,6 +19,7 @@ EXPECTED_STYLES = (
     "architecture-review",
     "conservative-web-editor",
     "local-service-guide",
+    "technical-writer",
 )
 
 
@@ -26,7 +27,7 @@ def _contract(name: str) -> dict[str, Any]:
     return load_style(name).data
 
 
-def test_exactly_three_shipped_contracts_validate_and_load() -> None:
+def test_exactly_four_shipped_contracts_validate_and_load() -> None:
     schema = cast(
         dict[str, Any],
         json.loads(
@@ -39,6 +40,7 @@ def test_exactly_three_shipped_contracts_validate_and_load() -> None:
         "architecture-review.v1.json",
         "conservative-web-editor.v1.json",
         "local-service-guide.v1.json",
+        "technical-writer.v1.json",
     )
     assert available_style_names() == EXPECTED_STYLES
     for name in EXPECTED_STYLES:
@@ -55,6 +57,9 @@ def test_listing_and_rendering_are_deterministic_and_distinct() -> None:
         "conservative-web-editor": "Lead with immediate reader impact.",
         "local-service-guide": "Lead with the practical requirement.",
         "architecture-review": "Keep the proposed change first.",
+        "technical-writer": (
+            "Lead with the task or reader outcome and state when the instructions apply."
+        ),
     }
     rendered = {}
     for name, distinction in expected_leads.items():
@@ -64,7 +69,35 @@ def test_listing_and_rendering_are_deterministic_and_distinct() -> None:
         assert distinction in first
         assert "not a deterministic style-fit score" in first
         rendered[name] = first
-    assert len(set(rendered.values())) == 3
+    assert len(set(rendered.values())) == 4
+
+
+def test_technical_writer_rendering_preserves_task_structure_and_examples() -> None:
+    contract = load_style("technical-writer")
+    rendered = contract.render()
+
+    assert "Prerequisite-before-action ordering" in rendered
+    assert "Exact interface and command preservation" in rendered
+    assert "Expected result after the action sequence" in rendered
+    assert "Troubleshooting separated from the main path" in rendered
+    assert rendered.index("Place prerequisites") < rendered.index(
+        "Present ordered actions"
+    )
+    assert rendered.index("State the expected result") < rendered.index(
+        "Put troubleshooting and recovery last"
+    )
+
+    positive_examples = cast(
+        list[dict[str, str]], contract.data["positive_examples"]
+    )
+    negative_examples = cast(
+        list[dict[str, str]], contract.data["negative_examples"]
+    )
+    assert len(positive_examples) >= 2
+    assert len(negative_examples) >= 2
+    assert "`example config set mode strict`" in rendered
+    assert "Settings > Connections" in rendered
+    assert "clear the cache and try again" in rendered
 
 
 def test_filename_name_mismatch_fails_closed(

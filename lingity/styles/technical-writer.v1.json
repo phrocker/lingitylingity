@@ -1,0 +1,122 @@
+{
+  "$schema": "https://lingity.dev/schemas/v1/style-contract.schema.json",
+  "name": "technical-writer",
+  "version": "1.0.0",
+  "language": "en",
+  "title": "Technical writer",
+  "reader_outcome": {
+    "audience": "A reader who needs to complete or understand a technical task within the documented version and scope.",
+    "outcome": "The reader can identify applicability and prerequisites, perform the actions in order, confirm the expected result, and recover from documented failure conditions.",
+    "scan_priority": [
+      "Task or outcome and applicability",
+      "Prerequisites and conditions",
+      "Ordered actions",
+      "Expected result",
+      "Conditional troubleshooting or recovery"
+    ]
+  },
+  "content_policy": {
+    "preserve": [
+      "Technical facts, commands, code, identifiers, paths, configuration keys, API names, and UI labels exactly unless the source explicitly authorizes a change",
+      "Conditions, warnings, prerequisites, expected results, version statements, scope statements, and support boundaries",
+      "The distinction between required, optional, conditional, and unsupported actions"
+    ],
+    "do_not_add": [
+      "Behavior, defaults, compatibility, support guarantees, prerequisites, or outcomes not stated in the source",
+      "Troubleshooting steps, recovery actions, commands, or UI paths not supported by the source",
+      "Marketing claims, reassurance, tutorial framing, or background that the source does not provide"
+    ]
+  },
+  "rhetorical_shape": {
+    "lead": "Lead with the task or reader outcome and state when the instructions apply.",
+    "sequence": [
+      "Place prerequisites, permissions, versions, and required conditions before the first action",
+      "Present ordered actions with one primary action per step",
+      "Place conditional warnings immediately before or within the step that creates the risk",
+      "State the expected result after the action sequence"
+    ],
+    "ending": "Put troubleshooting and recovery last, separated from the main path and only for documented failure conditions."
+  },
+  "editing_posture": {
+    "role": "Act as a precise, task-oriented technical editor, not a marketer or tutorial author unless the source is a tutorial.",
+    "change_scope": "Make the minimum restructuring needed to expose applicability, prerequisites, actions, results, and recovery while preserving technical meaning.",
+    "allowed_moves": [
+      "Reorder source material so prerequisites precede dependent actions",
+      "Split compound instructions into steps with one primary action each",
+      "Standardize terminology to the source's established term",
+      "Use direct active language when the actor and action are accurate",
+      "Separate the main task from conditional troubleshooting"
+    ],
+    "prohibited_moves": [
+      "Rewrite commands, identifiers, UI labels, conditions, or version and scope statements for stylistic variety",
+      "Add decorative introductions, conclusions, benefits, or calls to action",
+      "Turn a reference, warning, or conceptual explanation into an unsupported procedure",
+      "Broaden a tutorial, supported scenario, or recovery path beyond the source"
+    ]
+  },
+  "observable_tendencies": [
+    {
+      "tendency": "Reader and task orientation",
+      "reason": "The opening identifies the outcome and applicability before implementation detail."
+    },
+    {
+      "tendency": "Prerequisite-before-action ordering",
+      "reason": "Readers encounter required tools, permissions, versions, and conditions before a step depends on them."
+    },
+    {
+      "tendency": "Exact interface and command preservation",
+      "reason": "Commands, identifiers, paths, configuration keys, API names, and UI labels are functional content rather than interchangeable wording."
+    },
+    {
+      "tendency": "One primary action per step",
+      "reason": "A reader can execute and diagnose each action without hidden compound work."
+    },
+    {
+      "tendency": "Expected result after the action sequence",
+      "reason": "The reader can verify completion without confusing the result with another instruction."
+    },
+    {
+      "tendency": "Conditional warnings adjacent to risky steps",
+      "reason": "A warning is useful where the reader makes the decision that creates the documented risk."
+    },
+    {
+      "tendency": "Troubleshooting separated from the main path",
+      "reason": "Recovery information does not interrupt readers whose task is proceeding normally."
+    }
+  ],
+  "positive_guidance": [
+    "Open with what the reader will accomplish and the versions, platforms, roles, or conditions to which the task applies.",
+    "Move every prerequisite before the first step that depends on it.",
+    "Use numbered steps for ordered actions and keep one primary action in each step.",
+    "Preserve commands, identifiers, UI labels, and literal values exactly, including capitalization and punctuation.",
+    "State the observable expected result after the steps, using only outcomes supported by the source.",
+    "Place a conditional warning beside the risky step and put documented recovery in a separate final section."
+  ],
+  "negative_guidance": [
+    "Do not add a friendly overview, benefit statement, summary conclusion, or tutorial explanation unless the source calls for it.",
+    "Do not combine setup, execution, and verification into one step.",
+    "Do not silently normalize commands, option names, identifiers, UI labels, versions, or scope.",
+    "Do not invent a likely prerequisite, default, success message, failure cause, workaround, rollback, or support promise.",
+    "Do not place troubleshooting before the normal action sequence or present a conditional recovery step as universally required."
+  ],
+  "positive_examples": [
+    {
+      "text": "This procedure applies to Example CLI 4.x on Windows. Before you begin, sign in with an account that can update the project. 1. Run `example config set mode strict`. 2. Run `example config show`. Expected result: The output lists `mode=strict`.",
+      "reason": "It states applicability, puts the permission prerequisite first, preserves the commands and literal result, uses one primary action per step, and places verification after the sequence."
+    },
+    {
+      "text": "1. Open Settings > Connections. Warning: Removing the active connection interrupts current transfers. 2. Select `primary-west`, and then select Remove. Expected result: `primary-west` no longer appears under Connections. If Remove is unavailable, verify that the source identifies the connection as removable before retrying.",
+      "reason": "It preserves the UI labels and identifier, places the warning next to the risky action, states an observable result, and keeps conditional recovery last without inventing a workaround."
+    }
+  ],
+  "negative_examples": [
+    {
+      "text": "Getting started is quick and easy: install the latest tools, configure strict mode, restart the service, and verify that everything works.",
+      "reason": "It adds marketing language and an unsupported version choice, combines several primary actions, omits exact commands, and invents a successful outcome."
+    },
+    {
+      "text": "If you have problems, clear the cache and try again. Then click Delete connection for `primary-west`; the transfer will resume automatically.",
+      "reason": "It leads with invented troubleshooting, changes the interface label, and asserts unsupported recovery behavior and an outcome."
+    }
+  ]
+}
