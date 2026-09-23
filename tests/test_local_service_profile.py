@@ -110,6 +110,53 @@ def test_specificity_scores_higher_than_stock(local_service: Profile) -> None:
     assert _score(SPECIFIC, local_service) > _score(STOCK, local_service)
 
 
+def test_nearby_intro_framing_is_reported(local_service: Profile) -> None:
+    text = (
+        "# HVAC in Howard County\n\n"
+        "What the county requires, what the work costs here, and what tends to "
+        "go wrong in a Howard County house.\n\n"
+        "- Howard County permits and inspections\n"
+        "- Local prices, dated at the source\n"
+        "- No national averages\n\n"
+        "## On this page\n\n"
+        "1. Do you actually need a permit?\n"
+        "2. What the permit costs\n"
+        "3. How long the permit actually takes\n"
+        "4. The inspections\n"
+        "5. What the inspector is actually going to check\n"
+        "6. Who is allowed to do the work\n"
+        "7. Which code your job is held to\n"
+        "8. What Howard County houses are, and what goes wrong in them\n"
+        "9. What the work is worth, and what that tells you about a quote\n"
+        "10. The short version\n\n"
+        "Permits, inspections, what the county actually charges, and what "
+        "tends to be wrong with the heating and cooling in a Howard County house."
+    )
+    findings = cast(
+        list[dict[str, JsonValue]], analyze_text(text, local_service)["findings"]
+    )
+    duplicated = [
+        finding
+        for finding in findings
+        if finding["rule_id"] == "LING-DUPLICATED-FRAMING-001"
+    ]
+    assert len(duplicated) == 1
+    assert "Keep one useful orientation" in cast(str, duplicated[0]["remediation"])
+
+
+def test_repeated_subject_terms_in_separate_sections_are_not_framing(
+    local_service: Profile,
+) -> None:
+    text = (
+        "Howard County requires a permit for fuel changes in residential HVAC systems.\n\n"
+        "## Permit fees\n\n"
+        "Howard County charges the permit fee by heating and cooling zone.\n\n"
+        "## Inspection\n\n"
+        "Howard County inspectors check the installed equipment and ductwork."
+    )
+    assert "LING-DUPLICATED-FRAMING-001" not in _rule_ids(text, local_service)
+
+
 def test_naming_a_permit_a_price_and_a_date_is_not_penalised(
     local_service: Profile,
 ) -> None:

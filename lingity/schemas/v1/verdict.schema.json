@@ -13,6 +13,7 @@
     "candidate_score",
     "protected_disposition",
     "protected_delta",
+    "economy",
     "challenge",
     "profile",
     "linguistic_model"
@@ -37,6 +38,28 @@
         "added": {"type": "array", "items": {"type": "string"}},
         "unresolved": {"type": "array", "items": {"type": "string"}},
         "specified": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "economy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_readable_words",
+        "candidate_readable_words",
+        "growth",
+        "allowed_growth",
+        "maximum_candidate_readable_words",
+        "prefer_shorter_candidate",
+        "passed"
+      ],
+      "properties": {
+        "source_readable_words": {"type": "integer", "minimum": 1},
+        "candidate_readable_words": {"type": "integer", "minimum": 1},
+        "growth": {"type": "integer"},
+        "allowed_growth": {"type": "integer", "minimum": 0},
+        "maximum_candidate_readable_words": {"type": "integer", "minimum": 1},
+        "prefer_shorter_candidate": {"type": "boolean"},
+        "passed": {"type": "boolean"}
       }
     },
     "challenge": {

@@ -83,7 +83,7 @@ def _band(text: str, profile: Profile) -> str:
 
 def test_the_profile_is_installed_and_discoverable(resume: Profile) -> None:
     assert resume.name == "resume-review"
-    assert resume.version == "1.0.0"
+    assert resume.version == "1.1.0"
     assert sum(resume.weights.values()) == 100
 
 
@@ -441,7 +441,7 @@ def test_analysis_is_deterministic_under_the_profile(resume: Profile) -> None:
 def test_the_artifact_records_the_profile_it_used(resume: Profile) -> None:
     reference = cast(dict[str, JsonValue], analyze_text(WEAK, resume)["profile"])
     assert reference["name"] == "resume-review"
-    assert reference["version"] == "1.0.0"
+    assert reference["version"] == "1.1.0"
     assert reference["digest"] == resume.digest
 
 

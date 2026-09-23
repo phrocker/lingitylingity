@@ -17,6 +17,7 @@ never returns a success-shaped result it cannot justify.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Final, cast
@@ -121,6 +122,92 @@ def _high_severity_rules(analysis: dict[str, JsonValue]) -> set[str]:
     return rules
 
 
+def _readable_word_count(analysis: dict[str, JsonValue]) -> int:
+    sentences = analysis.get("sentences")
+    if not isinstance(sentences, list):
+        raise ImprovementError("analysis artifact is missing its sentences list")
+    total = 0
+    for sentence in sentences:
+        if not isinstance(sentence, dict):
+            raise ImprovementError("analysis artifact carries an invalid sentence record")
+        count = sentence.get("word_count")
+        if isinstance(count, bool) or not isinstance(count, int):
+            raise ImprovementError("analysis sentence is missing an integer word_count")
+        total += count
+    return total
+
+
+def _economy_evidence(
+    source_analysis: dict[str, JsonValue],
+    candidate_analysis: dict[str, JsonValue],
+    profile: Profile,
+) -> dict[str, JsonValue]:
+    source_words = _readable_word_count(source_analysis)
+    candidate_words = _readable_word_count(candidate_analysis)
+    policy = profile.rewrite_policy
+    percent = float(policy["max_readable_word_growth_percent"])
+    absolute = int(policy["max_readable_word_growth_absolute"])
+    allowed_growth = max(absolute, math.ceil(source_words * percent / 100))
+    maximum = source_words + allowed_growth
+    return {
+        "source_readable_words": source_words,
+        "candidate_readable_words": candidate_words,
+        "growth": candidate_words - source_words,
+        "allowed_growth": allowed_growth,
+        "maximum_candidate_readable_words": maximum,
+        "prefer_shorter_candidate": bool(policy["prefer_shorter_candidate"]),
+        "passed": candidate_words <= maximum,
+    }
+
+
+def _meaning_source_text(
+    source_text: str, source_analysis: dict[str, JsonValue]
+) -> str:
+    """Remove earlier framing blocks that deterministic analysis marked duplicate.
+
+    The later block remains the canonical statement of the page's scope. This
+    keeps the meaning gate strict while allowing the exact remediation the
+    duplicated-framing rule prescribes instead of requiring both restatements.
+    """
+    findings = source_analysis.get("findings")
+    if not isinstance(findings, list):
+        raise ImprovementError("analysis artifact is missing its findings list")
+    spans: set[tuple[int, int]] = set()
+    for raw in findings:
+        if not isinstance(raw, dict) or raw.get("rule_id") != "LING-DUPLICATED-FRAMING-001":
+            continue
+        observed = raw.get("observed_value")
+        if not isinstance(observed, dict):
+            raise ImprovementError(
+                "duplicated-framing finding is missing its observed value"
+            )
+        location = observed.get("first_location")
+        if not isinstance(location, dict):
+            raise ImprovementError(
+                "duplicated-framing finding is missing its first location"
+            )
+        start = location.get("start")
+        end = location.get("end")
+        if (
+            isinstance(start, bool)
+            or isinstance(end, bool)
+            or not isinstance(start, int)
+            or not isinstance(end, int)
+            or start < 0
+            or end > len(source_text)
+            or start >= end
+        ):
+            raise ImprovementError(
+                "duplicated-framing finding carries an invalid first location"
+            )
+        spans.add((start, end))
+
+    meaning_text = source_text
+    for start, end in sorted(spans, reverse=True):
+        meaning_text = meaning_text[:start] + meaning_text[end:]
+    return meaning_text
+
+
 def judge_candidate(
     source_text: str,
     candidate_text: str,
@@ -140,9 +227,10 @@ def judge_candidate(
 
     source_score = _score_of(source_analysis)
     candidate_score = _score_of(candidate_analysis)
+    economy = _economy_evidence(source_analysis, candidate_analysis, profile)
 
     comparison = compare_protected(
-        extract_protected(source_text, profile),
+        extract_protected(_meaning_source_text(source_text, source_analysis), profile),
         extract_protected(candidate_text, profile),
     )
     disposition = cast(str, comparison["disposition"])
@@ -182,6 +270,14 @@ def judge_candidate(
             + ", ".join(sorted(new_high))
         )
 
+    if not cast(bool, economy["passed"]):
+        reasons.append(
+            "candidate exceeds the readable-word growth budget: "
+            f"{economy['candidate_readable_words']} words against a maximum of "
+            f"{economy['maximum_candidate_readable_words']} from a "
+            f"{economy['source_readable_words']}-word source"
+        )
+
     challenge: ChallengeResult | None = None
     if challenger is not None:
         challenge = challenger.challenge(source_text, candidate_text)
@@ -199,6 +295,7 @@ def judge_candidate(
     evidence: dict[str, JsonValue] = {
         "source_score": source_score,
         "candidate_score": candidate_score,
+        "economy": economy,
         "protected_disposition": disposition,
         # A rejection that only says "meaning changed" cannot be acted on. The
         # exact elements that moved are carried through so a host agent can

@@ -10,6 +10,7 @@
     "analyzer_version",
     "linguistic_model",
     "profile",
+    "rewrite_policy",
     "source",
     "sentences",
     "protected",
@@ -19,7 +20,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "1.1.0"
+      "const": "1.2.0"
     },
     "analyzer_version": {
       "type": "string"
@@ -59,6 +60,9 @@
     },
     "profile": {
       "$ref": "#/$defs/profileRef"
+    },
+    "rewrite_policy": {
+      "$ref": "#/$defs/rewritePolicy"
     },
     "source": {
       "type": "object",
@@ -283,6 +287,20 @@
     }
   },
   "$defs": {
+    "rewritePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_readable_word_growth_percent",
+        "max_readable_word_growth_absolute",
+        "prefer_shorter_candidate"
+      ],
+      "properties": {
+        "max_readable_word_growth_percent": {"type": "number", "minimum": 0},
+        "max_readable_word_growth_absolute": {"type": "integer", "minimum": 0},
+        "prefer_shorter_candidate": {"type": "boolean"}
+      }
+    },
     "profileRef": {
       "type": "object",
       "additionalProperties": false,

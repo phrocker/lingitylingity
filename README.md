@@ -169,6 +169,12 @@ feeding each rejection back into the next brief. All three exit `0` on success,
 `1` on a reasoned rejection, and `2` on an error, so a host agent can branch on
 the exit code alone.
 
+Proposal providers are instructed to act as conservative editors rather than
+content generators. Profiles publish a readable-word growth budget, and
+`judge` rejects a candidate that exceeds it even when its readability score
+improves. The copy-ready host-agent prompt is in
+[`docs/conservative-editing-prompt.md`](docs/conservative-editing-prompt.md).
+
 The current analyzer is a versioned English dependency-parse model covering
 every deterministic signal published in the [DESIGN.md](DESIGN.md) dimension
 table:

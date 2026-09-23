@@ -194,6 +194,7 @@ def test_design_signal_mapping_and_dimension_coverage() -> None:
         "structure.mixed_purpose_sentences",
         "redundancy.filler_phrases",
         "redundancy.duplicated_recommendations",
+        "redundancy.duplicated_framing",
         "redundancy.repeated_qualifiers",
     }
     assert set(RULE_DIMENSIONS.values()) == EXPECTED_DIMENSIONS

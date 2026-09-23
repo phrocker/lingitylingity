@@ -223,7 +223,7 @@ and remediation. Initial metrics are:
 | Voice | passive constructions and indirect predicates |
 | Lexical clarity | jargon, uncommon compounds, abbreviation density |
 | Structure | paragraph length, list suitability, and mixed-purpose sentences |
-| Redundancy | repeated qualifiers, duplicated recommendations, filler phrases |
+| Redundancy | repeated qualifiers, duplicated recommendations, duplicated nearby framing, filler phrases |
 
 Dependency parsing may be used, but the parser package and model digest become
 part of the reproducibility contract.
@@ -344,6 +344,16 @@ and stakeholder. "The platform should own the runbook" therefore reports
 because a reader meets redundancy locally and governance prose is required to
 call one concept by one name throughout. A term recurring across sections is
 that document being consistent, not repetitive.
+
+`LING-DUPLICATED-FRAMING-001` is narrower than document-wide semantic
+duplication. A profile may compare short prose blocks within a bounded block
+distance and report the later block when the two share enough content terms.
+This catches a page promise stated before navigation and then stated again
+after it without treating the same subject recurring in separate substantive
+sections as repetition. During candidate judgment, the earlier reported
+framing block is removed from the protected-meaning baseline; the later block
+remains canonical, so a rewrite may delete the redundant introduction but may
+not delete the page's only statement of scope.
 
 A resume inverts the assumption. Every bullet is its own block, so a verb that
 opens six of them repeats once per block and never twice inside one, and the
@@ -568,4 +578,3 @@ draft -> analyzed -> improving -> selected
 - Optimizing text solely to maximize one aggregate score
 - Editing canonical architecture or governance records
 - Hiding failed attempts or model uncertainty
-

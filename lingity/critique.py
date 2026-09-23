@@ -13,6 +13,7 @@ gaining authority over the verdict.
 from __future__ import annotations
 
 import hashlib
+import math
 from typing import Final, cast
 
 from lingity.models import JsonValue
@@ -77,6 +78,10 @@ def build_critique(
     score = cast(dict[str, JsonValue], _require(analysis, "score", "the analysis artifact"))
     protected = cast(
         dict[str, JsonValue], _require(analysis, "protected", "the analysis artifact")
+    )
+    rewrite_policy = cast(
+        dict[str, JsonValue],
+        _require(analysis, "rewrite_policy", "the analysis artifact"),
     )
 
     raw_findings = cast(
@@ -144,9 +149,45 @@ def build_critique(
             "requires_higher_score": True,
             "requires_protected_equivalence": True,
             "forbids_new_high_severity_findings": True,
+            "requires_economy_budget": True,
+        },
+        "rewrite_constraints": {
+            "editing_mode": "minimum_necessary_change",
+            "source_readable_words": sum(
+                cast(int, sentence["word_count"])
+                for sentence in cast(
+                    list[dict[str, JsonValue]],
+                    _require(analysis, "sentences", "the analysis artifact"),
+                )
+            ),
+            "max_readable_word_growth_percent": _require(
+                rewrite_policy,
+                "max_readable_word_growth_percent",
+                "the rewrite policy",
+            ),
+            "max_readable_word_growth_absolute": _require(
+                rewrite_policy,
+                "max_readable_word_growth_absolute",
+                "the rewrite policy",
+            ),
+            "prefer_shorter_candidate": _require(
+                rewrite_policy,
+                "prefer_shorter_candidate",
+                "the rewrite policy",
+            ),
         },
         "prior_attempts": cast(JsonValue, list(prior_attempts or [])),
     }
+    constraints = cast(dict[str, JsonValue], brief["rewrite_constraints"])
+    source_words = cast(int, constraints["source_readable_words"])
+    percent_growth = float(
+        cast(int | float, constraints["max_readable_word_growth_percent"])
+    )
+    absolute_growth = cast(int, constraints["max_readable_word_growth_absolute"])
+    constraints["maximum_candidate_readable_words"] = source_words + max(
+        absolute_growth,
+        math.ceil(source_words * percent_growth / 100),
+    )
     brief["critique_sha256"] = sha256_json(brief)
     return brief
 

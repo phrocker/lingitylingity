@@ -102,6 +102,14 @@ def _brief() -> dict[str, JsonValue]:
                 "normalized": "3 controls",
             },
         ],
+        "rewrite_constraints": {
+            "editing_mode": "minimum_necessary_change",
+            "source_readable_words": 10,
+            "max_readable_word_growth_percent": 10,
+            "max_readable_word_growth_absolute": 12,
+            "maximum_candidate_readable_words": 22,
+            "prefer_shorter_candidate": True,
+        },
     })
 
 
@@ -135,6 +143,17 @@ def test_well_formed_response_produces_proposal_response() -> None:
     request_data = cast(bytes, transport.requests[0].data)
     request_body = json.loads(request_data.decode("utf-8"))
     assert request_body["model"] == MODEL
+    prompt = request_body["messages"][1]["content"]
+    assert "Act as a conservative editor, not a content generator." in prompt
+    assert "Make the smallest sufficient set of changes." in prompt
+    assert "Add words only when a ranked defect requires them." in prompt
+    assert "Deterministic rewrite constraints:" in prompt
+    assert json.dumps(
+        _brief()["rewrite_constraints"],
+        ensure_ascii=False,
+        indent=2,
+        sort_keys=True,
+    ) in prompt
     _assert_secret_absent(result.to_dict())
 
 

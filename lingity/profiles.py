@@ -53,6 +53,10 @@ class Profile:
     def rules(self) -> dict[str, Any]:
         return cast(dict[str, Any], self.data["rules"])
 
+    @property
+    def rewrite_policy(self) -> dict[str, int | float | bool]:
+        return cast(dict[str, int | float | bool], self.data["rewrite_policy"])
+
     def reference(self) -> dict[str, JsonValue]:
         return {"name": self.name, "version": self.version, "digest": self.digest}
 

@@ -5,7 +5,7 @@
   "title": "Lingity profile v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["$schema", "name", "version", "language", "weights", "bands", "thresholds", "rules"],
+  "required": ["$schema", "name", "version", "language", "weights", "bands", "thresholds", "rewrite_policy", "rules"],
   "properties": {
     "$schema": {"type": "string"},
     "name": {"type": "string", "minLength": 1},
@@ -46,6 +46,20 @@
         "max_nominalizations_per_sentence", "noun_stack_words", "max_paragraph_words",
         "max_repeated_content_word"
       ]
+    },
+    "rewrite_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_readable_word_growth_percent",
+        "max_readable_word_growth_absolute",
+        "prefer_shorter_candidate"
+      ],
+      "properties": {
+        "max_readable_word_growth_percent": {"type": "number", "minimum": 0},
+        "max_readable_word_growth_absolute": {"type": "integer", "minimum": 0},
+        "prefer_shorter_candidate": {"type": "boolean"}
+      }
     },
     "rules": {
       "type": "object",

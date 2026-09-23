@@ -83,6 +83,14 @@ def _proposal_request() -> ProposalRequest:
                     "normalized": "should",
                 },
             ],
+            "rewrite_constraints": {
+                "editing_mode": "minimum_necessary_change",
+                "source_readable_words": 10,
+                "max_readable_word_growth_percent": 10,
+                "max_readable_word_growth_absolute": 12,
+                "maximum_candidate_readable_words": 22,
+                "prefer_shorter_candidate": True,
+            },
         }
     )
 
@@ -142,6 +150,19 @@ def test_well_formed_response_produces_correct_proposal(
     assert call.headers["x-api-key"] == SECRET
     request_body = cast(dict[str, JsonValue], json.loads(call.body.decode("utf-8")))
     assert request_body["model"] == MODEL
+    messages = cast(list[dict[str, JsonValue]], request_body["messages"])
+    content = cast(list[dict[str, JsonValue]], messages[0]["content"])
+    prompt = cast(str, content[0]["text"])
+    assert "Act as a conservative editor, not a content generator." in prompt
+    assert "Make the smallest sufficient set of changes." in prompt
+    assert "Add words only when a ranked defect requires them." in prompt
+    assert "Deterministic rewrite constraints:" in prompt
+    assert json.dumps(
+        _proposal_request().brief["rewrite_constraints"],
+        ensure_ascii=False,
+        indent=2,
+        sort_keys=True,
+    ) in prompt
     _assert_secret_absent(call.body.decode("utf-8"))
     _assert_secret_absent(response.to_dict())
 
@@ -300,4 +321,3 @@ def test_unparseable_challenge_response_does_not_become_no_material_change(
         challenger.challenge("The owner must approve.", "The owner may approve.")
 
     _assert_secret_absent(exc_info.value)
-

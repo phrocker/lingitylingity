@@ -17,6 +17,7 @@
     "must_preserve",
     "protected_sha256",
     "acceptance",
+    "rewrite_constraints",
     "prior_attempts",
     "critique_sha256"
   ],
@@ -121,12 +122,34 @@
       "required": [
         "requires_higher_score",
         "requires_protected_equivalence",
-        "forbids_new_high_severity_findings"
+        "forbids_new_high_severity_findings",
+        "requires_economy_budget"
       ],
       "properties": {
         "requires_higher_score": {"const": true},
         "requires_protected_equivalence": {"const": true},
-        "forbids_new_high_severity_findings": {"const": true}
+        "forbids_new_high_severity_findings": {"const": true},
+        "requires_economy_budget": {"const": true}
+      }
+    },
+    "rewrite_constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "editing_mode",
+        "source_readable_words",
+        "max_readable_word_growth_percent",
+        "max_readable_word_growth_absolute",
+        "maximum_candidate_readable_words",
+        "prefer_shorter_candidate"
+      ],
+      "properties": {
+        "editing_mode": {"const": "minimum_necessary_change"},
+        "source_readable_words": {"type": "integer", "minimum": 1},
+        "max_readable_word_growth_percent": {"type": "number", "minimum": 0},
+        "max_readable_word_growth_absolute": {"type": "integer", "minimum": 0},
+        "maximum_candidate_readable_words": {"type": "integer", "minimum": 1},
+        "prefer_shorter_candidate": {"type": "boolean"}
       }
     },
     "prior_attempts": {
