@@ -237,7 +237,7 @@ def _judge(args: argparse.Namespace) -> int:
             source_text, candidate_text, profile, challenger=challenger
         )
         verdict = {
-            "schema_version": "1.0.0",
+            "schema_version": "1.1.0",
             "accepted": accepted,
             "rejection_reasons": list(reasons),
             "source_score": evidence["source_score"],

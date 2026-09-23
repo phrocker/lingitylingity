@@ -351,9 +351,12 @@ distance and report the later block when the two share enough content terms.
 This catches a page promise stated before navigation and then stated again
 after it without treating the same subject recurring in separate substantive
 sections as repetition. During candidate judgment, the earlier reported
-framing block is removed from the protected-meaning baseline; the later block
-remains canonical, so a rewrite may delete the redundant introduction but may
-not delete the page's only statement of scope.
+framing block is removed from the protected-meaning baseline only when every
+protected element it carries is also present in the later block; the later
+block remains canonical, so a rewrite may delete a redundant introduction but
+may not delete the page's only statement of scope. Shared terms are not shared
+meaning: an earlier block with its own identifier, quantity, condition, or
+claim stays protected, and deleting it is reported as a dropped element.
 
 A resume inverts the assumption. Every bullet is its own block, so a verb that
 opens six of them repeats once per block and never twice inside one, and the

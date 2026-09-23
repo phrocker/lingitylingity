@@ -17,13 +17,12 @@ never returns a success-shaped result it cannot justify.
 
 from __future__ import annotations
 
-import math
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Final, cast
 
 from lingity.analyzer import analyze_text
-from lingity.critique import build_critique, response_digest
+from lingity.critique import allowed_word_growth, build_critique, response_digest
 from lingity.invariants import compare_protected, extract_protected
 from lingity.models import JsonValue
 from lingity.profiles import Profile
@@ -146,9 +145,11 @@ def _economy_evidence(
     source_words = _readable_word_count(source_analysis)
     candidate_words = _readable_word_count(candidate_analysis)
     policy = profile.rewrite_policy
-    percent = float(policy["max_readable_word_growth_percent"])
-    absolute = int(policy["max_readable_word_growth_absolute"])
-    allowed_growth = max(absolute, math.ceil(source_words * percent / 100))
+    allowed_growth = allowed_word_growth(
+        source_words,
+        policy["max_readable_word_growth_percent"],
+        int(policy["max_readable_word_growth_absolute"]),
+    )
     maximum = source_words + allowed_growth
     return {
         "source_readable_words": source_words,
@@ -161,14 +162,58 @@ def _economy_evidence(
     }
 
 
+def _span(value: object, source_text: str, label: str) -> tuple[int, int]:
+    if not isinstance(value, dict):
+        raise ImprovementError(f"duplicated-framing finding is missing its {label}")
+    start = value.get("start")
+    end = value.get("end")
+    if (
+        isinstance(start, bool)
+        or isinstance(end, bool)
+        or not isinstance(start, int)
+        or not isinstance(end, int)
+        or start < 0
+        or end > len(source_text)
+        or start >= end
+    ):
+        raise ImprovementError(
+            f"duplicated-framing finding carries an invalid {label}"
+        )
+    return start, end
+
+
+def _restated_by(
+    source_text: str,
+    earlier: tuple[int, int],
+    retained: tuple[int, int],
+    profile: Profile,
+) -> bool:
+    """Whether every protected element of the earlier block survives in the later one.
+
+    The framing detector only establishes partial term overlap, so an earlier
+    block can still carry an identifier, quantity, condition, or claim the
+    later block lacks. Such a block stays in the meaning baseline.
+    """
+    comparison = compare_protected(
+        extract_protected(source_text[earlier[0] : earlier[1]], profile),
+        extract_protected(source_text[retained[0] : retained[1]], profile),
+    )
+    unresolved = cast(list[str], comparison.get("unresolved") or [])
+    return not comparison.get("missing") and not any(
+        reason.startswith("source:") for reason in unresolved
+    )
+
+
 def _meaning_source_text(
-    source_text: str, source_analysis: dict[str, JsonValue]
+    source_text: str, source_analysis: dict[str, JsonValue], profile: Profile
 ) -> str:
-    """Remove earlier framing blocks that deterministic analysis marked duplicate.
+    """Remove earlier framing blocks that the later block fully restates.
 
     The later block remains the canonical statement of the page's scope. This
     keeps the meaning gate strict while allowing the exact remediation the
     duplicated-framing rule prescribes instead of requiring both restatements.
+    An earlier block is only exempted when its protected elements are all
+    present in the retained block, so removing it cannot hide lost content.
     """
     findings = source_analysis.get("findings")
     if not isinstance(findings, list):
@@ -182,26 +227,10 @@ def _meaning_source_text(
             raise ImprovementError(
                 "duplicated-framing finding is missing its observed value"
             )
-        location = observed.get("first_location")
-        if not isinstance(location, dict):
-            raise ImprovementError(
-                "duplicated-framing finding is missing its first location"
-            )
-        start = location.get("start")
-        end = location.get("end")
-        if (
-            isinstance(start, bool)
-            or isinstance(end, bool)
-            or not isinstance(start, int)
-            or not isinstance(end, int)
-            or start < 0
-            or end > len(source_text)
-            or start >= end
-        ):
-            raise ImprovementError(
-                "duplicated-framing finding carries an invalid first location"
-            )
-        spans.add((start, end))
+        earlier = _span(observed.get("first_location"), source_text, "first location")
+        retained = _span(raw.get("location"), source_text, "location")
+        if _restated_by(source_text, earlier, retained, profile):
+            spans.add(earlier)
 
     meaning_text = source_text
     for start, end in sorted(spans, reverse=True):
@@ -231,7 +260,9 @@ def judge_candidate(
     economy = _economy_evidence(source_analysis, candidate_analysis, profile)
 
     comparison = compare_protected(
-        extract_protected(_meaning_source_text(source_text, source_analysis), profile),
+        extract_protected(
+            _meaning_source_text(source_text, source_analysis, profile), profile
+        ),
         extract_protected(candidate_text, profile),
     )
     disposition = cast(str, comparison["disposition"])

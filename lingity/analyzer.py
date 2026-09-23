@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-from bisect import bisect_right
+from bisect import bisect_left, bisect_right
 from collections import Counter, defaultdict
 from typing import Iterable, Sequence, cast
 
@@ -1320,16 +1320,23 @@ def _redundancy_findings(
     return findings
 
 
-def _block_content_terms(document: Document, block: Block) -> frozenset[str]:
-    spans = block.readable
-    return frozenset(
-        _lemma(token)
-        for token in document.tokens
-        if token.is_word
-        and len(_lemma(token)) >= 4
-        and _lemma(token) not in STOP_LEMMAS
-        and any(start <= token.start < end for start, end in spans)
-    )
+def _block_words(
+    words: Sequence[Token], starts: Sequence[int], block: Block
+) -> tuple[frozenset[str], int]:
+    """Content terms and word count of one block from start-sorted word tokens.
+
+    Each readable span is located by bisection, so a block reads only its own
+    tokens rather than rescanning the whole document.
+    """
+    terms: set[str] = set()
+    count = 0
+    for start, end in block.readable:
+        for token in words[bisect_left(starts, start) : bisect_left(starts, end)]:
+            count += 1
+            lemma = _lemma(token)
+            if len(lemma) >= 4 and lemma not in STOP_LEMMAS:
+                terms.add(lemma)
+    return frozenset(terms), count
 
 
 def _duplicated_framing_findings(
@@ -1358,30 +1365,36 @@ def _duplicated_framing_findings(
     min_shared = int(profile.thresholds["min_duplicate_framing_shared_terms"])
     min_similarity = float(profile.thresholds["min_duplicate_framing_similarity"])
 
+    words = sorted(
+        (token for token in document.tokens if token.is_word),
+        key=lambda token: token.start,
+    )
+    starts = [token.start for token in words]
+    # list_items_before[i] counts list items among blocks[:i], so whether any
+    # list item separates two blocks is a constant-time subtraction.
+    list_items_before = [0]
+    for block in blocks:
+        list_items_before.append(
+            list_items_before[-1] + (block.kind == "list_item")
+        )
+
     candidates: list[tuple[int, Block, frozenset[str]]] = []
     for index, block in enumerate(blocks):
         if block.kind != "prose" or not block.readable:
             continue
-        terms = _block_content_terms(document, block)
-        word_count = sum(
-            1
-            for token in document.tokens
-            if token.is_word
-            and any(start <= token.start < end for start, end in block.readable)
-        )
+        terms, word_count = _block_words(words, starts, block)
         if min_shared <= len(terms) and word_count <= max_words:
             candidates.append((index, block, terms))
+    candidate_indexes = [index for index, _, _ in candidates]
 
     findings: list[Finding] = []
     for position, (index, block, terms) in enumerate(candidates):
-        for earlier_index, earlier, earlier_terms in candidates[:position]:
+        # Only candidates within max_distance blocks are compared; the window
+        # opens at the first one in range instead of scanning every prior block.
+        window = bisect_left(candidate_indexes, index - max_distance, 0, position)
+        for earlier_index, earlier, earlier_terms in candidates[window:position]:
             distance = index - earlier_index
-            if distance > max_distance:
-                continue
-            if not any(
-                intervening.kind == "list_item"
-                for intervening in blocks[earlier_index + 1 : index]
-            ):
+            if list_items_before[index] == list_items_before[earlier_index + 1]:
                 continue
             shared = sorted(terms & earlier_terms)
             similarity = len(shared) / min(len(terms), len(earlier_terms))

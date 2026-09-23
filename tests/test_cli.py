@@ -187,3 +187,38 @@ def test_critique_cli_accepts_optional_style(
     assert "style" not in plain
     assert styled["style"]["reference"]["name"] == "architecture-review"
     assert plain["critique_sha256"] != styled["critique_sha256"]
+
+
+def test_prose_free_texts_produce_a_verdict_and_a_brief(tmp_path: Path) -> None:
+    """A text with no readable words is a rejection to report, not a schema crash."""
+    source = tmp_path / "source.md"
+    candidate = tmp_path / "candidate.md"
+    verdict_path = tmp_path / "verdict.json"
+    brief_path = tmp_path / "brief.json"
+    source.write_text("The service must retain 2 replicas.\n", encoding="utf-8")
+    candidate.write_text("```\nkubectl scale --replicas=2\n```\n", encoding="utf-8")
+
+    assert (
+        main(
+            [
+                "judge",
+                str(source),
+                "--candidate",
+                str(candidate),
+                "--output",
+                str(verdict_path),
+            ]
+        )
+        == 1
+    )
+    verdict = cast(dict[str, Any], json.loads(verdict_path.read_text(encoding="utf-8")))
+    assert verdict["accepted"] is False
+    assert verdict["economy"]["candidate_readable_words"] == 0
+
+    assert main(["critique", str(candidate), "--output", str(brief_path)]) == 0
+    brief = cast(dict[str, Any], json.loads(brief_path.read_text(encoding="utf-8")))
+    constraints = brief["rewrite_constraints"]
+    assert constraints["source_readable_words"] == 0
+    assert constraints["maximum_candidate_readable_words"] == (
+        constraints["max_readable_word_growth_absolute"]
+    )

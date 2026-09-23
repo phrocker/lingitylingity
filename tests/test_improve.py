@@ -231,11 +231,14 @@ def test_shorter_candidate_passes_the_economy_gate(profile: Profile) -> None:
 
 def test_an_identified_earlier_framing_block_may_be_removed() -> None:
     profile = load_profile("local-service")
+    intro = (
+        "Permits, inspections, and what tends to be wrong with the heating and "
+        "cooling in a Howard County house.\n\n"
+    )
     source = (
         "# HVAC in Howard County\n\n"
-        "What the county requires, what the work costs here, and what tends to "
-        "go wrong in a Howard County house.\n\n"
-        "- Howard County permits and inspections\n"
+        + intro
+        + "- Howard County permits and inspections\n"
         "- Local prices, dated at the source\n"
         "- No national averages\n\n"
         "## On this page\n\n"
@@ -246,18 +249,55 @@ def test_an_identified_earlier_framing_block_may_be_removed() -> None:
         "Permits, inspections, what the county actually charges, and what tends "
         "to be wrong with the heating and cooling in a Howard County house."
     )
-    candidate = source.replace(
-        "What the county requires, what the work costs here, and what tends to "
-        "go wrong in a Howard County house.\n\n",
-        "",
-        1,
-    )
+    candidate = source.replace(intro, "", 1)
 
     accepted, reasons, evidence = judge_candidate(source, candidate, profile)
 
     assert accepted, reasons
     assert evidence["protected_disposition"] == "equivalent"
     assert cast(dict[str, JsonValue], evidence["economy"])["passed"] is True
+
+
+def test_earlier_framing_block_with_unique_claims_may_not_be_removed() -> None:
+    """Framing detection is partial term overlap, not meaning equivalence.
+
+    An earlier block that carries a claim the later block lacks stays in the
+    meaning baseline, so deleting it is reported as a dropped element rather
+    than hidden by the duplicated-framing exemption.
+    """
+    profile = load_profile("local-service")
+    intro = (
+        "What the county requires, what the work costs here, and what tends to "
+        "go wrong in a Howard County house.\n\n"
+    )
+    source = (
+        "# HVAC in Howard County\n\n"
+        + intro
+        + "- Howard County permits and inspections\n"
+        "- Local prices, dated at the source\n"
+        "- No national averages\n\n"
+        "## On this page\n\n"
+        "1. Do you actually need a permit?\n"
+        "2. What the permit costs\n"
+        "3. The inspections\n"
+        "4. What Howard County houses are, and what goes wrong in them\n\n"
+        "Permits, inspections, what the county actually charges, and what tends "
+        "to be wrong with the heating and cooling in a Howard County house."
+    )
+    assert "LING-DUPLICATED-FRAMING-001" in {
+        cast(str, finding["rule_id"])
+        for finding in cast(
+            list[dict[str, JsonValue]], analyze_text(source, profile)["findings"]
+        )
+    }
+    candidate = source.replace(intro, "", 1)
+
+    accepted, reasons, evidence = judge_candidate(source, candidate, profile)
+
+    assert not accepted
+    assert evidence["protected_disposition"] == "changed"
+    delta = cast(dict[str, list[str]], evidence["protected_delta"])
+    assert any("action=cost" in element for element in delta["missing"])
 
 
 def test_later_canonical_framing_block_may_not_be_removed() -> None:
@@ -505,7 +545,7 @@ def test_network_providers_require_an_explicit_model() -> None:
 def test_verdict_schema_requires_a_reason_for_every_rejection() -> None:
     validator = _schema("verdict.schema.json")
     base: dict[str, JsonValue] = {
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "accepted": False,
         "rejection_reasons": [],
         "source_score": 50.0,

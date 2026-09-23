@@ -22,7 +22,7 @@
     "critique_sha256"
   ],
   "properties": {
-    "schema_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "schema_version": {"const": "1.1.0"},
     "kind": {"const": "lingity.critique.v1"},
     "analyzer_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
     "linguistic_model": {
@@ -145,10 +145,10 @@
       ],
       "properties": {
         "editing_mode": {"const": "minimum_necessary_change"},
-        "source_readable_words": {"type": "integer", "minimum": 1},
+        "source_readable_words": {"type": "integer", "minimum": 0},
         "max_readable_word_growth_percent": {"type": "number", "minimum": 0},
         "max_readable_word_growth_absolute": {"type": "integer", "minimum": 0},
-        "maximum_candidate_readable_words": {"type": "integer", "minimum": 1},
+        "maximum_candidate_readable_words": {"type": "integer", "minimum": 0},
         "prefer_shorter_candidate": {"type": "boolean"}
       }
     },

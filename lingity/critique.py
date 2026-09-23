@@ -20,7 +20,7 @@ from lingity.models import JsonValue
 from lingity.profiles import sha256_json
 from lingity.styles import StyleContract
 
-CRITIQUE_SCHEMA_VERSION: Final = "1.0.0"
+CRITIQUE_SCHEMA_VERSION: Final = "1.1.0"
 CRITIQUE_KIND: Final = "lingity.critique.v1"
 
 SEVERITY_ORDER: Final[dict[str, int]] = {"high": 0, "medium": 1, "low": 2}
@@ -60,6 +60,17 @@ def _severity_rank(severity: str) -> int:
             f"{sorted(SEVERITY_ORDER)}"
         )
     return SEVERITY_ORDER[severity]
+
+
+def allowed_word_growth(
+    source_words: int, growth_percent: int | float, growth_absolute: int
+) -> int:
+    """Readable words a candidate may add: the larger of the two budgets.
+
+    The critique brief and the verdict both use this, so the maximum a provider
+    is told matches the maximum the judge enforces.
+    """
+    return max(growth_absolute, math.ceil(source_words * float(growth_percent) / 100))
 
 
 def build_critique(
@@ -188,13 +199,10 @@ def build_critique(
         }
     constraints = cast(dict[str, JsonValue], brief["rewrite_constraints"])
     source_words = cast(int, constraints["source_readable_words"])
-    percent_growth = float(
-        cast(int | float, constraints["max_readable_word_growth_percent"])
-    )
-    absolute_growth = cast(int, constraints["max_readable_word_growth_absolute"])
-    constraints["maximum_candidate_readable_words"] = source_words + max(
-        absolute_growth,
-        math.ceil(source_words * percent_growth / 100),
+    constraints["maximum_candidate_readable_words"] = source_words + allowed_word_growth(
+        source_words,
+        cast(int | float, constraints["max_readable_word_growth_percent"]),
+        cast(int, constraints["max_readable_word_growth_absolute"]),
     )
     brief["critique_sha256"] = sha256_json(brief)
     return brief
