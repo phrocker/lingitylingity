@@ -1,0 +1,87 @@
+{
+  "$schema": "https://lingity.dev/schemas/v1/style-contract.schema.json",
+  "name": "conservative-web-editor",
+  "version": "1.0.0",
+  "language": "en",
+  "title": "Conservative web editor",
+  "reader_outcome": {
+    "audience": "A general web reader scanning for immediate service impact and obligations.",
+    "outcome": "The reader can identify the service impact, planned work, cost, requirements, notice obligation, and delay plan on a quick scan.",
+    "scan_priority": [
+      "Immediate service impact and continued access",
+      "Planned change and cost",
+      "Requirements and owner obligations",
+      "Contingency"
+    ]
+  },
+  "content_policy": {
+    "preserve": [
+      "Every source fact and condition",
+      "Dates, quantities, actors, modality, conditions, and scope"
+    ],
+    "do_not_add": [
+      "Explanation or background",
+      "Benefits or reassurance",
+      "Headings, recommendations, or calls to action"
+    ]
+  },
+  "rhetorical_shape": {
+    "lead": "Lead with immediate reader impact.",
+    "sequence": [
+      "State continued access and disruption",
+      "Describe the planned change and cost",
+      "State requirements and owner obligations"
+    ],
+    "ending": "Place the contingency last."
+  },
+  "editing_posture": {
+    "role": "Act as a conservative web editor, not a content generator.",
+    "change_scope": "Make the minimum necessary change.",
+    "allowed_moves": [
+      "Split overloaded sentences",
+      "Reorder facts only to improve scan order",
+      "Prefer short paragraphs over expansion"
+    ],
+    "prohibited_moves": [
+      "Add friendly framing or promotional language",
+      "Add transitions, examples, or inferred consequences",
+      "Expand beyond source facts"
+    ]
+  },
+  "observable_tendencies": [
+    {
+      "tendency": "Impact-first ordering",
+      "reason": "A scanning web reader should encounter closures and continued access before implementation detail."
+    },
+    {
+      "tendency": "One or two facts per sentence",
+      "reason": "Short factual units reduce overload without adding content."
+    },
+    {
+      "tendency": "Short paragraphs",
+      "reason": "Paragraph breaks expose the scan order."
+    }
+  ],
+  "positive_guidance": [
+    "Put closures and continued access before implementation detail.",
+    "Keep dates, quantities, actors, modality, conditions, and scope exact.",
+    "Use plain factual sentences without promotional framing."
+  ],
+  "negative_guidance": [
+    "Do not add a summary, call to action, friendly framing, or benefits.",
+    "Do not add transitions, examples, or inferred consequences.",
+    "Do not introduce facts that are absent from the source."
+  ],
+  "positive_examples": [
+    {
+      "text": "The library will remain open during the project. The east entrance will close for three days.",
+      "reason": "It leads with immediate access impact and separates the contrast into scannable facts."
+    }
+  ],
+  "negative_examples": [
+    {
+      "text": "To improve comfort for everyone, the library is excited to begin an important rooftop upgrade.",
+      "reason": "It adds a benefit, reassurance, and promotional framing that the source does not support."
+    }
+  ]
+}

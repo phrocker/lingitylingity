@@ -19,6 +19,7 @@ from lingity.providers.base import (
     ProposalResponse,
     ProviderError,
     ProviderResponseError,
+    proposal_style_guidance,
 )
 
 ANTHROPIC_API_KEY_ENV: Final = "ANTHROPIC_API_KEY"
@@ -268,6 +269,7 @@ def _proposal_prompt(request: ProposalRequest) -> str:
         f"Deterministic rewrite constraints:\n"
         f"{_json_dump(cast(JsonValue, dict(constraints)))}\n\n"
         f"Must preserve exactly:\n{_json_dump(cast(JsonValue, must_preserve))}"
+        f"{proposal_style_guidance(request.brief)}"
     )
 
 

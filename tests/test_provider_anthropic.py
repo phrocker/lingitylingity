@@ -21,6 +21,7 @@ from lingity.providers.base import (
     ProviderError,
     ProviderResponseError,
 )
+from lingity.styles import load_style
 
 MODEL = "claude-test-model"
 SECRET = "sk-ant-test-secret-never-leak"
@@ -95,6 +96,17 @@ def _proposal_request() -> ProposalRequest:
     )
 
 
+def _styled_proposal_request() -> ProposalRequest:
+    brief = dict(_proposal_request().brief)
+    style = load_style("conservative-web-editor")
+    brief["style"] = {
+        "reference": style.reference(),
+        "contract": cast(JsonValue, style.data),
+        "instructions": style.render(),
+    }
+    return ProposalRequest(brief=brief)
+
+
 def _api_response_with_text(
     model_text: dict[str, JsonValue] | str, *, stop_reason: str = "end_turn"
 ) -> bytes:
@@ -163,8 +175,32 @@ def test_well_formed_response_produces_correct_proposal(
         indent=2,
         sort_keys=True,
     ) in prompt
+    assert "Style contract guidance follows." not in prompt
     _assert_secret_absent(call.body.decode("utf-8"))
     _assert_secret_absent(response.to_dict())
+
+
+def test_proposal_prompt_includes_digest_bound_style_guidance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(ANTHROPIC_API_KEY_ENV, SECRET)
+    body = _api_response_with_text(_valid_proposal_payload())
+    transport = FakeTransport(AnthropicTransportResponse(status=200, body=body))
+    provider = AnthropicProposalProvider(model=MODEL, transport=transport)
+
+    provider.propose(_styled_proposal_request())
+
+    request_body = cast(
+        dict[str, JsonValue],
+        json.loads(transport.calls[0].body.decode("utf-8")),
+    )
+    messages = cast(list[dict[str, JsonValue]], request_body["messages"])
+    content = cast(list[dict[str, JsonValue]], messages[0]["content"])
+    prompt = cast(str, content[0]["text"])
+    style = load_style("conservative-web-editor")
+    assert style.digest in prompt
+    assert style.render() in prompt
+    assert "Lead with immediate reader impact." in prompt
 
 
 def test_missing_api_key_raises_provider_error_naming_variable(

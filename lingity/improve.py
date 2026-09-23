@@ -34,6 +34,7 @@ from lingity.providers.base import (
     ProposalRequest,
     ProviderExhausted,
 )
+from lingity.styles import StyleContract
 
 DEFAULT_MAX_ATTEMPTS: Final = 3
 HIGH_SEVERITY: Final = "high"
@@ -322,6 +323,7 @@ def improve_text(
     *,
     max_attempts: int = DEFAULT_MAX_ATTEMPTS,
     challenger: DriftChallenger | None = None,
+    style: StyleContract | None = None,
 ) -> ImprovementResult:
     """Run the bounded improvement loop and return an attributed outcome."""
 
@@ -338,7 +340,9 @@ def improve_text(
     exhausted_after: int | None = None
 
     for index in range(1, max_attempts + 1):
-        brief = build_critique(source_analysis, prior_attempts=prior)
+        brief = build_critique(
+            source_analysis, prior_attempts=prior, style=style
+        )
         try:
             proposal = provider.propose(ProposalRequest(brief=brief))
         except ProviderExhausted:

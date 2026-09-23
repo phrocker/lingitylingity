@@ -8,6 +8,7 @@ import pytest
 
 from lingity.cli import main
 import lingity.profiles as profiles
+import lingity.styles as styles
 
 
 def test_analyze_and_verify_cli(
@@ -109,3 +110,76 @@ def test_analyze_rejects_malformed_profile_without_traceback(
     assert "Profile broken.v1.0.0.json is invalid" in captured.err
     assert "nominalization_suffixes" in captured.err
     assert "Traceback" not in captured.err
+
+
+def test_styles_and_style_cli_are_deterministic(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert main(["styles"]) == 0
+    names = json.loads(capsys.readouterr().out)
+    assert names == [
+        "architecture-review",
+        "conservative-web-editor",
+        "local-service-guide",
+    ]
+
+    assert main(["style", "local-service-guide", "--format", "json"]) == 0
+    contract = cast(dict[str, Any], json.loads(capsys.readouterr().out))
+    assert contract["name"] == "local-service-guide"
+
+    assert main(["style", "local-service-guide", "--format", "prompt"]) == 0
+    prompt = capsys.readouterr().out
+    assert "Lead with the practical requirement." in prompt
+    assert "not a deterministic style-fit score" in prompt
+
+
+def test_style_cli_rejects_malformed_contract_without_traceback(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    source = styles.load_style("architecture-review")
+    malformed = dict(source.data)
+    del malformed["negative_examples"]
+    (tmp_path / "architecture-review.v1.json").write_text(
+        json.dumps(malformed), encoding="utf-8"
+    )
+    monkeypatch.setattr(styles, "STYLE_DIR", tmp_path)
+
+    assert main(["style", "architecture-review"]) == 2
+    captured = capsys.readouterr()
+    assert "negative_examples" in captured.err
+    assert "Traceback" not in captured.err
+
+
+def test_critique_cli_accepts_optional_style(
+    tmp_path: Path,
+    recommendation_fixture: dict[str, str],
+) -> None:
+    source = tmp_path / "source.txt"
+    plain_path = tmp_path / "plain.json"
+    styled_path = tmp_path / "styled.json"
+    source.write_text(recommendation_fixture["original"], encoding="utf-8")
+
+    assert main(["critique", str(source), "--output", str(plain_path)]) == 0
+    assert (
+        main(
+            [
+                "critique",
+                str(source),
+                "--style",
+                "architecture-review",
+                "--output",
+                str(styled_path),
+            ]
+        )
+        == 0
+    )
+
+    plain = cast(dict[str, Any], json.loads(plain_path.read_text(encoding="utf-8")))
+    styled = cast(
+        dict[str, Any], json.loads(styled_path.read_text(encoding="utf-8"))
+    )
+    assert "style" not in plain
+    assert styled["style"]["reference"]["name"] == "architecture-review"
+    assert plain["critique_sha256"] != styled["critique_sha256"]

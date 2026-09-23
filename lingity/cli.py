@@ -25,6 +25,7 @@ from lingity.providers import (
     create_challenge_provider,
     create_proposal_provider,
 )
+from lingity.styles import available_style_names, load_style
 
 CLI_ERRORS = (
     OSError,
@@ -50,6 +51,21 @@ def _schema(name: str) -> dict[str, Any]:
 
 def _write_json(value: object, output: Path | None) -> None:
     rendered = json.dumps(value, indent=2, ensure_ascii=True, sort_keys=True) + "\n"
+    if output is None:
+        sys.stdout.write(rendered)
+    else:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        temporary = output.with_name(f".{output.name}.{uuid4().hex}.tmp")
+        try:
+            temporary.write_text(rendered, encoding="utf-8")
+            temporary.replace(output)
+        finally:
+            if temporary.exists():
+                temporary.unlink()
+
+
+def _write_text(value: str, output: Path | None) -> None:
+    rendered = value.rstrip("\n") + "\n"
     if output is None:
         sys.stdout.write(rendered)
     else:
@@ -178,11 +194,14 @@ def _critique(args: argparse.Namespace) -> int:
         _remove_stale_output(output)
         text = path.read_text(encoding="utf-8")
         analysis = analyze_text(text, load_profile(cast(str, args.profile)))
+        style_name = cast(str | None, args.style)
+        style = load_style(style_name) if style_name is not None else None
         brief = build_critique(
             analysis,
             prior_attempts=cast(
                 Any, _load_prior_attempts(cast(Path | None, args.prior_attempts))
             ),
+            style=style,
         )
         Draft202012Validator(_schema("critique.schema.json")).validate(brief)
         _write_json(brief, output)
@@ -245,6 +264,8 @@ def _improve(args: argparse.Namespace) -> int:
         _reject_input_output_alias(source_path, output)
         _remove_stale_output(output)
         profile = load_profile(cast(str, args.profile))
+        style_name = cast(str | None, args.style)
+        style = load_style(style_name) if style_name is not None else None
         source_text = source_path.read_text(encoding="utf-8")
 
         options: dict[str, Any] = {}
@@ -280,15 +301,44 @@ def _improve(args: argparse.Namespace) -> int:
             provider,
             max_attempts=cast(int, args.max_attempts),
             challenger=challenger,
+            style=style,
         )
         record = result.to_dict()
         record["profile"] = cast(Any, profile.reference())
         record["linguistic_model"] = cast(Any, model_fingerprint())
+        if style is not None:
+            record["style"] = cast(Any, style.reference())
         _write_json(record, output)
         return 0 if result.accepted else 1
     except CLI_ERRORS as exc:
         print(f"lingity improve failed: {exc}", file=sys.stderr)
         return 2
+
+
+def _styles(args: argparse.Namespace) -> int:
+    output = cast(Path | None, args.output)
+    try:
+        _remove_stale_output(output)
+        _write_json(list(available_style_names()), output)
+    except CLI_ERRORS as exc:
+        print(f"lingity styles failed: {exc}", file=sys.stderr)
+        return 2
+    return 0
+
+
+def _style(args: argparse.Namespace) -> int:
+    output = cast(Path | None, args.output)
+    try:
+        _remove_stale_output(output)
+        style = load_style(cast(str, args.name))
+        if cast(str, args.format) == "json":
+            _write_json(style.data, output)
+        else:
+            _write_text(style.render(), output)
+    except CLI_ERRORS as exc:
+        print(f"lingity style failed: {exc}", file=sys.stderr)
+        return 2
+    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -311,6 +361,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     critique.add_argument("input", type=Path)
     critique.add_argument("--profile", default="architecture-review")
+    critique.add_argument("--style")
     critique.add_argument("--prior-attempts", type=Path, dest="prior_attempts")
     critique.add_argument("--output", type=Path)
     critique.set_defaults(handler=_critique)
@@ -341,10 +392,25 @@ def build_parser() -> argparse.ArgumentParser:
     improve.add_argument("--candidate", type=Path, action="append")
     improve.add_argument("--max-attempts", type=int, default=3, dest="max_attempts")
     improve.add_argument("--profile", default="architecture-review")
+    improve.add_argument("--style")
     improve.add_argument("--challenge-provider", dest="challenge_provider")
     improve.add_argument("--challenge-model", dest="challenge_model")
     improve.add_argument("--output", type=Path)
     improve.set_defaults(handler=_improve)
+
+    styles = subparsers.add_parser(
+        "styles", help="list installed executable style contracts"
+    )
+    styles.add_argument("--output", type=Path)
+    styles.set_defaults(handler=_styles)
+
+    style = subparsers.add_parser(
+        "style", help="emit an installed style contract or provider instructions"
+    )
+    style.add_argument("name")
+    style.add_argument("--format", choices=["json", "prompt"], default="json")
+    style.add_argument("--output", type=Path)
+    style.set_defaults(handler=_style)
     return parser
 
 

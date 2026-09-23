@@ -152,6 +152,39 @@
         "prefer_shorter_candidate": {"type": "boolean"}
       }
     },
+    "style": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reference", "contract", "instructions"],
+      "properties": {
+        "reference": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "version", "digest"],
+          "properties": {
+            "name": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+            },
+            "version": {
+              "type": "string",
+              "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+            },
+            "digest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        },
+        "contract": {
+          "$ref": "#/$defs/styleContract"
+        },
+        "instructions": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
     "prior_attempts": {
       "type": "array",
       "items": {
@@ -172,5 +205,125 @@
       }
     },
     "critique_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "$defs": {
+    "nonEmptyStringArray": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "styleExamples": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["text", "reason"],
+        "properties": {
+          "text": {"type": "string", "minLength": 1},
+          "reason": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "styleContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "$schema",
+        "name",
+        "version",
+        "language",
+        "title",
+        "reader_outcome",
+        "content_policy",
+        "rhetorical_shape",
+        "editing_posture",
+        "observable_tendencies",
+        "positive_guidance",
+        "negative_guidance",
+        "positive_examples",
+        "negative_examples"
+      ],
+      "properties": {
+        "$schema": {
+          "const": "https://lingity.dev/schemas/v1/style-contract.schema.json"
+        },
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+        },
+        "language": {"const": "en"},
+        "title": {"type": "string", "minLength": 1},
+        "reader_outcome": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["audience", "outcome", "scan_priority"],
+          "properties": {
+            "audience": {"type": "string", "minLength": 1},
+            "outcome": {"type": "string", "minLength": 1},
+            "scan_priority": {"$ref": "#/$defs/nonEmptyStringArray"}
+          }
+        },
+        "content_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["preserve", "do_not_add"],
+          "properties": {
+            "preserve": {"$ref": "#/$defs/nonEmptyStringArray"},
+            "do_not_add": {"$ref": "#/$defs/nonEmptyStringArray"}
+          }
+        },
+        "rhetorical_shape": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["lead", "sequence", "ending"],
+          "properties": {
+            "lead": {"type": "string", "minLength": 1},
+            "sequence": {"$ref": "#/$defs/nonEmptyStringArray"},
+            "ending": {"type": "string", "minLength": 1}
+          }
+        },
+        "editing_posture": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "role",
+            "change_scope",
+            "allowed_moves",
+            "prohibited_moves"
+          ],
+          "properties": {
+            "role": {"type": "string", "minLength": 1},
+            "change_scope": {"type": "string", "minLength": 1},
+            "allowed_moves": {"$ref": "#/$defs/nonEmptyStringArray"},
+            "prohibited_moves": {"$ref": "#/$defs/nonEmptyStringArray"}
+          }
+        },
+        "observable_tendencies": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["tendency", "reason"],
+            "properties": {
+              "tendency": {"type": "string", "minLength": 1},
+              "reason": {"type": "string", "minLength": 1}
+            }
+          }
+        },
+        "positive_guidance": {"$ref": "#/$defs/nonEmptyStringArray"},
+        "negative_guidance": {"$ref": "#/$defs/nonEmptyStringArray"},
+        "positive_examples": {"$ref": "#/$defs/styleExamples"},
+        "negative_examples": {"$ref": "#/$defs/styleExamples"}
+      }
+    }
   }
 }

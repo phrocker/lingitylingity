@@ -28,6 +28,7 @@ from lingity.providers import (
 )
 from lingity.providers.agent import SubagentProvider
 from lingity.providers.base import ChallengeResult, ProposalRequest
+from lingity.styles import load_style
 
 FIXTURE = Path(__file__).parent / "fixtures" / "recommended-decision.json"
 
@@ -76,6 +77,7 @@ def test_critique_brief_validates_and_is_deterministic() -> None:
     _schema("critique.schema.json").validate(first)
     assert first == second
     assert first["critique_sha256"] == second["critique_sha256"]
+    assert "style" not in first
 
 
 def test_critique_brief_carries_defects_and_protected_elements() -> None:
@@ -124,6 +126,23 @@ def test_critique_records_prior_rejections() -> None:
     brief = build_critique(analyze_text(original), prior_attempts=prior)
     _schema("critique.schema.json").validate(brief)
     assert cast(list[JsonValue], brief["prior_attempts"]) == prior
+
+
+def test_style_changes_critique_digest_and_is_digest_bound() -> None:
+    original, _ = _fixture()
+    analysis = analyze_text(original)
+    plain = build_critique(analysis)
+    style = load_style("architecture-review")
+    styled = build_critique(analysis, style=style)
+
+    _schema("critique.schema.json").validate(styled)
+    assert styled["critique_sha256"] != plain["critique_sha256"]
+    snapshot = cast(dict[str, JsonValue], styled["style"])
+    assert snapshot["reference"] == style.reference()
+    assert snapshot["contract"] == style.data
+    assert snapshot["instructions"] == style.render()
+    assert "style_score" not in json.dumps(styled, sort_keys=True)
+    assert "style_fit" not in json.dumps(styled, sort_keys=True)
 
 
 def test_critique_refuses_an_incomplete_artifact() -> None:
@@ -367,6 +386,26 @@ def test_loop_accepts_a_later_candidate(tmp_path: Path, profile: Profile) -> Non
     assert result.selected_score > result.source_score
     assert [attempt.accepted for attempt in result.attempts] == [False, True]
     assert result.attempts[0].rejection_reasons
+
+
+def test_improvement_loop_passes_style_without_changing_judgement(
+    tmp_path: Path, profile: Profile
+) -> None:
+    original, rewrite = _fixture()
+    candidate = tmp_path / "candidate.txt"
+    candidate.write_text(rewrite, encoding="utf-8")
+    provider = SubagentProvider([candidate])
+
+    result = improve_text(
+        original,
+        profile,
+        provider,
+        max_attempts=1,
+        style=load_style("architecture-review"),
+    )
+
+    assert result.accepted
+    assert result.selected_text == rewrite
 
 
 def test_loop_returns_the_source_when_nothing_is_accepted(

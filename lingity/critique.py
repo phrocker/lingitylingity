@@ -18,6 +18,7 @@ from typing import Final, cast
 
 from lingity.models import JsonValue
 from lingity.profiles import sha256_json
+from lingity.styles import StyleContract
 
 CRITIQUE_SCHEMA_VERSION: Final = "1.0.0"
 CRITIQUE_KIND: Final = "lingity.critique.v1"
@@ -65,6 +66,7 @@ def build_critique(
     analysis: dict[str, JsonValue],
     *,
     prior_attempts: list[dict[str, JsonValue]] | None = None,
+    style: StyleContract | None = None,
 ) -> dict[str, JsonValue]:
     """Build a deterministic improvement brief from an analysis artifact.
 
@@ -178,6 +180,12 @@ def build_critique(
         },
         "prior_attempts": cast(JsonValue, list(prior_attempts or [])),
     }
+    if style is not None:
+        brief["style"] = {
+            "reference": style.reference(),
+            "contract": cast(JsonValue, style.data),
+            "instructions": style.render(),
+        }
     constraints = cast(dict[str, JsonValue], brief["rewrite_constraints"])
     source_words = cast(int, constraints["source_readable_words"])
     percent_growth = float(

@@ -17,6 +17,7 @@ from lingity.providers.base import (
     ProposalResponse,
     ProviderError,
     ProviderResponseError,
+    proposal_style_guidance,
 )
 
 OPENAI_API_KEY_ENV: Final = "OPENAI_API_KEY"
@@ -340,6 +341,7 @@ class OpenAIProposalProvider:
             f"{_serialize(cast(JsonValue, dict(constraints)))}\n\n"
             f"Protected elements that must be preserved exactly:\n"
             f"{_serialize(cast(JsonValue, preserve))}"
+            f"{proposal_style_guidance(request.brief)}"
         )
 
     def _validate_identity(self, payload: Mapping[str, JsonValue], purpose: str) -> None:

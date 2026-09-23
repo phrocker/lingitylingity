@@ -80,7 +80,7 @@ lingity = "lingity.cli:main"
 include = ["lingity*"]
 
 [tool.setuptools.package-data]
-lingity = ["py.typed", "profiles/*.json", "schemas/v1/*.json"]
+lingity = ["py.typed", "profiles/*.json", "styles/*.json", "schemas/v1/*.json"]
 
 [tool.pytest.ini_options]
 addopts = "-q"

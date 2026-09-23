@@ -7,6 +7,19 @@ usefully different edits before Lingity grows a new style engine? It uses the
 existing profiles unchanged and one fictional, neutral facilities notice. The
 canonical inputs are in [`style-contract-experiment/`](style-contract-experiment/).
 
+The three contracts are now executable, versioned JSON guidance in
+[`lingity/styles/`](../lingity/styles/), validated by
+[`style-contract.schema.json`](../lingity/schemas/v1/style-contract.schema.json).
+They can be listed with `lingity styles`, rendered with
+`lingity style <name> --format prompt`, and passed to `critique` or `improve`
+with `--style <name>`. Their digest-bound structured data and rendered
+instructions enter the critique brief and proposal prompt.
+
+This execution path does not turn the contracts into deterministic authorities.
+They guide proposal generation only. `judge` remains style-independent, and
+the profile score continues to measure shared clarity, economy, and protected
+meaning rather than rhetorical fit.
+
 ## Copy-ready contracts
 
 ### Conservative web editor
@@ -138,6 +151,10 @@ candidate wins. Structured contracts can guide generation today, while current
 Lingity profiles validate shared clarity, economy, and protected meaning rather
 than contract-specific rhetorical fit. A later design should require broader
 examples and an explicit observable before adding a style-fit signal.
+
+The executable JSON slice implements that bounded conclusion: the contracts
+are loadable, discoverable, renderable, and optional in proposal generation,
+but no style-fit score or profile tuning has been added.
 
 ## Reproduce
 

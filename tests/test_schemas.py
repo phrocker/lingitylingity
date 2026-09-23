@@ -10,6 +10,7 @@ import pytest
 
 from lingity.analyzer import analyze_text
 from lingity.profiles import PROFILE_DIR, SCHEMA_DIR
+from lingity.styles import STYLE_DIR
 
 
 def _json(path: Path) -> dict[str, Any]:
@@ -24,6 +25,14 @@ def test_all_schemas_are_valid_draft_2020_12() -> None:
 def test_profile_validates() -> None:
     validator = Draft202012Validator(_json(SCHEMA_DIR / "profile.schema.json"))
     for path in sorted(PROFILE_DIR.glob("*.json")):
+        validator.validate(_json(path))
+
+
+def test_style_contracts_validate() -> None:
+    validator = Draft202012Validator(
+        _json(SCHEMA_DIR / "style-contract.schema.json")
+    )
+    for path in sorted(STYLE_DIR.glob("*.json")):
         validator.validate(_json(path))
 
 

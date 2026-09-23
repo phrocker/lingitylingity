@@ -1,0 +1,87 @@
+{
+  "$schema": "https://lingity.dev/schemas/v1/style-contract.schema.json",
+  "name": "local-service-guide",
+  "version": "1.0.0",
+  "language": "en",
+  "title": "Local-service guide",
+  "reader_outcome": {
+    "audience": "A person planning around local work and its practical requirements.",
+    "outcome": "The reader can find permit and inspection requirements first, then timing, cost, access effects, notice, and the weather fallback.",
+    "scan_priority": [
+      "Permit and inspection requirements",
+      "Timing and cost",
+      "Access effects and notice",
+      "Weather fallback"
+    ]
+  },
+  "content_policy": {
+    "preserve": [
+      "Every source fact and condition",
+      "Local requirements, quantities, dates, costs, access effects, notice periods, and fallback"
+    ],
+    "do_not_add": [
+      "Inferred local rules, prices, or schedules",
+      "Contacts, advice, or service claims",
+      "National averages or claims about typical projects"
+    ]
+  },
+  "rhetorical_shape": {
+    "lead": "Lead with the practical requirement.",
+    "sequence": [
+      "State the permit and inspection requirement",
+      "Group timing and cost",
+      "Keep access effects and notice obligations together"
+    ],
+    "ending": "Place the contingency last."
+  },
+  "editing_posture": {
+    "role": "Act as a factual local-service guide, not a marketer.",
+    "change_scope": "Reorder around the reader's likely planning questions without adding answers.",
+    "allowed_moves": [
+      "Split overloaded sentences",
+      "Move concrete local requirements to the front",
+      "Group access effects with notice obligations"
+    ],
+    "prohibited_moves": [
+      "Infer permit guidance or local practice",
+      "Add urgency or recommendations",
+      "Generalize from the specific project"
+    ]
+  },
+  "observable_tendencies": [
+    {
+      "tendency": "Requirement-first ordering",
+      "reason": "A person planning the work needs permit and inspection requirements before project narrative."
+    },
+    {
+      "tendency": "Concrete local nouns near the front",
+      "reason": "The county permit and inspections identify the practical local constraint."
+    },
+    {
+      "tendency": "Access and notice kept together",
+      "reason": "The closure and required advance notice answer the same planning question."
+    }
+  ],
+  "positive_guidance": [
+    "Surface the county permit and inspection count before project detail.",
+    "Keep the date, budget, closure duration, notice period, and fallback exact.",
+    "Keep access effects and notice obligations in the same section."
+  ],
+  "negative_guidance": [
+    "Do not add national averages, recommendations, or urgency.",
+    "Do not claim what typically happens on similar projects.",
+    "Do not add unsupported permit guidance, contacts, prices, or schedules."
+  ],
+  "positive_examples": [
+    {
+      "text": "The work requires a county mechanical permit and two inspections.",
+      "reason": "It answers the reader's first practical planning question with the exact local requirement."
+    }
+  ],
+  "negative_examples": [
+    {
+      "text": "Most counties require similar permits, so contact the permit office early to avoid delays.",
+      "reason": "It introduces a national generalization, advice, and an unsupported consequence."
+    }
+  ]
+}

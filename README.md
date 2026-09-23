@@ -152,8 +152,13 @@ lingity analyze review.md --profile architecture-review
 lingity verify analysis.json
 
 lingity critique review.md --output brief.json
+lingity critique review.md --style architecture-review --output styled-brief.json
 lingity judge review.md --candidate rewrite.md
-lingity improve review.md --provider subagent --candidate rewrite.md
+lingity improve review.md --provider subagent --candidate rewrite.md --style architecture-review
+
+lingity styles
+lingity style local-service-guide --format json
+lingity style local-service-guide --format prompt
 ```
 
 `analyze` emits a deterministic, schema-valid JSON artifact containing located
@@ -168,6 +173,19 @@ change. `judge` decides a single candidate. `improve` runs the bounded loop,
 feeding each rejection back into the next brief. All three exit `0` on success,
 `1` on a reasoned rejection, and `2` on an error, so a host agent can branch on
 the exit code alone.
+
+Three versioned JSON style contracts ship: `conservative-web-editor`,
+`local-service-guide`, and `architecture-review`. `styles` lists them, and
+`style` emits either the canonical structured contract or its deterministic
+provider instruction rendering. `critique` and `improve` accept `--style`; the
+selected contract, digest-bound reference, and rendered instructions enter the
+critique brief and proposal prompt. Omitting `--style` preserves the existing
+brief and prompt behavior.
+
+Style contracts guide generation; they do not score rhetorical fit. Current
+profiles still validate shared clarity, economy, and protected meaning, and
+`judge` remains style-independent. A profile score must not be interpreted as a
+contract-fit score.
 
 Proposal providers are instructed to act as conservative editors rather than
 content generators. Profiles publish a readable-word growth budget, and
@@ -323,6 +341,10 @@ Providers are transports, never authorities:
 A drift challenger may only *raise* doubt. It can block an acceptance, but it
 can never clear a deterministic failure, and an unparseable challenge response
 is an error rather than a quiet `no_material_change`.
+
+Optional style guidance does not change those acceptance rules. It influences
+proposal generation only; no shipped profile claims to validate whether a
+candidate led with impact, a local requirement, or a proposed change.
 
 ## Development
 
