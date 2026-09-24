@@ -177,6 +177,23 @@ nobody read. An `unresolved` verdict costs a rewrite that the gate should have
 accepted. A false `equivalent` certifies a rewrite that changed what the text
 commits to. Only the second is a safety failure.
 
+The gate reads sentences inside Markdown blocks, never across them. It once
+parsed the raw source as one unit, so a heading, a paragraph, and the list
+after it could run together into one sentence. Blank lines then decided where
+that run was cut, and adding a blank line, or switching to CRLF line endings,
+changed the extracted claims of an otherwise identical text. Each block is now
+parsed on its own, the way analysis reads it. Code, table, and HTML blocks and
+any line no block claims are still parsed, so nothing that was protected
+before leaves the parse.
+
+Reading blocks separately turns a short heading or a noun-phrase list item
+into a sentence of its own. When it yields no proposition, it is uncovered on
+both sides and cancels like any identical doubt. When a rewrite also moves a
+protected element, the doubts both texts raise word for word are dropped from
+the delta. The change is already visible, and repeating a shared doubt in
+every rejection would bury the elements a repair has to restore. A doubt only
+one text raises stays.
+
 A text is committed to what it asserts a thing *is*, not only to what it says
 should be done. The gate therefore reads a linking verb and its complement as a
 state claim. "The fix is complete and fail-closed" records `complete` and

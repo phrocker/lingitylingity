@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, Callable, Iterable, cast
 
+from lingity.markdown import OPAQUE_KINDS, segment, unclaimed_lines
 from lingity.models import JsonValue
 from lingity.morphology import canonical_action, canonical_action_info
 from lingity.nlp import Document, Token, parse
@@ -1964,8 +1965,31 @@ def _element_signatures(ordered: list[dict[str, JsonValue]]) -> list[str]:
     return signatures
 
 
+def _parse_groups(text: str) -> tuple[tuple[tuple[int, int], ...], ...]:
+    """Group the source into Markdown blocks so no sentence spans two of them.
+
+    Parsing the raw text as one unit let a heading, a paragraph, and the list
+    after it run together into one sentence, and blank lines between blocks
+    changed where that run was cut, so whitespace alone changed the extracted
+    claims. Prose blocks contribute their readable content, as in analysis.
+    Code, table, and HTML blocks are parsed whole, and so is any non-blank line
+    no block claims: every character that carried protected content before
+    still reaches the parse.
+    """
+    blocks = segment(text)
+    groups: list[tuple[tuple[int, int], ...]] = []
+    for block in blocks:
+        if block.kind in OPAQUE_KINDS:
+            if block.start < block.end and text[block.start : block.end].strip():
+                groups.append(((block.start, block.end),))
+        elif block.readable:
+            groups.append(block.readable)
+    groups.extend(((span,) for span in unclaimed_lines(text, blocks)))
+    return tuple(sorted(groups, key=lambda group: group[0]))
+
+
 def extract_protected(text: str, profile: Profile) -> dict[str, JsonValue]:
-    document = parse(text)
+    document = parse(text, spans=_parse_groups(text))
     items: list[dict[str, JsonValue]] = []
     concept_items, concept_spans, concept_seen = _extract_concepts(text, document, profile)
     items.extend(concept_items)
@@ -2161,6 +2185,28 @@ def _uncovered_reasons(manifest: dict[str, JsonValue], label: str) -> list[str]:
             f"from {text!r}; equivalence cannot be established for it"
         )
     return reasons
+
+
+def _without_shared_doubts(unresolved: list[str]) -> list[str]:
+    """Drop each source doubt paired with an identical candidate doubt."""
+    source = Counter(
+        reason.split(":", 1)[1] for reason in unresolved if reason.startswith("source:")
+    )
+    candidate = Counter(
+        reason.split(":", 1)[1]
+        for reason in unresolved
+        if reason.startswith("candidate:")
+    )
+    shared = source & candidate
+    remaining = {"source": Counter(shared), "candidate": Counter(shared)}
+    kept: list[str] = []
+    for reason in unresolved:
+        label, _, body = reason.partition(":")
+        if label in remaining and remaining[label][body] > 0:
+            remaining[label][body] -= 1
+            continue
+        kept.append(reason)
+    return kept
 
 
 _UNCOVERED_REASON_MARK = "no proposition or protected element could be extracted"
@@ -2410,6 +2456,12 @@ def compare_protected(
             ):
                 unresolved = []
                 equivalent = True
+    if (missing or added) and unresolved:
+        # The change is already visible in what moved. A doubt both texts raise
+        # word for word about the same content hides nothing further, and
+        # repeating it in every rejection buries the elements a repair has to
+        # restore; only doubts that differ between the texts are kept.
+        unresolved = _without_shared_doubts(unresolved)
     disposition = "equivalent" if equivalent else ("unresolved" if unresolved else "changed")
     return {
         "equivalent": equivalent,
