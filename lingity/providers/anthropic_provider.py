@@ -19,6 +19,7 @@ from lingity.providers.base import (
     ProposalResponse,
     ProviderError,
     ProviderResponseError,
+    proposal_style_guidance,
 )
 
 ANTHROPIC_API_KEY_ENV: Final = "ANTHROPIC_API_KEY"
@@ -198,6 +199,16 @@ def _object_list(
     return result
 
 
+def _object(
+    value: JsonValue | None, field_name: str
+) -> Mapping[str, JsonValue]:
+    if not isinstance(value, dict):
+        raise ProviderError(
+            f"critique brief field {field_name!r} must be an object"
+        )
+    return value
+
+
 def _string_field(
     value: Mapping[str, JsonValue], field_name: str, context: str
 ) -> str:
@@ -225,11 +236,21 @@ def _proposal_prompt(request: ProposalRequest) -> str:
         )
 
     must_preserve = _object_list(request.brief.get("must_preserve"), "must_preserve")
+    constraints = _object(
+        request.brief.get("rewrite_constraints"), "rewrite_constraints"
+    )
 
     return (
         "You are a Lingity proposal provider. You may propose a rewrite, but "
         "your claims are not binding: deterministic Lingity code will verify "
         "readability, protected-element equivalence, and semantic drift.\n\n"
+        "Act as a conservative editor, not a content generator. Make the "
+        "smallest sufficient set of changes. Remove repeated framing, filler, "
+        "and text that contributes no distinct fact, decision, requirement, "
+        "reason, risk, or action. Do not add introductions, conclusions, "
+        "summaries, transitions, examples, background, or recommendations that "
+        "the source did not contain. Prefer deletion or direct replacement over "
+        "expansion. Add words only when a ranked defect requires them.\n\n"
         "Rewrite the source text to address the ranked defects. Preserve every "
         "protected element exactly, including identifiers, quantities, modal "
         "terms, negation, citations, and governance claims. Do not add, omit, "
@@ -245,7 +266,10 @@ def _proposal_prompt(request: ProposalRequest) -> str:
         f"Critique SHA-256: {request.critique_sha256}\n\n"
         f"Source text:\n{source_text}\n\n"
         f"Ranked defects:\n{_json_dump(cast(JsonValue, defects))}\n\n"
+        f"Deterministic rewrite constraints:\n"
+        f"{_json_dump(cast(JsonValue, dict(constraints)))}\n\n"
         f"Must preserve exactly:\n{_json_dump(cast(JsonValue, must_preserve))}"
+        f"{proposal_style_guidance(request.brief)}"
     )
 
 

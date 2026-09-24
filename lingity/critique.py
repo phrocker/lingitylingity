@@ -13,12 +13,14 @@ gaining authority over the verdict.
 from __future__ import annotations
 
 import hashlib
+import math
 from typing import Final, cast
 
 from lingity.models import JsonValue
 from lingity.profiles import sha256_json
+from lingity.styles import StyleContract
 
-CRITIQUE_SCHEMA_VERSION: Final = "1.0.0"
+CRITIQUE_SCHEMA_VERSION: Final = "1.1.0"
 CRITIQUE_KIND: Final = "lingity.critique.v1"
 
 SEVERITY_ORDER: Final[dict[str, int]] = {"high": 0, "medium": 1, "low": 2}
@@ -60,10 +62,22 @@ def _severity_rank(severity: str) -> int:
     return SEVERITY_ORDER[severity]
 
 
+def allowed_word_growth(
+    source_words: int, growth_percent: int | float, growth_absolute: int
+) -> int:
+    """Readable words a candidate may add: the larger of the two budgets.
+
+    The critique brief and the verdict both use this, so the maximum a provider
+    is told matches the maximum the judge enforces.
+    """
+    return max(growth_absolute, math.ceil(source_words * float(growth_percent) / 100))
+
+
 def build_critique(
     analysis: dict[str, JsonValue],
     *,
     prior_attempts: list[dict[str, JsonValue]] | None = None,
+    style: StyleContract | None = None,
 ) -> dict[str, JsonValue]:
     """Build a deterministic improvement brief from an analysis artifact.
 
@@ -77,6 +91,10 @@ def build_critique(
     score = cast(dict[str, JsonValue], _require(analysis, "score", "the analysis artifact"))
     protected = cast(
         dict[str, JsonValue], _require(analysis, "protected", "the analysis artifact")
+    )
+    rewrite_policy = cast(
+        dict[str, JsonValue],
+        _require(analysis, "rewrite_policy", "the analysis artifact"),
     )
 
     raw_findings = cast(
@@ -144,9 +162,48 @@ def build_critique(
             "requires_higher_score": True,
             "requires_protected_equivalence": True,
             "forbids_new_high_severity_findings": True,
+            "requires_economy_budget": True,
+        },
+        "rewrite_constraints": {
+            "editing_mode": "minimum_necessary_change",
+            "source_readable_words": sum(
+                cast(int, sentence["word_count"])
+                for sentence in cast(
+                    list[dict[str, JsonValue]],
+                    _require(analysis, "sentences", "the analysis artifact"),
+                )
+            ),
+            "max_readable_word_growth_percent": _require(
+                rewrite_policy,
+                "max_readable_word_growth_percent",
+                "the rewrite policy",
+            ),
+            "max_readable_word_growth_absolute": _require(
+                rewrite_policy,
+                "max_readable_word_growth_absolute",
+                "the rewrite policy",
+            ),
+            "prefer_shorter_candidate": _require(
+                rewrite_policy,
+                "prefer_shorter_candidate",
+                "the rewrite policy",
+            ),
         },
         "prior_attempts": cast(JsonValue, list(prior_attempts or [])),
     }
+    if style is not None:
+        brief["style"] = {
+            "reference": style.reference(),
+            "contract": cast(JsonValue, style.data),
+            "instructions": style.render(),
+        }
+    constraints = cast(dict[str, JsonValue], brief["rewrite_constraints"])
+    source_words = cast(int, constraints["source_readable_words"])
+    constraints["maximum_candidate_readable_words"] = source_words + allowed_word_growth(
+        source_words,
+        cast(int | float, constraints["max_readable_word_growth_percent"]),
+        cast(int, constraints["max_readable_word_growth_absolute"]),
+    )
     brief["critique_sha256"] = sha256_json(brief)
     return brief
 

@@ -22,6 +22,8 @@ from jsonschema import Draft202012Validator
 from jsonschema import ValidationError as SchemaValidationError
 
 from lingity.models import JsonValue
+from lingity.profiles import sha256_json
+from lingity.styles import StyleContract
 
 SCHEMA_DIR: Final = Path(__file__).resolve().parents[1] / "schemas" / "v1"
 
@@ -70,6 +72,60 @@ class ProposalRequest:
         if not isinstance(digest, str) or len(digest) != 64:
             raise ProviderError("critique brief is missing a valid critique_sha256")
         return digest
+
+
+def proposal_style_guidance(brief: Mapping[str, JsonValue]) -> str:
+    """Return verified style guidance, or an empty string when none was supplied."""
+
+    value = brief.get("style")
+    if value is None:
+        return ""
+    if not isinstance(value, dict):
+        raise ProviderError("critique brief style field must be an object")
+
+    reference = value.get("reference")
+    contract = value.get("contract")
+    instructions = value.get("instructions")
+    if not isinstance(reference, dict):
+        raise ProviderError("critique brief style is missing its reference object")
+    if not isinstance(contract, dict):
+        raise ProviderError("critique brief style is missing its contract object")
+    if not isinstance(instructions, str) or not instructions:
+        raise ProviderError(
+            "critique brief style is missing its rendered instructions"
+        )
+
+    try:
+        style = StyleContract(
+            data=cast(dict[str, Any], contract),
+            digest=sha256_json(contract),
+        )
+        expected_reference = style.reference()
+        expected_instructions = style.render()
+    except (KeyError, TypeError, ValueError) as error:
+        raise ProviderError(
+            "critique brief style contract cannot be rendered safely"
+        ) from error
+
+    if reference != expected_reference:
+        raise ProviderError(
+            "critique brief style reference does not match the contract digest, "
+            "name, and version"
+        )
+    if instructions != expected_instructions:
+        raise ProviderError(
+            "critique brief style instructions do not match the structured contract"
+        )
+
+    return (
+        "\n\nStyle contract guidance follows. It guides generation only and is "
+        "not a deterministic acceptance or style-fit score.\n\n"
+        "Style reference:\n"
+        f"{json.dumps(reference, ensure_ascii=False, indent=2, sort_keys=True)}\n\n"
+        "Complete structured style contract:\n"
+        f"{json.dumps(contract, ensure_ascii=False, indent=2, sort_keys=True)}\n\n"
+        f"Rendered style instructions:\n{instructions}"
+    )
 
 
 @dataclass(frozen=True)

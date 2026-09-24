@@ -8,6 +8,7 @@ import pytest
 
 from lingity.cli import main
 import lingity.profiles as profiles
+import lingity.styles as styles
 
 
 def test_analyze_and_verify_cli(
@@ -109,3 +110,211 @@ def test_analyze_rejects_malformed_profile_without_traceback(
     assert "Profile broken.v1.0.0.json is invalid" in captured.err
     assert "nominalization_suffixes" in captured.err
     assert "Traceback" not in captured.err
+
+
+def test_styles_and_style_cli_are_deterministic(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert main(["styles"]) == 0
+    names = json.loads(capsys.readouterr().out)
+    assert names == [
+        "architecture-review",
+        "conservative-web-editor",
+        "local-service-guide",
+        "technical-writer",
+    ]
+
+    assert main(["style", "technical-writer", "--format", "json"]) == 0
+    contract = cast(dict[str, Any], json.loads(capsys.readouterr().out))
+    assert contract["name"] == "technical-writer"
+    assert len(cast(list[object], contract["positive_examples"])) >= 2
+    assert len(cast(list[object], contract["negative_examples"])) >= 2
+
+    assert main(["style", "technical-writer", "--format", "prompt"]) == 0
+    prompt = capsys.readouterr().out
+    assert "Lead with the task or reader outcome" in prompt
+    assert "one primary action per step" in prompt
+    assert "not a deterministic style-fit score" in prompt
+
+
+def test_style_cli_rejects_malformed_contract_without_traceback(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    source = styles.load_style("architecture-review")
+    malformed = dict(source.data)
+    del malformed["negative_examples"]
+    (tmp_path / "architecture-review.v1.json").write_text(
+        json.dumps(malformed), encoding="utf-8"
+    )
+    monkeypatch.setattr(styles, "STYLE_DIR", tmp_path)
+
+    assert main(["style", "architecture-review"]) == 2
+    captured = capsys.readouterr()
+    assert "negative_examples" in captured.err
+    assert "Traceback" not in captured.err
+
+
+def test_critique_cli_accepts_optional_style(
+    tmp_path: Path,
+    recommendation_fixture: dict[str, str],
+) -> None:
+    source = tmp_path / "source.txt"
+    plain_path = tmp_path / "plain.json"
+    styled_path = tmp_path / "styled.json"
+    source.write_text(recommendation_fixture["original"], encoding="utf-8")
+
+    assert main(["critique", str(source), "--output", str(plain_path)]) == 0
+    assert (
+        main(
+            [
+                "critique",
+                str(source),
+                "--style",
+                "architecture-review",
+                "--output",
+                str(styled_path),
+            ]
+        )
+        == 0
+    )
+
+    plain = cast(dict[str, Any], json.loads(plain_path.read_text(encoding="utf-8")))
+    styled = cast(
+        dict[str, Any], json.loads(styled_path.read_text(encoding="utf-8"))
+    )
+    assert "style" not in plain
+    assert styled["style"]["reference"]["name"] == "architecture-review"
+    assert plain["critique_sha256"] != styled["critique_sha256"]
+
+
+def test_prose_free_texts_produce_a_verdict_and_a_brief(tmp_path: Path) -> None:
+    """A text with no readable words is a rejection to report, not a schema crash."""
+    source = tmp_path / "source.md"
+    candidate = tmp_path / "candidate.md"
+    verdict_path = tmp_path / "verdict.json"
+    brief_path = tmp_path / "brief.json"
+    source.write_text("The service must retain 2 replicas.\n", encoding="utf-8")
+    candidate.write_text("```\nkubectl scale --replicas=2\n```\n", encoding="utf-8")
+
+    assert (
+        main(
+            [
+                "judge",
+                str(source),
+                "--candidate",
+                str(candidate),
+                "--output",
+                str(verdict_path),
+            ]
+        )
+        == 1
+    )
+    verdict = cast(dict[str, Any], json.loads(verdict_path.read_text(encoding="utf-8")))
+    assert verdict["accepted"] is False
+    assert verdict["economy"]["candidate_readable_words"] == 0
+
+    assert main(["critique", str(candidate), "--output", str(brief_path)]) == 0
+    brief = cast(dict[str, Any], json.loads(brief_path.read_text(encoding="utf-8")))
+    constraints = brief["rewrite_constraints"]
+    assert constraints["source_readable_words"] == 0
+    assert constraints["maximum_candidate_readable_words"] == (
+        constraints["max_readable_word_growth_absolute"]
+    )
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        ["styles"],
+        ["style", "architecture-review"],
+        ["critique", "SOURCE", "--style", "architecture-review"],
+        ["improve", "SOURCE", "--candidate", "SOURCE"],
+        ["analyze", "SOURCE"],
+    ],
+)
+def test_output_may_not_overwrite_an_installed_contract(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    recommendation_fixture: dict[str, str],
+    command: list[str],
+) -> None:
+    store = tmp_path / "styles"
+    store.mkdir()
+    installed = store / "architecture-review.v1.json"
+    original = json.dumps(styles.load_style("architecture-review").data)
+    installed.write_text(original, encoding="utf-8")
+    monkeypatch.setattr(styles, "STYLE_DIR", store)
+    source = tmp_path / "source.txt"
+    source.write_text(recommendation_fixture["original"], encoding="utf-8")
+    argv = [str(source) if part == "SOURCE" else part for part in command]
+
+    assert main([*argv, "--output", str(installed)]) == 2
+    assert "installed style directory" in capsys.readouterr().err
+    assert installed.read_text(encoding="utf-8") == original
+
+
+def test_improve_rejects_style_for_the_subagent_provider(
+    tmp_path: Path,
+    recommendation_fixture: dict[str, str],
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    source = tmp_path / "source.txt"
+    candidate = tmp_path / "candidate.txt"
+    source.write_text(recommendation_fixture["original"], encoding="utf-8")
+    candidate.write_text(recommendation_fixture["rewrite"], encoding="utf-8")
+
+    code = main(
+        [
+            "improve",
+            str(source),
+            "--provider",
+            "subagent",
+            "--candidate",
+            str(candidate),
+            "--style",
+            "architecture-review",
+        ]
+    )
+
+    assert code == 2
+    assert "lingity critique --style" in capsys.readouterr().err
+
+
+def test_output_may_not_land_in_the_installed_profile_directory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    recommendation_fixture: dict[str, str],
+) -> None:
+    store = tmp_path / "profiles"
+    store.mkdir()
+    monkeypatch.setattr(profiles, "PROFILE_DIR", store)
+    source = tmp_path / "source.txt"
+    source.write_text(recommendation_fixture["original"], encoding="utf-8")
+    target = store / "stray.v1.json"
+
+    assert main(["analyze", str(source), "--output", str(target)]) == 2
+    assert "installed profile directory" in capsys.readouterr().err
+    assert not target.exists()
+
+
+def test_a_symlink_inside_a_store_is_refused_even_when_it_points_outside(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    store = tmp_path / "styles"
+    store.mkdir()
+    monkeypatch.setattr(styles, "STYLE_DIR", store)
+    outside = tmp_path / "outside.json"
+    outside.write_text("{}", encoding="utf-8")
+    link = store / "link.json"
+    link.symlink_to(outside)
+
+    assert main(["styles", "--output", str(link)]) == 2
+    assert "installed style directory" in capsys.readouterr().err
+    assert link.is_symlink()
+    assert outside.read_text(encoding="utf-8") == "{}"

@@ -18,9 +18,10 @@ from jsonschema import ValidationError as SchemaValidationError
 
 from lingity.analyzer import analyze_text
 from lingity.critique import CritiqueError, build_critique
+import lingity.improve as improve_module
 from lingity.improve import ImprovementError, improve_text, judge_candidate
 from lingity.models import JsonValue
-from lingity.profiles import SCHEMA_DIR, Profile, load_profile
+from lingity.profiles import SCHEMA_DIR, Profile, load_profile, sha256_json
 from lingity.providers import (
     ProviderError,
     available_proposal_providers,
@@ -28,6 +29,7 @@ from lingity.providers import (
 )
 from lingity.providers.agent import SubagentProvider
 from lingity.providers.base import ChallengeResult, ProposalRequest
+from lingity.styles import load_style
 
 FIXTURE = Path(__file__).parent / "fixtures" / "recommended-decision.json"
 
@@ -76,6 +78,7 @@ def test_critique_brief_validates_and_is_deterministic() -> None:
     _schema("critique.schema.json").validate(first)
     assert first == second
     assert first["critique_sha256"] == second["critique_sha256"]
+    assert "style" not in first
 
 
 def test_critique_brief_carries_defects_and_protected_elements() -> None:
@@ -98,6 +101,11 @@ def test_critique_brief_carries_defects_and_protected_elements() -> None:
             "excerpt",
         ):
             assert field in defect, f"defect is missing {field}"
+    constraints = cast(dict[str, JsonValue], brief["rewrite_constraints"])
+    assert constraints["editing_mode"] == "minimum_necessary_change"
+    assert cast(int, constraints["maximum_candidate_readable_words"]) > cast(
+        int, constraints["source_readable_words"]
+    )
 
 
 def test_critique_defects_are_ranked_by_severity() -> None:
@@ -119,6 +127,23 @@ def test_critique_records_prior_rejections() -> None:
     brief = build_critique(analyze_text(original), prior_attempts=prior)
     _schema("critique.schema.json").validate(brief)
     assert cast(list[JsonValue], brief["prior_attempts"]) == prior
+
+
+def test_style_changes_critique_digest_and_is_digest_bound() -> None:
+    original, _ = _fixture()
+    analysis = analyze_text(original)
+    plain = build_critique(analysis)
+    style = load_style("architecture-review")
+    styled = build_critique(analysis, style=style)
+
+    _schema("critique.schema.json").validate(styled)
+    assert styled["critique_sha256"] != plain["critique_sha256"]
+    snapshot = cast(dict[str, JsonValue], styled["style"])
+    assert snapshot["reference"] == style.reference()
+    assert snapshot["contract"] == style.data
+    assert snapshot["instructions"] == style.render()
+    assert "style_score" not in json.dumps(styled, sort_keys=True)
+    assert "style_fit" not in json.dumps(styled, sort_keys=True)
 
 
 def test_critique_refuses_an_incomplete_artifact() -> None:
@@ -178,6 +203,350 @@ def test_identical_text_is_rejected(profile: Profile) -> None:
     assert any("did not change" in reason for reason in reasons)
 
 
+def test_candidate_that_exceeds_the_word_growth_budget_is_rejected(
+    profile: Profile,
+) -> None:
+    original, rewrite = _fixture()
+    expanded = rewrite + (
+        "\n\nThis additional discussion repeats the recommendation in a more "
+        "helpful and comprehensive way for readers who may want more context "
+        "before reaching the same decision."
+    )
+    accepted, reasons, evidence = judge_candidate(original, expanded, profile)
+    economy = cast(dict[str, JsonValue], evidence["economy"])
+    assert not accepted
+    assert economy["passed"] is False
+    assert any("readable-word growth budget" in reason for reason in reasons)
+
+
+def test_shorter_candidate_passes_the_economy_gate(profile: Profile) -> None:
+    original, rewrite = _fixture()
+    accepted, reasons, evidence = judge_candidate(original, rewrite, profile)
+    economy = cast(dict[str, JsonValue], evidence["economy"])
+    assert accepted, reasons
+    assert economy["passed"] is True
+    assert cast(int, economy["candidate_readable_words"]) <= cast(
+        int, economy["maximum_candidate_readable_words"]
+    )
+
+
+def test_an_identified_earlier_framing_block_may_be_removed() -> None:
+    profile = load_profile("local-service")
+    intro = (
+        "Permits, inspections, and what tends to be wrong with the heating and "
+        "cooling in a Howard County house.\n\n"
+    )
+    source = (
+        "# HVAC in Howard County\n\n"
+        + intro
+        + "- Howard County permits and inspections\n"
+        "- Local prices, dated at the source\n"
+        "- No national averages\n\n"
+        "## On this page\n\n"
+        "1. Do you actually need a permit?\n"
+        "2. What the permit costs\n"
+        "3. The inspections\n"
+        "4. What Howard County houses are, and what goes wrong in them\n\n"
+        "Permits, inspections, what the county actually charges, and what tends "
+        "to be wrong with the heating and cooling in a Howard County house."
+    )
+    candidate = source.replace(intro, "", 1)
+
+    accepted, reasons, evidence = judge_candidate(source, candidate, profile)
+
+    assert accepted, reasons
+    assert evidence["protected_disposition"] == "equivalent"
+    assert cast(dict[str, JsonValue], evidence["economy"])["passed"] is True
+
+
+def test_keeping_a_removable_framing_block_is_not_a_meaning_change() -> None:
+    """Deleting a restated intro is allowed, never required."""
+    profile = load_profile("local-service")
+    source = (
+        "# HVAC in Howard County\n\n"
+        "Permits, inspections, and what tends to be wrong with the heating and "
+        "cooling in a Howard County house.\n\n"
+        "- Howard County permits and inspections\n"
+        "- Local prices, dated at the source\n"
+        "- No national averages\n\n"
+        "## On this page\n\n"
+        "1. Do you actually need a permit?\n"
+        "2. What the permit costs\n"
+        "3. The inspections\n"
+        "4. What Howard County houses are, and what goes wrong in them\n\n"
+        "Permits, inspections, what the county actually charges, and what tends "
+        "to be wrong with the heating and cooling in a Howard County house."
+    )
+    candidate = source.replace(
+        "1. Do you actually need a permit?", "1. Do you need a permit?", 1
+    )
+
+    _, _, evidence = judge_candidate(source, candidate, profile)
+
+    assert evidence["protected_disposition"] == "equivalent"
+    assert evidence["protected_delta"] == {
+        "missing": [],
+        "added": [],
+        "unresolved": [],
+        "specified": [],
+    }
+
+
+_FRAMING_SECTIONS = (
+    (
+        "Permits, inspections, and what tends to be wrong with the heating and "
+        "cooling in a Howard County house.",
+        "Permits, inspections, what the county actually charges, and what tends "
+        "to be wrong with the heating and cooling in a Howard County house.",
+    ),
+    (
+        "Furnaces, boilers, and what tends to fail in the ductwork of an older "
+        "Ellicott City rowhouse.",
+        "Furnaces, boilers, what installers actually charge, and what tends to "
+        "fail in the ductwork of an older Ellicott City rowhouse.",
+    ),
+    (
+        "Heat pumps, rebates, and what tends to break in the compressor of a "
+        "Columbia townhouse.",
+        "Heat pumps, rebates, what utilities actually refund, and what tends to "
+        "break in the compressor of a Columbia townhouse.",
+    ),
+    (
+        "Thermostats, wiring, and what tends to confuse owners about zoning in "
+        "a Laurel duplex.",
+        "Thermostats, wiring, what electricians actually charge, and what tends "
+        "to confuse owners about zoning in a Laurel duplex.",
+    ),
+    (
+        "Filters, humidity, and what tends to clog the drainage lines in a "
+        "Savage basement.",
+        "Filters, humidity, what cleaners actually charge, and what tends to "
+        "clog the drainage lines in a Savage basement.",
+    ),
+)
+
+
+def _many_framing_sections() -> str:
+    sections = [
+        f"## Section {number}\n\n{intro}\n\n- first point\n- second point\n\n{restated}"
+        for number, (intro, restated) in enumerate(_FRAMING_SECTIONS, 1)
+    ]
+    return "# Guide\n\n" + "\n\n".join(sections) + "\n"
+
+
+@pytest.mark.parametrize("removed", [(0,), (1, 3), (0, 1, 2, 3, 4)])
+def test_any_subset_of_many_removable_framing_blocks_may_be_removed(
+    removed: tuple[int, ...],
+) -> None:
+    profile = load_profile("local-service")
+    source = _many_framing_sections()
+    framing = [
+        finding
+        for finding in cast(
+            list[dict[str, JsonValue]], analyze_text(source, profile)["findings"]
+        )
+        if finding["rule_id"] == "LING-DUPLICATED-FRAMING-001"
+    ]
+    assert len(framing) == len(_FRAMING_SECTIONS)
+    candidate = source
+    for index in removed:
+        candidate = candidate.replace(_FRAMING_SECTIONS[index][0] + "\n\n", "", 1)
+
+    _, _, evidence = judge_candidate(source, candidate, profile)
+
+    assert evidence["protected_disposition"] == "equivalent"
+
+
+def test_removing_framing_blocks_does_not_excuse_other_losses() -> None:
+    profile = load_profile("local-service")
+    source = _many_framing_sections().replace(
+        "- first point", "- Howard County requires 2 inspections for permit HVAC-42", 1
+    )
+    candidate = source.replace(_FRAMING_SECTIONS[2][0] + "\n\n", "", 1).replace(
+        "- Howard County requires 2 inspections for permit HVAC-42\n", "", 1
+    )
+
+    _, _, evidence = judge_candidate(source, candidate, profile)
+
+    assert evidence["protected_disposition"] == "changed"
+    delta = cast(dict[str, list[str]], evidence["protected_delta"])
+    assert any("HVAC-42" in element for element in delta["missing"])
+
+
+def test_the_exemption_never_covers_deleting_the_later_block(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Protected comparison cannot see position, so the exemption checks blocks.
+
+    The stand-in extractor gives each paragraph one position-blind signature
+    and maps both framing blocks, and a reworded copy of the earlier one, to
+    the same signature. Deleting the earlier block and deleting the later block
+    then look identical to the comparison; only the first is the remediation
+    the rule permits.
+    """
+    profile = load_profile("local-service")
+    earlier = (
+        "Permits, inspections, and what tends to be wrong with heating and "
+        "cooling in any Howard County house."
+    )
+    later = (
+        "Permits, inspections, and what tends to be wrong with the heating and "
+        "cooling in a Howard County house."
+    )
+    reworded = earlier.replace("any Howard County house", "every Howard County house")
+    source = (
+        "# HVAC in Howard County\n\n"
+        + earlier
+        + "\n\n- Howard County permits and inspections\n"
+        "- Local prices, dated at the source\n\n"
+        "## On this page\n\n"
+        "1. Do you actually need a permit?\n"
+        "2. The inspections\n\n"
+        + later
+        + "\n\n## Permits\n\n"
+        "The county inspector checks every furnace before the permit closes."
+    )
+
+    def position_blind(text: str, _: Profile) -> dict[str, JsonValue]:
+        signatures = sorted(
+            "paragraph:"
+            + (later if paragraph.strip() in {earlier, reworded} else paragraph.strip())
+            for paragraph in text.split("\n\n")
+            if paragraph.strip()
+        )
+        return {
+            "semantic_signature": cast(list[JsonValue], signatures),
+            "coverage": {"sentences": len(signatures), "uncovered": []},
+            "source_sha256": sha256_json(text),
+            "sha256": sha256_json(signatures),
+        }
+
+    monkeypatch.setattr(improve_module, "extract_protected", position_blind)
+
+    drop_earlier = source.replace(earlier + "\n\n", "", 1)
+    _, _, evidence = judge_candidate(source, drop_earlier, profile)
+    assert evidence["protected_disposition"] == "equivalent"
+
+    drop_later = source.replace(later + "\n\n", "", 1)
+    _, _, evidence = judge_candidate(source, drop_later, profile)
+    assert evidence["protected_disposition"] == "changed"
+
+    reword_earlier_drop_later = drop_later.replace(earlier, reworded, 1)
+    _, _, evidence = judge_candidate(source, reword_earlier_drop_later, profile)
+    assert evidence["protected_disposition"] == "changed"
+
+
+def test_earlier_framing_block_with_unique_claims_may_not_be_removed() -> None:
+    """Framing detection is partial term overlap, not meaning equivalence.
+
+    An earlier block that carries a claim the later block lacks stays in the
+    meaning baseline, so deleting it is reported as a dropped element rather
+    than hidden by the duplicated-framing exemption.
+    """
+    profile = load_profile("local-service")
+    intro = (
+        "What the county requires, what the work costs here, and what tends to "
+        "go wrong in a Howard County house.\n\n"
+    )
+    source = (
+        "# HVAC in Howard County\n\n"
+        + intro
+        + "- Howard County permits and inspections\n"
+        "- Local prices, dated at the source\n"
+        "- No national averages\n\n"
+        "## On this page\n\n"
+        "1. Do you actually need a permit?\n"
+        "2. What the permit costs\n"
+        "3. The inspections\n"
+        "4. What Howard County houses are, and what goes wrong in them\n\n"
+        "Permits, inspections, what the county actually charges, and what tends "
+        "to be wrong with the heating and cooling in a Howard County house."
+    )
+    assert "LING-DUPLICATED-FRAMING-001" in {
+        cast(str, finding["rule_id"])
+        for finding in cast(
+            list[dict[str, JsonValue]], analyze_text(source, profile)["findings"]
+        )
+    }
+    candidate = source.replace(intro, "", 1)
+
+    accepted, reasons, evidence = judge_candidate(source, candidate, profile)
+
+    assert not accepted
+    assert evidence["protected_disposition"] == "changed"
+    delta = cast(dict[str, list[str]], evidence["protected_delta"])
+    assert any("action=cost" in element for element in delta["missing"])
+
+
+def test_later_canonical_framing_block_may_not_be_removed() -> None:
+    profile = load_profile("local-service")
+    source = (
+        "# HVAC in Howard County\n\n"
+        "What the county requires, what the work costs here, and what tends to "
+        "go wrong in a Howard County house.\n\n"
+        "- Howard County permits and inspections\n"
+        "- Local prices, dated at the source\n"
+        "- No national averages\n\n"
+        "## On this page\n\n"
+        "1. Do you actually need a permit?\n"
+        "2. What the permit costs\n"
+        "3. The inspections\n"
+        "4. What Howard County houses are, and what goes wrong in them\n\n"
+        "Permits, inspections, what the county actually charges, and what tends "
+        "to be wrong with the heating and cooling in a Howard County house."
+    )
+    candidate = source.replace(
+        "Permits, inspections, what the county actually charges, and what tends "
+        "to be wrong with the heating and cooling in a Howard County house.",
+        "",
+        1,
+    )
+
+    accepted, reasons, evidence = judge_candidate(source, candidate, profile)
+
+    assert not accepted
+    assert evidence["protected_disposition"] == "changed"
+    assert any("protected meaning is changed" in reason for reason in reasons)
+
+
+def test_framing_exception_does_not_unprotect_content_outside_the_earlier_block() -> None:
+    profile = load_profile("local-service")
+    source = (
+        "# HVAC in Howard County\n\n"
+        "What the county requires, what the work costs here, and what tends to "
+        "go wrong in a Howard County house.\n\n"
+        "- Howard County permits and inspections\n"
+        "- Local prices, dated at the source\n"
+        "- No national averages\n\n"
+        "## On this page\n\n"
+        "1. Do you actually need a permit?\n"
+        "2. What the permit costs\n"
+        "3. The inspections\n"
+        "4. What Howard County houses are, and what goes wrong in them\n\n"
+        "Permits, inspections, what the county actually charges, and what tends "
+        "to be wrong with the heating and cooling in a Howard County house.\n\n"
+        "Howard County requires 2 inspections for permit HVAC-42."
+    )
+    candidate = source.replace(
+        "What the county requires, what the work costs here, and what tends to "
+        "go wrong in a Howard County house.\n\n",
+        "",
+        1,
+    ).replace(
+        "\n\nHoward County requires 2 inspections for permit HVAC-42.",
+        "",
+        1,
+    )
+
+    accepted, reasons, evidence = judge_candidate(source, candidate, profile)
+
+    assert not accepted
+    assert evidence["protected_disposition"] == "changed"
+    delta = cast(dict[str, list[str]], evidence["protected_delta"])
+    assert any("2" in element or "HVAC-42" in element for element in delta["missing"])
+    assert any("protected meaning is changed" in reason for reason in reasons)
+
+
 @pytest.mark.parametrize(
     "candidate",
     [
@@ -235,6 +604,26 @@ def test_loop_accepts_a_later_candidate(tmp_path: Path, profile: Profile) -> Non
     assert result.selected_score > result.source_score
     assert [attempt.accepted for attempt in result.attempts] == [False, True]
     assert result.attempts[0].rejection_reasons
+
+
+def test_improvement_loop_passes_style_without_changing_judgement(
+    tmp_path: Path, profile: Profile
+) -> None:
+    original, rewrite = _fixture()
+    candidate = tmp_path / "candidate.txt"
+    candidate.write_text(rewrite, encoding="utf-8")
+    provider = SubagentProvider([candidate])
+
+    result = improve_text(
+        original,
+        profile,
+        provider,
+        max_attempts=1,
+        style=load_style("architecture-review"),
+    )
+
+    assert result.accepted
+    assert result.selected_text == rewrite
 
 
 def test_loop_returns_the_source_when_nothing_is_accepted(
@@ -334,7 +723,7 @@ def test_network_providers_require_an_explicit_model() -> None:
 def test_verdict_schema_requires_a_reason_for_every_rejection() -> None:
     validator = _schema("verdict.schema.json")
     base: dict[str, JsonValue] = {
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "accepted": False,
         "rejection_reasons": [],
         "source_score": 50.0,
@@ -346,8 +735,17 @@ def test_verdict_schema_requires_a_reason_for_every_rejection() -> None:
             "unresolved": [],
             "specified": [],
         },
+        "economy": {
+            "source_readable_words": 100,
+            "candidate_readable_words": 90,
+            "growth": -10,
+            "allowed_growth": 12,
+            "maximum_candidate_readable_words": 112,
+            "prefer_shorter_candidate": True,
+            "passed": True,
+        },
         "challenge": None,
-        "profile": {"name": "architecture-review", "version": "1.2.0", "digest": "0" * 64},
+        "profile": {"name": "architecture-review", "version": "1.4.0", "digest": "0" * 64},
         "linguistic_model": {
             "name": "en_core_web_sm",
             "version": "3.8.0",

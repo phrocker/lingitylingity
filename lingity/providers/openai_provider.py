@@ -17,6 +17,7 @@ from lingity.providers.base import (
     ProposalResponse,
     ProviderError,
     ProviderResponseError,
+    proposal_style_guidance,
 )
 
 OPENAI_API_KEY_ENV: Final = "OPENAI_API_KEY"
@@ -304,9 +305,22 @@ class OpenAIProposalProvider:
         critique_sha256 = request.critique_sha256
         defects = _proposal_defects(request.brief)
         preserve = _must_preserve(request.brief)
+        constraints = _require_mapping(
+            request.brief.get("rewrite_constraints"),
+            "rewrite_constraints",
+            "critique brief",
+        )
         return (
             "Lingity needs a candidate rewrite. The deterministic Lingity loop, "
             "not you, will decide whether to accept it.\n\n"
+            "Act as a conservative editor, not a content generator. Make the "
+            "smallest sufficient set of changes. Remove repeated framing, "
+            "filler, and text that contributes no distinct fact, decision, "
+            "requirement, reason, risk, or action. Do not add introductions, "
+            "conclusions, summaries, transitions, examples, background, or "
+            "recommendations that the source did not contain. Prefer deletion "
+            "or direct replacement over expansion. Add words only when a ranked "
+            "defect requires them.\n\n"
             "Preserve every protected element exactly as written. Do not change "
             "identifiers, quantities, modal terms, negation, citations, or "
             "governance claims.\n\n"
@@ -323,8 +337,11 @@ class OpenAIProposalProvider:
             f"Source text:\n{source_text}\n\n"
             f"Critique SHA-256:\n{critique_sha256}\n\n"
             f"Ranked defects:\n{_serialize(cast(JsonValue, defects))}\n\n"
+            f"Deterministic rewrite constraints:\n"
+            f"{_serialize(cast(JsonValue, dict(constraints)))}\n\n"
             f"Protected elements that must be preserved exactly:\n"
             f"{_serialize(cast(JsonValue, preserve))}"
+            f"{proposal_style_guidance(request.brief)}"
         )
 
     def _validate_identity(self, payload: Mapping[str, JsonValue], purpose: str) -> None:

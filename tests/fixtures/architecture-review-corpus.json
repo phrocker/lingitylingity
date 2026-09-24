@@ -207,9 +207,23 @@
       "required_rule_ids": [
         "LING-REDUNDANCY-001"
       ]
+    },
+    {
+      "name": "duplicated nearby framing",
+      "text": "This review covers gateway ownership, release evidence, and rollback controls.\n\n## Review contents\n\n- Gateway ownership\n- Release evidence\n- Rollback controls\n\nGateway ownership, release evidence, and rollback controls are covered in this review.",
+      "required_rule_ids": [
+        "LING-DUPLICATED-FRAMING-001"
+      ]
     }
   ],
   "negative": [
+    {
+      "name": "separate sections may share subject terms",
+      "text": "The gateway team owns release evidence and rollback controls.\n\n## Rollback\n\nThe gateway team tests rollback controls before release.\n\n## Evidence\n\nThe release manager publishes evidence after the test.",
+      "forbidden_rule_ids": [
+        "LING-DUPLICATED-FRAMING-001"
+      ]
+    },
     {
       "name": "direct capacity plan",
       "text": "The platform team will test capacity next week and publish the results in the review.",

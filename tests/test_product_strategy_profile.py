@@ -265,5 +265,5 @@ def test_analysis_is_deterministic_under_the_profile(strategy: Profile) -> None:
 def test_the_artifact_records_the_profile_it_used(strategy: Profile) -> None:
     reference = cast(dict[str, JsonValue], analyze_text(HYPE, strategy)["profile"])
     assert reference["name"] == "product-strategy"
-    assert reference["version"] == "1.0.0"
+    assert reference["version"] == "1.1.0"
     assert reference["digest"] == strategy.digest

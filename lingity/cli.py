@@ -18,6 +18,7 @@ from lingity.critique import CritiqueError, build_critique
 from lingity.improve import ImprovementError, improve_text, judge_candidate
 from lingity.markdown import MarkdownParserError
 from lingity.nlp import LinguisticModelError, model_fingerprint
+import lingity.profiles as profile_store
 from lingity.profiles import SCHEMA_DIR, canonical_json, load_profile
 from lingity.providers import (
     ProviderError,
@@ -25,6 +26,8 @@ from lingity.providers import (
     create_challenge_provider,
     create_proposal_provider,
 )
+import lingity.styles as style_store
+from lingity.styles import available_style_names, load_style
 
 CLI_ERRORS = (
     OSError,
@@ -63,6 +66,21 @@ def _write_json(value: object, output: Path | None) -> None:
                 temporary.unlink()
 
 
+def _write_text(value: str, output: Path | None) -> None:
+    rendered = value.rstrip("\n") + "\n"
+    if output is None:
+        sys.stdout.write(rendered)
+    else:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        temporary = output.with_name(f".{output.name}.{uuid4().hex}.tmp")
+        try:
+            temporary.write_text(rendered, encoding="utf-8")
+            temporary.replace(output)
+        finally:
+            if temporary.exists():
+                temporary.unlink()
+
+
 def _normalized_path(path: Path) -> str:
     return os.path.normcase(str(path.expanduser().resolve(strict=False)))
 
@@ -72,9 +90,45 @@ def _reject_input_output_alias(input_path: Path, output: Path | None) -> None:
         raise ValueError("input and output paths must be different")
 
 
+def _path_forms(path: Path) -> tuple[Path, Path]:
+    """The resolved path and the lexical absolute path, both case-normalized."""
+    return (
+        Path(_normalized_path(path)),
+        Path(os.path.normcase(os.path.abspath(path.expanduser()))),
+    )
+
+
+def _reject_package_store_output(output: Path | None) -> None:
+    """Refuse to write into an installed contract, profile, or schema directory.
+
+    Every command removes stale output before it loads a profile or style, so
+    an output path naming a shipped file would delete it before it could be
+    read, and any other path there would add a file to the installed store.
+    """
+    if output is None:
+        return
+    # Both spellings of the output are checked. Resolving alone would let a
+    # symlink placed inside a store, pointing elsewhere, escape the check while
+    # the unlink still removes the link from the store; the lexical path alone
+    # would miss a symlink outside the store that points into it.
+    parents = {parent for form in _path_forms(output) for parent in form.parents}
+    stores = (
+        ("style", style_store.STYLE_DIR),
+        ("profile", profile_store.PROFILE_DIR),
+        ("schema", profile_store.SCHEMA_DIR),
+    )
+    for label, directory in stores:
+        if parents & set(_path_forms(directory)):
+            raise ValueError(
+                f"output path {output} is inside the installed {label} "
+                "directory; write output elsewhere"
+            )
+
+
 def _remove_stale_output(output: Path | None) -> None:
     if output is None:
         return
+    _reject_package_store_output(output)
     try:
         output.unlink()
     except FileNotFoundError:
@@ -178,11 +232,14 @@ def _critique(args: argparse.Namespace) -> int:
         _remove_stale_output(output)
         text = path.read_text(encoding="utf-8")
         analysis = analyze_text(text, load_profile(cast(str, args.profile)))
+        style_name = cast(str | None, args.style)
+        style = load_style(style_name) if style_name is not None else None
         brief = build_critique(
             analysis,
             prior_attempts=cast(
                 Any, _load_prior_attempts(cast(Path | None, args.prior_attempts))
             ),
+            style=style,
         )
         Draft202012Validator(_schema("critique.schema.json")).validate(brief)
         _write_json(brief, output)
@@ -218,13 +275,14 @@ def _judge(args: argparse.Namespace) -> int:
             source_text, candidate_text, profile, challenger=challenger
         )
         verdict = {
-            "schema_version": "1.0.0",
+            "schema_version": "1.1.0",
             "accepted": accepted,
             "rejection_reasons": list(reasons),
             "source_score": evidence["source_score"],
             "candidate_score": evidence["candidate_score"],
             "protected_disposition": evidence["protected_disposition"],
             "protected_delta": evidence["protected_delta"],
+            "economy": evidence["economy"],
             "challenge": evidence["challenge"],
             "profile": profile.reference(),
             "linguistic_model": model_fingerprint(),
@@ -244,11 +302,19 @@ def _improve(args: argparse.Namespace) -> int:
         _reject_input_output_alias(source_path, output)
         _remove_stale_output(output)
         profile = load_profile(cast(str, args.profile))
+        style_name = cast(str | None, args.style)
+        style = load_style(style_name) if style_name is not None else None
         source_text = source_path.read_text(encoding="utf-8")
 
         options: dict[str, Any] = {}
         provider_name = cast(str, args.provider)
         if provider_name == "subagent":
+            if style is not None:
+                raise ValueError(
+                    "--style cannot guide the subagent provider, whose candidates "
+                    "are written before the loop runs; give the host agent "
+                    "`lingity critique --style` and judge what it writes"
+                )
             candidates = cast(list[Path] | None, args.candidate)
             if not candidates:
                 raise ValueError(
@@ -279,15 +345,44 @@ def _improve(args: argparse.Namespace) -> int:
             provider,
             max_attempts=cast(int, args.max_attempts),
             challenger=challenger,
+            style=style,
         )
         record = result.to_dict()
         record["profile"] = cast(Any, profile.reference())
         record["linguistic_model"] = cast(Any, model_fingerprint())
+        if style is not None:
+            record["style"] = cast(Any, style.reference())
         _write_json(record, output)
         return 0 if result.accepted else 1
     except CLI_ERRORS as exc:
         print(f"lingity improve failed: {exc}", file=sys.stderr)
         return 2
+
+
+def _styles(args: argparse.Namespace) -> int:
+    output = cast(Path | None, args.output)
+    try:
+        _remove_stale_output(output)
+        _write_json(list(available_style_names()), output)
+    except CLI_ERRORS as exc:
+        print(f"lingity styles failed: {exc}", file=sys.stderr)
+        return 2
+    return 0
+
+
+def _style(args: argparse.Namespace) -> int:
+    output = cast(Path | None, args.output)
+    try:
+        _remove_stale_output(output)
+        style = load_style(cast(str, args.name))
+        if cast(str, args.format) == "json":
+            _write_json(style.data, output)
+        else:
+            _write_text(style.render(), output)
+    except CLI_ERRORS as exc:
+        print(f"lingity style failed: {exc}", file=sys.stderr)
+        return 2
+    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -310,6 +405,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     critique.add_argument("input", type=Path)
     critique.add_argument("--profile", default="architecture-review")
+    critique.add_argument("--style")
     critique.add_argument("--prior-attempts", type=Path, dest="prior_attempts")
     critique.add_argument("--output", type=Path)
     critique.set_defaults(handler=_critique)
@@ -340,10 +436,25 @@ def build_parser() -> argparse.ArgumentParser:
     improve.add_argument("--candidate", type=Path, action="append")
     improve.add_argument("--max-attempts", type=int, default=3, dest="max_attempts")
     improve.add_argument("--profile", default="architecture-review")
+    improve.add_argument("--style")
     improve.add_argument("--challenge-provider", dest="challenge_provider")
     improve.add_argument("--challenge-model", dest="challenge_model")
     improve.add_argument("--output", type=Path)
     improve.set_defaults(handler=_improve)
+
+    styles = subparsers.add_parser(
+        "styles", help="list installed executable style contracts"
+    )
+    styles.add_argument("--output", type=Path)
+    styles.set_defaults(handler=_styles)
+
+    style = subparsers.add_parser(
+        "style", help="emit an installed style contract or provider instructions"
+    )
+    style.add_argument("name")
+    style.add_argument("--format", choices=["json", "prompt"], default="json")
+    style.add_argument("--output", type=Path)
+    style.set_defaults(handler=_style)
     return parser
 
 

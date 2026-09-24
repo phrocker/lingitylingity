@@ -1,8 +1,13 @@
 {
   "$schema": "https://lingity.dev/schemas/v1/profile.schema.json",
   "name": "local-service",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "language": "en",
+  "rewrite_policy": {
+    "max_readable_word_growth_percent": 10,
+    "max_readable_word_growth_absolute": 12,
+    "prefer_shorter_candidate": true
+  },
   "weights": {
     "lexical_clarity": 32,
     "agency": 22,
@@ -42,7 +47,11 @@
     "max_inline_list_items": 3,
     "max_sentence_purposes": 2,
     "max_qualifiers_per_sentence": 1,
-    "max_compound_parts": 2
+    "max_compound_parts": 2,
+    "max_duplicate_framing_block_distance": 16,
+    "max_duplicate_framing_words": 30,
+    "min_duplicate_framing_shared_terms": 4,
+    "min_duplicate_framing_similarity": 0.5
   },
   "rules": {
     "nominalization_suffixes": [

@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import hashlib
-from bisect import bisect_right
+from bisect import bisect_left, bisect_right
 from collections import Counter, defaultdict
 from typing import Iterable, Sequence, cast
 
 from lingity.invariants import extract_protected, source_sha256
 from lingity.markdown import (
+    Block,
     block_counts,
     inline_code_spans,
     opaque_spans,
@@ -22,7 +23,7 @@ from lingity.profiles import Profile, canonical_json, load_profile
 from lingity.scoring import calculate_hri
 from lingity.text import line_column
 
-ANALYZER_VERSION = "1.5.0"
+ANALYZER_VERSION = "1.6.0"
 
 RULE_DIMENSIONS = {
     "LING-SENTENCE-001": "sentence_load",
@@ -47,6 +48,7 @@ RULE_DIMENSIONS = {
     "LING-REDUNDANCY-001": "redundancy",
     "LING-FILLER-001": "redundancy",
     "LING-DUPLICATED-RECOMMENDATION-001": "redundancy",
+    "LING-DUPLICATED-FRAMING-001": "redundancy",
     "LING-QUALIFIER-001": "redundancy",
 }
 
@@ -62,6 +64,7 @@ DESIGN_SIGNAL_RULES = {
     "structure.mixed_purpose_sentences": "LING-MIXED-PURPOSE-001",
     "redundancy.filler_phrases": "LING-FILLER-001",
     "redundancy.duplicated_recommendations": "LING-DUPLICATED-RECOMMENDATION-001",
+    "redundancy.duplicated_framing": "LING-DUPLICATED-FRAMING-001",
     "redundancy.repeated_qualifiers": "LING-QUALIFIER-001",
 }
 
@@ -101,6 +104,7 @@ DESIGN_TABLE_RULES = {
     "redundancy": (
         "LING-QUALIFIER-001",
         "LING-DUPLICATED-RECOMMENDATION-001",
+        "LING-DUPLICATED-FRAMING-001",
         "LING-FILLER-001",
     ),
 }
@@ -1316,6 +1320,124 @@ def _redundancy_findings(
     return findings
 
 
+def _block_words(
+    words: Sequence[Token], starts: Sequence[int], block: Block
+) -> tuple[frozenset[str], int]:
+    """Content terms and word count of one block from start-sorted word tokens.
+
+    Each readable span is located by bisection, so a block reads only its own
+    tokens rather than rescanning the whole document.
+    """
+    terms: set[str] = set()
+    count = 0
+    for start, end in block.readable:
+        for token in words[bisect_left(starts, start) : bisect_left(starts, end)]:
+            count += 1
+            lemma = _lemma(token)
+            if len(lemma) >= 4 and lemma not in STOP_LEMMAS:
+                terms.add(lemma)
+    return frozenset(terms), count
+
+
+def _duplicated_framing_findings(
+    document: Document,
+    blocks: tuple[Block, ...],
+    profile: Profile,
+) -> list[Finding]:
+    """Report short nearby prose blocks that restate the same framing.
+
+    This is deliberately narrower than document-wide semantic duplication.
+    Introductions often repeat a page promise before and after navigation, while
+    legitimate sections must reuse the same subject terms throughout. Only
+    short prose blocks within a bounded block distance are compared.
+    """
+    required = {
+        "max_duplicate_framing_block_distance",
+        "max_duplicate_framing_words",
+        "min_duplicate_framing_shared_terms",
+        "min_duplicate_framing_similarity",
+    }
+    if not required <= profile.thresholds.keys():
+        return []
+
+    max_distance = int(profile.thresholds["max_duplicate_framing_block_distance"])
+    max_words = int(profile.thresholds["max_duplicate_framing_words"])
+    min_shared = int(profile.thresholds["min_duplicate_framing_shared_terms"])
+    min_similarity = float(profile.thresholds["min_duplicate_framing_similarity"])
+
+    words = sorted(
+        (token for token in document.tokens if token.is_word),
+        key=lambda token: token.start,
+    )
+    starts = [token.start for token in words]
+    # list_items_before[i] counts list items among blocks[:i], so whether any
+    # list item separates two blocks is a constant-time subtraction.
+    list_items_before = [0]
+    for block in blocks:
+        list_items_before.append(
+            list_items_before[-1] + (block.kind == "list_item")
+        )
+
+    candidates: list[tuple[int, Block, frozenset[str]]] = []
+    for index, block in enumerate(blocks):
+        if block.kind != "prose" or not block.readable:
+            continue
+        terms, word_count = _block_words(words, starts, block)
+        if min_shared <= len(terms) and word_count <= max_words:
+            candidates.append((index, block, terms))
+    candidate_indexes = [index for index, _, _ in candidates]
+
+    findings: list[Finding] = []
+    for position, (index, block, terms) in enumerate(candidates):
+        # Only candidates within max_distance blocks are compared; the window
+        # opens at the first one in range instead of scanning every prior block.
+        window = bisect_left(candidate_indexes, index - max_distance, 0, position)
+        for earlier_index, earlier, earlier_terms in candidates[window:position]:
+            distance = index - earlier_index
+            if list_items_before[index] == list_items_before[earlier_index + 1]:
+                continue
+            # A profile may set min_shared to 0, which admits blocks with no
+            # content terms; two such blocks share nothing to call framing.
+            if not terms or not earlier_terms:
+                continue
+            shared = sorted(terms & earlier_terms)
+            similarity = len(shared) / min(len(terms), len(earlier_terms))
+            if len(shared) < min_shared or similarity < min_similarity:
+                continue
+            findings.append(
+                Finding(
+                    "LING-DUPLICATED-FRAMING-001",
+                    "redundancy",
+                    "medium",
+                    _location(document.text, block.content_start, block.content_end, None),
+                    {
+                        "first_block": document.text[
+                            earlier.content_start : earlier.content_end
+                        ],
+                        "first_location": {
+                            "start": earlier.content_start,
+                            "end": earlier.content_end,
+                        },
+                        "duplicate_block": document.text[
+                            block.content_start : block.content_end
+                        ],
+                        "shared_terms": cast(list[JsonValue], shared),
+                        "similarity": round(similarity, 3),
+                        "block_distance": distance,
+                    },
+                    {
+                        "min_shared_terms": min_shared,
+                        "min_similarity": min_similarity,
+                        "max_block_distance": max_distance,
+                    },
+                    "Keep one useful orientation and remove or merge the nearby block that restates it.",
+                    6.0,
+                )
+            )
+            break
+    return findings
+
+
 def _analyze_sentences(document: Document, profile: Profile) -> tuple[list[dict[str, JsonValue]], list[Finding]]:
     records: list[dict[str, JsonValue]] = []
     findings: list[Finding] = []
@@ -1536,6 +1658,7 @@ def analyze_text(text: str, profile: Profile | None = None) -> dict[str, JsonVal
     findings.extend(_mixed_purpose_findings(document, selected_profile))
     findings.extend(_redundancy_findings(document, selected_profile, readable))
     findings.extend(_duplicated_recommendation_findings(document, selected_profile))
+    findings.extend(_duplicated_framing_findings(document, blocks, selected_profile))
     findings.extend(_qualifier_findings(document, selected_profile))
     findings = [
         finding
@@ -1545,10 +1668,11 @@ def analyze_text(text: str, profile: Profile | None = None) -> dict[str, JsonVal
     findings = _dedupe_findings(findings)
 
     result: dict[str, JsonValue] = {
-        "schema_version": "1.1.0",
+        "schema_version": "1.2.0",
         "analyzer_version": ANALYZER_VERSION,
         "linguistic_model": cast(dict[str, JsonValue], model_fingerprint()),
         "profile": selected_profile.reference(),
+        "rewrite_policy": cast(dict[str, JsonValue], selected_profile.rewrite_policy),
         "ingest": {
             "mode": "markdown",
             "parser": cast(dict[str, JsonValue], parser_fingerprint()),

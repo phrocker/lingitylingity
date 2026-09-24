@@ -13,12 +13,13 @@
     "candidate_score",
     "protected_disposition",
     "protected_delta",
+    "economy",
     "challenge",
     "profile",
     "linguistic_model"
   ],
   "properties": {
-    "schema_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "schema_version": {"const": "1.1.0"},
     "accepted": {"type": "boolean"},
     "rejection_reasons": {
       "type": "array",
@@ -37,6 +38,28 @@
         "added": {"type": "array", "items": {"type": "string"}},
         "unresolved": {"type": "array", "items": {"type": "string"}},
         "specified": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "economy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_readable_words",
+        "candidate_readable_words",
+        "growth",
+        "allowed_growth",
+        "maximum_candidate_readable_words",
+        "prefer_shorter_candidate",
+        "passed"
+      ],
+      "properties": {
+        "source_readable_words": {"type": "integer", "minimum": 0},
+        "candidate_readable_words": {"type": "integer", "minimum": 0},
+        "growth": {"type": "integer"},
+        "allowed_growth": {"type": "integer", "minimum": 0},
+        "maximum_candidate_readable_words": {"type": "integer", "minimum": 0},
+        "prefer_shorter_candidate": {"type": "boolean"},
+        "passed": {"type": "boolean"}
       }
     },
     "challenge": {

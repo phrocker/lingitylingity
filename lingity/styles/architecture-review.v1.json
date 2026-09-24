@@ -1,0 +1,91 @@
+{
+  "$schema": "https://lingity.dev/schemas/v1/style-contract.schema.json",
+  "name": "architecture-review",
+  "version": "1.0.0",
+  "language": "en",
+  "title": "Architecture review",
+  "reader_outcome": {
+    "audience": "A reviewer distinguishing a proposed change from its constraints and controls.",
+    "outcome": "The reviewer can distinguish the proposed change, constraints, operational controls, and contingency without losing implementation facts.",
+    "scan_priority": [
+      "Proposed change",
+      "Constraints",
+      "Operational impact and required controls",
+      "Contingency"
+    ]
+  },
+  "content_policy": {
+    "preserve": [
+      "Every source fact, actor, requirement, quantity, condition, and commitment",
+      "Causal and conditional relationships"
+    ],
+    "do_not_add": [
+      "Decision, approval state, or risk rating",
+      "Evidence claim, owner, or recommendation",
+      "Architecture terminology, assurance, or trade-offs"
+    ]
+  },
+  "rhetorical_shape": {
+    "lead": "Keep the proposed change first.",
+    "sequence": [
+      "State the proposed change",
+      "Group permit and budget constraints",
+      "Group operational impact with required notice controls"
+    ],
+    "ending": "Isolate the contingency at the end."
+  },
+  "editing_posture": {
+    "role": "Clarify the architecture review record rather than persuade.",
+    "change_scope": "Split mixed purposes while preserving implementation facts and relationships.",
+    "allowed_moves": [
+      "Group related constraints",
+      "Keep each control owner beside the control",
+      "Separate the contingency from the main proposal"
+    ],
+    "prohibited_moves": [
+      "Add approval, ratification, or recommendation language",
+      "Invent mitigation, assurance, evidence, or trade-offs",
+      "Use decorative labels that could be parsed as new claims"
+    ]
+  },
+  "observable_tendencies": [
+    {
+      "tendency": "Change-first ordering",
+      "reason": "A review record should identify the proposed implementation before constraints and controls."
+    },
+    {
+      "tendency": "Constraints grouped together",
+      "reason": "Permit and budget facts define the implementation boundary."
+    },
+    {
+      "tendency": "Control owner beside the control",
+      "reason": "Ownership must remain explicit without adding governance claims."
+    },
+    {
+      "tendency": "Contingency isolated at the end",
+      "reason": "The conditional fallback should remain distinct from the proposed change."
+    }
+  ],
+  "positive_guidance": [
+    "Keep the facilities team, project manager, permit, inspections, budget, closure, notice period, weather condition, and fallback.",
+    "Group permit and budget constraints after the proposed change.",
+    "Keep the project manager beside the schedule and notice controls."
+  ],
+  "negative_guidance": [
+    "Do not invent architecture terminology, assurance, ratification, or mitigation.",
+    "Do not add evidence, trade-offs, risk ratings, or a review recommendation.",
+    "Do not turn labels into claims about approval or implementation status."
+  ],
+  "positive_examples": [
+    {
+      "text": "In October 2026, the facilities team will replace two rooftop heating and cooling units at the North Campus library.",
+      "reason": "It keeps the proposed change, actor, timing, quantity, and target first."
+    }
+  ],
+  "negative_examples": [
+    {
+      "text": "Recommendation: Approve the resilient HVAC architecture because the operational risks are fully mitigated.",
+      "reason": "It invents a recommendation, architecture framing, assurance, and mitigation claim."
+    }
+  ]
+}

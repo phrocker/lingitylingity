@@ -17,12 +17,12 @@ never returns a success-shaped result it cannot justify.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from typing import Final, cast
 
 from lingity.analyzer import analyze_text
-from lingity.critique import build_critique, response_digest
+from lingity.critique import allowed_word_growth, build_critique, response_digest
 from lingity.invariants import compare_protected, extract_protected
 from lingity.models import JsonValue
 from lingity.profiles import Profile
@@ -33,6 +33,7 @@ from lingity.providers.base import (
     ProposalRequest,
     ProviderExhausted,
 )
+from lingity.styles import StyleContract
 
 DEFAULT_MAX_ATTEMPTS: Final = 3
 HIGH_SEVERITY: Final = "high"
@@ -121,6 +122,204 @@ def _high_severity_rules(analysis: dict[str, JsonValue]) -> set[str]:
     return rules
 
 
+def _readable_word_count(analysis: dict[str, JsonValue]) -> int:
+    sentences = analysis.get("sentences")
+    if not isinstance(sentences, list):
+        raise ImprovementError("analysis artifact is missing its sentences list")
+    total = 0
+    for sentence in sentences:
+        if not isinstance(sentence, dict):
+            raise ImprovementError("analysis artifact carries an invalid sentence record")
+        count = sentence.get("word_count")
+        if isinstance(count, bool) or not isinstance(count, int):
+            raise ImprovementError("analysis sentence is missing an integer word_count")
+        total += count
+    return total
+
+
+def _economy_evidence(
+    source_analysis: dict[str, JsonValue],
+    candidate_analysis: dict[str, JsonValue],
+    profile: Profile,
+) -> dict[str, JsonValue]:
+    source_words = _readable_word_count(source_analysis)
+    candidate_words = _readable_word_count(candidate_analysis)
+    policy = profile.rewrite_policy
+    allowed_growth = allowed_word_growth(
+        source_words,
+        policy["max_readable_word_growth_percent"],
+        int(policy["max_readable_word_growth_absolute"]),
+    )
+    maximum = source_words + allowed_growth
+    return {
+        "source_readable_words": source_words,
+        "candidate_readable_words": candidate_words,
+        "growth": candidate_words - source_words,
+        "allowed_growth": allowed_growth,
+        "maximum_candidate_readable_words": maximum,
+        "prefer_shorter_candidate": bool(policy["prefer_shorter_candidate"]),
+        "passed": candidate_words <= maximum,
+    }
+
+
+def _span(value: object, source_text: str, label: str) -> tuple[int, int]:
+    if not isinstance(value, dict):
+        raise ImprovementError(f"duplicated-framing finding is missing its {label}")
+    start = value.get("start")
+    end = value.get("end")
+    if (
+        isinstance(start, bool)
+        or isinstance(end, bool)
+        or not isinstance(start, int)
+        or not isinstance(end, int)
+        or start < 0
+        or end > len(source_text)
+        or start >= end
+    ):
+        raise ImprovementError(
+            f"duplicated-framing finding carries an invalid {label}"
+        )
+    return start, end
+
+
+def _restated_by(
+    source_text: str,
+    earlier: tuple[int, int],
+    retained: tuple[int, int],
+    profile: Profile,
+) -> bool:
+    """Whether every protected element of the earlier block survives in the later one.
+
+    The framing detector only establishes partial term overlap, so an earlier
+    block can still carry an identifier, quantity, condition, or claim the
+    later block lacks. Such a block stays in the meaning baseline.
+    """
+    comparison = compare_protected(
+        extract_protected(source_text[earlier[0] : earlier[1]], profile),
+        extract_protected(source_text[retained[0] : retained[1]], profile),
+    )
+    unresolved = cast(list[str], comparison.get("unresolved") or [])
+    return not comparison.get("missing") and not any(
+        reason.startswith("source:") for reason in unresolved
+    )
+
+
+def _removable_framing_spans(
+    source_text: str, source_analysis: dict[str, JsonValue], profile: Profile
+) -> list[tuple[tuple[int, int], tuple[tuple[int, int], ...]]]:
+    """Earlier framing blocks, each with the later blocks that fully restate it.
+
+    Only the earlier block of a pair is ever exempted. An earlier block is only
+    listed when its protected elements are all present
+    in a retained block, so removing it cannot hide lost content.
+    """
+    findings = source_analysis.get("findings")
+    if not isinstance(findings, list):
+        raise ImprovementError("analysis artifact is missing its findings list")
+    restated: dict[tuple[int, int], set[tuple[int, int]]] = {}
+    for raw in findings:
+        if not isinstance(raw, dict) or raw.get("rule_id") != "LING-DUPLICATED-FRAMING-001":
+            continue
+        observed = raw.get("observed_value")
+        if not isinstance(observed, dict):
+            raise ImprovementError(
+                "duplicated-framing finding is missing its observed value"
+            )
+        earlier = _span(observed.get("first_location"), source_text, "first location")
+        retained = _span(raw.get("location"), source_text, "location")
+        if _restated_by(source_text, earlier, retained, profile):
+            restated.setdefault(earlier, set()).add(retained)
+    return [(earlier, tuple(sorted(restated[earlier]))) for earlier in sorted(restated)]
+
+
+def _without(source_text: str, spans: Iterable[tuple[int, int]]) -> str:
+    """Delete blocks together with the blank lines that follow them.
+
+    A block span ends at its last character, so deleting only the span leaves
+    an extra blank line where an author's deletion would leave none, and the
+    parse of the neighbouring block can differ on that whitespace alone.
+    """
+    text = source_text
+    for start, end in sorted(spans, reverse=True):
+        while end < len(text) and text[end].isspace():
+            end += 1
+        text = text[:start] + text[end:]
+    return text
+
+
+def _flattened(text: str) -> str:
+    return " ".join(text.split())
+
+
+def _delta_size(comparison: dict[str, JsonValue]) -> int:
+    return sum(
+        len(cast(list[JsonValue], comparison.get(key) or []))
+        for key in ("missing", "added", "unresolved")
+    )
+
+
+def _compare_meaning(
+    source_text: str,
+    candidate_text: str,
+    source_analysis: dict[str, JsonValue],
+    profile: Profile,
+) -> dict[str, JsonValue]:
+    """Compare against the full source, then exempt removable framing blocks.
+
+    The full source is authoritative, so a candidate that keeps a removable
+    framing block is judged exactly as it would be without the exemption:
+    deletion is an allowed remediation, never a required one.
+
+    When the full comparison fails, each removable block the candidate no
+    longer contains, and whose restating later block survives unchanged, is
+    considered once, in source order, and stays exempted
+    only if dropping it from the baseline shrinks the protected delta. A block
+    the candidate deleted stops counting as missing; a block the candidate kept
+    would start counting as added, so it is not exempted. This settles any subset of deleted blocks with one
+    extraction per block. Every baseline tried omits only blocks whose
+    protected elements the later block restates, so the search can miss an
+    equivalence but never manufacture one. When no baseline is equivalent, the
+    full comparison is reported so the delta names what moved relative to the
+    text as written.
+    """
+    candidate = extract_protected(candidate_text, profile)
+    full = compare_protected(extract_protected(source_text, profile), candidate)
+    if full["disposition"] == "equivalent":
+        # Position-blind by design: nothing protected moved, so which copy of a
+        # restatement the candidate kept is not a meaning change (DESIGN.md).
+        return full
+    best = full
+    exempted: list[tuple[int, int]] = []
+    # Protected comparison is blind to position, so it cannot tell which of two
+    # blocks with the same elements the candidate kept. The exemption is tied to
+    # block identity instead: the earlier block's text must be gone from the
+    # candidate and a later block that restates it must survive word for word.
+    # Rewording the earlier block while deleting the later one therefore never
+    # qualifies. A rewrite that also rewords the later block, or an
+    # earlier block whose text occurs elsewhere, gets no exemption and is judged
+    # against the full source, which fails closed.
+    flattened = _flattened(candidate_text)
+    for span, retained in _removable_framing_spans(
+        source_text, source_analysis, profile
+    ):
+        if _flattened(source_text[span[0] : span[1]]) in flattened:
+            continue
+        if not any(
+            _flattened(source_text[start:end]) in flattened for start, end in retained
+        ):
+            continue
+        trial = compare_protected(
+            extract_protected(_without(source_text, [*exempted, span]), profile),
+            candidate,
+        )
+        if trial["disposition"] == "equivalent":
+            return trial
+        if _delta_size(trial) < _delta_size(best):
+            exempted.append(span)
+            best = trial
+    return full
+
+
 def judge_candidate(
     source_text: str,
     candidate_text: str,
@@ -140,10 +339,10 @@ def judge_candidate(
 
     source_score = _score_of(source_analysis)
     candidate_score = _score_of(candidate_analysis)
+    economy = _economy_evidence(source_analysis, candidate_analysis, profile)
 
-    comparison = compare_protected(
-        extract_protected(source_text, profile),
-        extract_protected(candidate_text, profile),
+    comparison = _compare_meaning(
+        source_text, candidate_text, source_analysis, profile
     )
     disposition = cast(str, comparison["disposition"])
 
@@ -182,6 +381,14 @@ def judge_candidate(
             + ", ".join(sorted(new_high))
         )
 
+    if not cast(bool, economy["passed"]):
+        reasons.append(
+            "candidate exceeds the readable-word growth budget: "
+            f"{economy['candidate_readable_words']} words against a maximum of "
+            f"{economy['maximum_candidate_readable_words']} from a "
+            f"{economy['source_readable_words']}-word source"
+        )
+
     challenge: ChallengeResult | None = None
     if challenger is not None:
         challenge = challenger.challenge(source_text, candidate_text)
@@ -199,6 +406,7 @@ def judge_candidate(
     evidence: dict[str, JsonValue] = {
         "source_score": source_score,
         "candidate_score": candidate_score,
+        "economy": economy,
         "protected_disposition": disposition,
         # A rejection that only says "meaning changed" cannot be acted on. The
         # exact elements that moved are carried through so a host agent can
@@ -225,6 +433,7 @@ def improve_text(
     *,
     max_attempts: int = DEFAULT_MAX_ATTEMPTS,
     challenger: DriftChallenger | None = None,
+    style: StyleContract | None = None,
 ) -> ImprovementResult:
     """Run the bounded improvement loop and return an attributed outcome."""
 
@@ -241,7 +450,9 @@ def improve_text(
     exhausted_after: int | None = None
 
     for index in range(1, max_attempts + 1):
-        brief = build_critique(source_analysis, prior_attempts=prior)
+        brief = build_critique(
+            source_analysis, prior_attempts=prior, style=style
+        )
         try:
             proposal = provider.propose(ProposalRequest(brief=brief))
         except ProviderExhausted:

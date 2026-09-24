@@ -223,7 +223,7 @@ and remediation. Initial metrics are:
 | Voice | passive constructions and indirect predicates |
 | Lexical clarity | jargon, uncommon compounds, abbreviation density |
 | Structure | paragraph length, list suitability, and mixed-purpose sentences |
-| Redundancy | repeated qualifiers, duplicated recommendations, filler phrases |
+| Redundancy | repeated qualifiers, duplicated recommendations, duplicated nearby framing, filler phrases |
 
 Dependency parsing may be used, but the parser package and model digest become
 part of the reproducibility contract.
@@ -344,6 +344,34 @@ and stakeholder. "The platform should own the runbook" therefore reports
 because a reader meets redundancy locally and governance prose is required to
 call one concept by one name throughout. A term recurring across sections is
 that document being consistent, not repetitive.
+
+`LING-DUPLICATED-FRAMING-001` is narrower than document-wide semantic
+duplication. A profile may compare short prose blocks within a bounded block
+distance and report the later block when the two share enough content terms.
+This catches a page promise stated before navigation and then stated again
+after it without treating the same subject recurring in separate substantive
+sections as repetition. During candidate judgment, a candidate is compared
+with the full source first, so keeping a restated introduction is never a
+meaning change. Only when that comparison fails is it compared with baselines
+that omit the earlier reported framing block. A block is eligible only when
+every protected element it carries is also present in the later block, so
+the exemption lets a rewrite delete a redundant introduction without letting
+it drop anything the page commits to. Shared terms are not shared meaning: an
+earlier block with its own identifier, quantity, condition, or claim stays
+protected, and deleting it is reported as a dropped element.
+
+The exemption only ever removes the earlier block, and only when the
+candidate shows that removal: the earlier block's text must be gone and the
+later block must survive word for word. A rewrite that also rewords the later
+block gets no exemption and is judged against the full source.
+
+The gate guarantees protected meaning, not which copy of a restatement
+survives. Protected comparison is blind to position, so a candidate that keeps
+the introduction and deletes the later block is accepted when the full-source
+comparison finds nothing protected missing -- which happens only when the two
+blocks carry the same protected elements. Nothing the page commits to is lost.
+Where the scope statement sits is a structural choice the analyzer can report
+on, not a meaning change the gate can see.
 
 A resume inverts the assumption. Every bullet is its own block, so a verb that
 opens six of them repeats once per block and never twice inside one, and the
@@ -568,4 +596,3 @@ draft -> analyzed -> improving -> selected
 - Optimizing text solely to maximize one aggregate score
 - Editing canonical architecture or governance records
 - Hiding failed attempts or model uncertainty
-

@@ -20,6 +20,7 @@ from lingity.providers.openai_provider import (
     OpenAIDriftChallenger,
     OpenAIProposalProvider,
 )
+from lingity.styles import load_style
 
 SECRET = "sk-test-secret-value"
 MODEL = "gpt-test"
@@ -102,12 +103,31 @@ def _brief() -> dict[str, JsonValue]:
                 "normalized": "3 controls",
             },
         ],
+        "rewrite_constraints": {
+            "editing_mode": "minimum_necessary_change",
+            "source_readable_words": 10,
+            "max_readable_word_growth_percent": 10,
+            "max_readable_word_growth_absolute": 12,
+            "maximum_candidate_readable_words": 22,
+            "prefer_shorter_candidate": True,
+        },
     })
 
 
 def _provider_response(transport: FakeTransport) -> ProposalResponse:
     provider = OpenAIProposalProvider(model=MODEL, transport=transport)
     return provider.propose(ProposalRequest(brief=_brief()))
+
+
+def _styled_brief() -> dict[str, JsonValue]:
+    brief = _brief()
+    style = load_style("architecture-review")
+    brief["style"] = {
+        "reference": style.reference(),
+        "contract": cast(JsonValue, style.data),
+        "instructions": style.render(),
+    }
+    return brief
 
 
 def _assert_secret_absent(value: object) -> None:
@@ -135,7 +155,34 @@ def test_well_formed_response_produces_proposal_response() -> None:
     request_data = cast(bytes, transport.requests[0].data)
     request_body = json.loads(request_data.decode("utf-8"))
     assert request_body["model"] == MODEL
+    prompt = request_body["messages"][1]["content"]
+    assert "Act as a conservative editor, not a content generator." in prompt
+    assert "Make the smallest sufficient set of changes." in prompt
+    assert "Add words only when a ranked defect requires them." in prompt
+    assert "Deterministic rewrite constraints:" in prompt
+    assert json.dumps(
+        _brief()["rewrite_constraints"],
+        ensure_ascii=False,
+        indent=2,
+        sort_keys=True,
+    ) in prompt
+    assert "Style contract guidance follows." not in prompt
     _assert_secret_absent(result.to_dict())
+
+
+def test_proposal_prompt_includes_digest_bound_style_guidance() -> None:
+    transport = FakeTransport(_chat_response(_proposal_payload()))
+    provider = OpenAIProposalProvider(model=MODEL, transport=transport)
+
+    provider.propose(ProposalRequest(brief=_styled_brief()))
+
+    request_data = cast(bytes, transport.requests[0].data)
+    request_body = json.loads(request_data.decode("utf-8"))
+    prompt = request_body["messages"][1]["content"]
+    style = load_style("architecture-review")
+    assert style.digest in prompt
+    assert style.render() in prompt
+    assert "Keep the proposed change first." in prompt
 
 
 def test_missing_openai_api_key_raises_provider_error(
