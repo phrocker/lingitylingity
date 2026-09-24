@@ -227,7 +227,18 @@ def _content_spans(
     return spans, unresolved
 
 
+def unclaimed_lines(text: str, blocks: tuple[Block, ...]) -> list[tuple[int, int]]:
+    """Return the non-blank lines that no block claims, as source spans."""
+    return _unclaimed(text, _line_bounds(text), list(blocks))
+
+
 def _uncovered(text: str, bounds: list[tuple[int, int]], blocks: list[Block]) -> int:
+    return len(_unclaimed(text, bounds, blocks))
+
+
+def _unclaimed(
+    text: str, bounds: list[tuple[int, int]], blocks: list[Block]
+) -> list[tuple[int, int]]:
     """Count non-blank lines that no block claims.
 
     Blocks and lines are both ordered, so one forward sweep answers this. The
@@ -241,7 +252,7 @@ def _uncovered(text: str, bounds: list[tuple[int, int]], blocks: list[Block]) ->
     when nothing claims it -- the precise failure this count exists to surface.
     """
     ordered = sorted(blocks, key=lambda block: (block.start, block.end))
-    count = 0
+    unclaimed: list[tuple[int, int]] = []
     index = 0
     for start, end in bounds:
         if not text[start:end].strip():
@@ -250,8 +261,8 @@ def _uncovered(text: str, bounds: list[tuple[int, int]], blocks: list[Block]) ->
             index += 1
         if index < len(ordered) and ordered[index].start < end:
             continue
-        count += 1
-    return count
+        unclaimed.append((start, end))
+    return unclaimed
 
 
 def segment_source(text: str) -> Segmentation:

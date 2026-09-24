@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import cast
+from typing import Callable, cast
 
 import pytest
 
@@ -322,7 +322,7 @@ def test_protected_extraction_is_deterministic() -> None:
 
 
 def test_linguistic_model_errors_propagate(monkeypatch: pytest.MonkeyPatch) -> None:
-    def broken_parse(text: str) -> None:
+    def broken_parse(text: str, spans: object = None) -> None:
         raise LinguisticModelError("model unavailable")
 
     monkeypatch.setattr("lingity.invariants.parse", broken_parse)
@@ -992,3 +992,94 @@ def test_protected_delta_names_signatures_the_manifests_actually_store() -> None
 
     assert set(missing) <= set(_signature(source))
     assert set(added) <= set(_signature(candidate))
+
+
+_BLOCKED_DOCUMENT = (
+    "# Decision\n\n"
+    "The team must retain 2 replicas.\n\n"
+    "## Risks\n\n"
+    "- Data loss\n"
+    "- Latency\n\n"
+    "Operations will review ADR-42 next week.\n"
+)
+
+
+@pytest.mark.parametrize(
+    ("variant", "rewrite"),
+    [
+        ("extra blank lines", lambda text: text.replace("\n\n", "\n\n\n")),
+        ("CRLF line endings", lambda text: text.replace("\n", "\r\n")),
+        ("trailing spaces", lambda text: text.replace("\n", "  \n")),
+    ],
+)
+def test_whitespace_between_blocks_does_not_change_meaning(
+    variant: str, rewrite: Callable[[str], str]
+) -> None:
+    """Blank lines once decided where a run of blocks was cut into sentences."""
+    comparison = _comparison(_BLOCKED_DOCUMENT, rewrite(_BLOCKED_DOCUMENT))
+    assert comparison["disposition"] == "equivalent", variant
+
+
+def test_blank_lines_do_not_move_claims_between_sections() -> None:
+    sections = (
+        (
+            "Permits, inspections, and what tends to be wrong with the heating "
+            "and cooling in a Howard County house.",
+            "Permits, inspections, what the county actually charges, and what "
+            "tends to be wrong with the heating and cooling in a Howard County house.",
+        ),
+        (
+            "Heat pumps, rebates, and what tends to break in the compressor of a "
+            "Columbia townhouse.",
+            "Heat pumps, rebates, what utilities actually refund, and what tends "
+            "to break in the compressor of a Columbia townhouse.",
+        ),
+    )
+    text = "# Guide\n\n" + "\n\n".join(
+        f"## Section {number}\n\n{intro}\n\n- first point\n- second point\n\n{restated}"
+        for number, (intro, restated) in enumerate(sections, 1)
+    ) + "\n"
+    comparison = _comparison(text, text.replace("\n\n", "\n\n\n"))
+    assert comparison["disposition"] == "equivalent"
+
+
+def test_a_sentence_never_absorbs_a_neighbouring_block() -> None:
+    text = (
+        "## Section 1\n\n"
+        "Permits, inspections, and what tends to be wrong with the heating in a "
+        "Howard County house.\n\n"
+        "- first point\n"
+        "- second point\n\n"
+        "Permits, inspections, what the county actually charges, and what tends "
+        "to be wrong with the heating in a Howard County house.\n"
+    )
+    for signature in _signature(text):
+        assert "first point" not in signature, signature
+        assert "section" not in signature, signature
+
+
+def test_protected_content_in_a_code_block_is_still_extracted() -> None:
+    text = "Deploy the service.\n\n```\nkubectl apply ADR-42 now\n```\n"
+    assert "identifier:identifier:ADR-42" in _signature(text)
+
+
+def test_doubts_both_texts_share_do_not_mask_a_visible_change() -> None:
+    comparison = _comparison(
+        _BLOCKED_DOCUMENT, _BLOCKED_DOCUMENT.replace("2 replicas", "3 replicas")
+    )
+    assert comparison["disposition"] == "changed"
+    assert comparison["unresolved"] == []
+    assert "quantity:count:2" in cast(list[str], comparison["missing"])
+
+
+def test_a_doubt_only_one_text_raises_is_kept_beside_a_change() -> None:
+    comparison = _comparison(
+        _BLOCKED_DOCUMENT,
+        _BLOCKED_DOCUMENT.replace("2 replicas", "3 replicas").replace(
+            "- Latency", "- Higher latency"
+        ),
+    )
+    assert comparison["disposition"] == "unresolved"
+    unresolved = cast(list[str], comparison["unresolved"])
+    assert any("Higher latency" in reason for reason in unresolved)
+    assert not any("Data loss" in reason for reason in unresolved)
