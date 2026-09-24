@@ -379,9 +379,10 @@ def test_the_later_framing_block_stays_canonical_when_signatures_match(
     """Protected comparison cannot see position, so the exemption must.
 
     The stand-in extractor gives each paragraph one position-blind signature
-    and maps both framing blocks to the same one. Deleting the earlier block
-    and deleting the later block then look identical to the comparison; only
-    the first is the remediation the rule permits.
+    and maps both framing blocks, and a reworded copy of the earlier one, to
+    the same signature. Deleting the earlier block and deleting the later block
+    then look identical to the comparison; only the first is the remediation
+    the rule permits.
     """
     profile = load_profile("local-service")
     earlier = (
@@ -392,6 +393,7 @@ def test_the_later_framing_block_stays_canonical_when_signatures_match(
         "Permits, inspections, and what tends to be wrong with the heating and "
         "cooling in a Howard County house."
     )
+    reworded = earlier.replace("any Howard County house", "every Howard County house")
     source = (
         "# HVAC in Howard County\n\n"
         + earlier
@@ -407,7 +409,8 @@ def test_the_later_framing_block_stays_canonical_when_signatures_match(
 
     def position_blind(text: str, _: Profile) -> dict[str, JsonValue]:
         signatures = sorted(
-            "paragraph:" + (later if paragraph.strip() == earlier else paragraph.strip())
+            "paragraph:"
+            + (later if paragraph.strip() in {earlier, reworded} else paragraph.strip())
             for paragraph in text.split("\n\n")
             if paragraph.strip()
         )
@@ -426,6 +429,10 @@ def test_the_later_framing_block_stays_canonical_when_signatures_match(
 
     drop_later = source.replace(later + "\n\n", "", 1)
     _, _, evidence = judge_candidate(source, drop_later, profile)
+    assert evidence["protected_disposition"] == "changed"
+
+    reword_earlier_drop_later = drop_later.replace(earlier, reworded, 1)
+    _, _, evidence = judge_candidate(source, reword_earlier_drop_later, profile)
     assert evidence["protected_disposition"] == "changed"
 
 

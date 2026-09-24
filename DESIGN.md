@@ -356,8 +356,12 @@ meaning change. Only when that comparison fails is it compared with baselines
 that omit the earlier reported framing block, and a block is eligible only
 when every protected element it carries is also present in the later block.
 The later block remains canonical, so a rewrite may delete a redundant
-introduction but may not delete the page's only statement of scope. Shared terms are not shared
-meaning: an earlier block with its own identifier, quantity, condition, or
+introduction but may not delete the page's only statement of scope. Because
+the protected comparison cannot see position, the exemption is tied to the
+blocks themselves: the earlier block's text must be gone from the candidate and
+the later block must survive word for word. A rewrite that also rewords the
+canonical block gets no exemption and is judged against the full source.
+Shared terms are not shared meaning: an earlier block with its own identifier, quantity, condition, or
 claim stays protected, and deleting it is reported as a dropped element.
 
 A resume inverts the assumption. Every bullet is its own block, so a verb that

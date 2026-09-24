@@ -206,17 +206,17 @@ def _restated_by(
 
 def _removable_framing_spans(
     source_text: str, source_analysis: dict[str, JsonValue], profile: Profile
-) -> list[tuple[int, int]]:
-    """Earlier framing blocks that the later block fully restates.
+) -> list[tuple[tuple[int, int], tuple[tuple[int, int], ...]]]:
+    """Earlier framing blocks, each with the later blocks that fully restate it.
 
     The later block remains the canonical statement of the page's scope. An
     earlier block is only listed when its protected elements are all present
-    in the retained block, so removing it cannot hide lost content.
+    in a retained block, so removing it cannot hide lost content.
     """
     findings = source_analysis.get("findings")
     if not isinstance(findings, list):
         raise ImprovementError("analysis artifact is missing its findings list")
-    spans: set[tuple[int, int]] = set()
+    restated: dict[tuple[int, int], set[tuple[int, int]]] = {}
     for raw in findings:
         if not isinstance(raw, dict) or raw.get("rule_id") != "LING-DUPLICATED-FRAMING-001":
             continue
@@ -228,8 +228,8 @@ def _removable_framing_spans(
         earlier = _span(observed.get("first_location"), source_text, "first location")
         retained = _span(raw.get("location"), source_text, "location")
         if _restated_by(source_text, earlier, retained, profile):
-            spans.add(earlier)
-    return sorted(spans)
+            restated.setdefault(earlier, set()).add(retained)
+    return [(earlier, tuple(sorted(restated[earlier]))) for earlier in sorted(restated)]
 
 
 def _without(source_text: str, spans: Iterable[tuple[int, int]]) -> str:
@@ -271,7 +271,8 @@ def _compare_meaning(
     deletion is an allowed remediation, never a required one.
 
     When the full comparison fails, each removable block the candidate no
-    longer contains is considered once, in source order, and stays exempted
+    longer contains, and whose canonical later block survives unchanged, is
+    considered once, in source order, and stays exempted
     only if dropping it from the baseline shrinks the protected delta. A block
     the candidate deleted stops counting as missing; a block the candidate kept
     would start counting as added, so it is not exempted. This settles any subset of deleted blocks with one
@@ -289,13 +290,21 @@ def _compare_meaning(
     exempted: list[tuple[int, int]] = []
     # Protected comparison is blind to position, so it cannot tell which of two
     # blocks with the same elements the candidate kept. The exemption is tied to
-    # the earlier block itself: it applies only once that block's text is gone
-    # from the candidate, so keeping it and deleting the canonical later block
-    # never qualifies. An earlier block whose text also occurs elsewhere is
-    # therefore never exempted, which fails closed.
+    # block identity instead: the earlier block's text must be gone from the
+    # candidate and a later block that restates it must survive word for word.
+    # Rewording the earlier block while deleting the canonical one therefore
+    # never qualifies. A rewrite that also rewords the canonical block, or an
+    # earlier block whose text occurs elsewhere, gets no exemption and is judged
+    # against the full source, which fails closed.
     flattened = _flattened(candidate_text)
-    for span in _removable_framing_spans(source_text, source_analysis, profile):
+    for span, retained in _removable_framing_spans(
+        source_text, source_analysis, profile
+    ):
         if _flattened(source_text[span[0] : span[1]]) in flattened:
+            continue
+        if not any(
+            _flattened(source_text[start:end]) in flattened for start, end in retained
+        ):
             continue
         trial = compare_protected(
             extract_protected(_without(source_text, [*exempted, span]), profile),
