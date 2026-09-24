@@ -23,7 +23,7 @@ from lingity.profiles import Profile, canonical_json, load_profile
 from lingity.scoring import calculate_hri
 from lingity.text import line_column
 
-ANALYZER_VERSION = "1.6.0"
+ANALYZER_VERSION = "1.7.0"
 
 RULE_DIMENSIONS = {
     "LING-SENTENCE-001": "sentence_load",
