@@ -373,10 +373,10 @@ def test_removing_framing_blocks_does_not_excuse_other_losses() -> None:
     assert any("HVAC-42" in element for element in delta["missing"])
 
 
-def test_the_later_framing_block_stays_canonical_when_signatures_match(
+def test_the_exemption_never_covers_deleting_the_later_block(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Protected comparison cannot see position, so the exemption must.
+    """Protected comparison cannot see position, so the exemption checks blocks.
 
     The stand-in extractor gives each paragraph one position-blind signature
     and maps both framing blocks, and a reworded copy of the earlier one, to

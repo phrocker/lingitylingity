@@ -209,8 +209,8 @@ def _removable_framing_spans(
 ) -> list[tuple[tuple[int, int], tuple[tuple[int, int], ...]]]:
     """Earlier framing blocks, each with the later blocks that fully restate it.
 
-    The later block remains the canonical statement of the page's scope. An
-    earlier block is only listed when its protected elements are all present
+    Only the earlier block of a pair is ever exempted. An earlier block is only
+    listed when its protected elements are all present
     in a retained block, so removing it cannot hide lost content.
     """
     findings = source_analysis.get("findings")
@@ -271,7 +271,7 @@ def _compare_meaning(
     deletion is an allowed remediation, never a required one.
 
     When the full comparison fails, each removable block the candidate no
-    longer contains, and whose canonical later block survives unchanged, is
+    longer contains, and whose restating later block survives unchanged, is
     considered once, in source order, and stays exempted
     only if dropping it from the baseline shrinks the protected delta. A block
     the candidate deleted stops counting as missing; a block the candidate kept
@@ -285,6 +285,8 @@ def _compare_meaning(
     candidate = extract_protected(candidate_text, profile)
     full = compare_protected(extract_protected(source_text, profile), candidate)
     if full["disposition"] == "equivalent":
+        # Position-blind by design: nothing protected moved, so which copy of a
+        # restatement the candidate kept is not a meaning change (DESIGN.md).
         return full
     best = full
     exempted: list[tuple[int, int]] = []
@@ -292,8 +294,8 @@ def _compare_meaning(
     # blocks with the same elements the candidate kept. The exemption is tied to
     # block identity instead: the earlier block's text must be gone from the
     # candidate and a later block that restates it must survive word for word.
-    # Rewording the earlier block while deleting the canonical one therefore
-    # never qualifies. A rewrite that also rewords the canonical block, or an
+    # Rewording the earlier block while deleting the later one therefore never
+    # qualifies. A rewrite that also rewords the later block, or an
     # earlier block whose text occurs elsewhere, gets no exemption and is judged
     # against the full source, which fails closed.
     flattened = _flattened(candidate_text)

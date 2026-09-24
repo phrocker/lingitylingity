@@ -353,16 +353,25 @@ after it without treating the same subject recurring in separate substantive
 sections as repetition. During candidate judgment, a candidate is compared
 with the full source first, so keeping a restated introduction is never a
 meaning change. Only when that comparison fails is it compared with baselines
-that omit the earlier reported framing block, and a block is eligible only
-when every protected element it carries is also present in the later block.
-The later block remains canonical, so a rewrite may delete a redundant
-introduction but may not delete the page's only statement of scope. Because
-the protected comparison cannot see position, the exemption is tied to the
-blocks themselves: the earlier block's text must be gone from the candidate and
-the later block must survive word for word. A rewrite that also rewords the
-canonical block gets no exemption and is judged against the full source.
-Shared terms are not shared meaning: an earlier block with its own identifier, quantity, condition, or
-claim stays protected, and deleting it is reported as a dropped element.
+that omit the earlier reported framing block. A block is eligible only when
+every protected element it carries is also present in the later block, so
+the exemption lets a rewrite delete a redundant introduction without letting
+it drop anything the page commits to. Shared terms are not shared meaning: an
+earlier block with its own identifier, quantity, condition, or claim stays
+protected, and deleting it is reported as a dropped element.
+
+The exemption only ever removes the earlier block, and only when the
+candidate shows that removal: the earlier block's text must be gone and the
+later block must survive word for word. A rewrite that also rewords the later
+block gets no exemption and is judged against the full source.
+
+The gate guarantees protected meaning, not which copy of a restatement
+survives. Protected comparison is blind to position, so a candidate that keeps
+the introduction and deletes the later block is accepted when the full-source
+comparison finds nothing protected missing -- which happens only when the two
+blocks carry the same protected elements. Nothing the page commits to is lost.
+Where the scope statement sits is a structural choice the analyzer can report
+on, not a meaning change the gate can see.
 
 A resume inverts the assumption. Every bullet is its own block, so a verb that
 opens six of them repeats once per block and never twice inside one, and the
