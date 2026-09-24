@@ -316,6 +316,15 @@ def test_the_declared_version_is_the_one_that_would_be_released() -> None:
     assert version.count(".") >= 1
 
 
+def test_the_package_reports_the_version_it_is_released_as() -> None:
+    """`lingity.__version__` is stated separately, so it can drift from pyproject."""
+    import lingity
+
+    _, version = release.declared_version()
+
+    assert lingity.__version__ == version
+
+
 @pytest.mark.parametrize(
     ("pyproject", "expected"),
     [

@@ -184,7 +184,9 @@ Providers are transports, never authorities:
   and Lingity judges the result. Use `critique` and `judge` interactively, or
   pass `--candidate` files to `improve`. Because those candidates are written
   before the loop runs, `improve --style` is rejected for `subagent`; give the
-  host agent `critique --style` instead.
+  host agent `critique --style` instead. [`docs/agent-harness.md`](docs/agent-harness.md) is the
+  step-by-step guide and copy-ready system prompt for a host agent, with a
+  Claude Code skill in [`skills/lingity`](skills/lingity/SKILL.md).
 - **`openai`** and **`anthropic`** — direct API calls over the standard library.
   Credentials come only from `OPENAI_API_KEY` and `ANTHROPIC_API_KEY`, and are
   never accepted as arguments, logged, or written to an artifact. There is no

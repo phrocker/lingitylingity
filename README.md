@@ -145,8 +145,13 @@ lingity improve review.md --provider anthropic --model <model> --style technical
 accepted or the bounded run ends. `--style` passes the contract to an API
 provider. The `subagent` provider serves candidates written before the loop
 runs, so it rejects `--style`; give the host agent `lingity critique --style`
-instead. The copy-ready host-agent instructions are in
+instead. The copy-ready editing prompt for writing one candidate is in
 [`docs/conservative-editing-prompt.md`](docs/conservative-editing-prompt.md).
+
+To drive the whole loop from an agent harness such as Claude Code, follow
+[`docs/agent-harness.md`](docs/agent-harness.md). It covers the critique, judge,
+and repair steps, how to read a verdict, a copy-ready system prompt, and a
+Claude Code skill in [`skills/lingity`](skills/lingity/SKILL.md).
 
 Proposal providers are transports, never authorities:
 
