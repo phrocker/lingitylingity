@@ -299,3 +299,22 @@ def test_output_may_not_land_in_the_installed_profile_directory(
     assert main(["analyze", str(source), "--output", str(target)]) == 2
     assert "installed profile directory" in capsys.readouterr().err
     assert not target.exists()
+
+
+def test_a_symlink_inside_a_store_is_refused_even_when_it_points_outside(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    store = tmp_path / "styles"
+    store.mkdir()
+    monkeypatch.setattr(styles, "STYLE_DIR", store)
+    outside = tmp_path / "outside.json"
+    outside.write_text("{}", encoding="utf-8")
+    link = store / "link.json"
+    link.symlink_to(outside)
+
+    assert main(["styles", "--output", str(link)]) == 2
+    assert "installed style directory" in capsys.readouterr().err
+    assert link.is_symlink()
+    assert outside.read_text(encoding="utf-8") == "{}"

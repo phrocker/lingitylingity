@@ -90,6 +90,14 @@ def _reject_input_output_alias(input_path: Path, output: Path | None) -> None:
         raise ValueError("input and output paths must be different")
 
 
+def _path_forms(path: Path) -> tuple[Path, Path]:
+    """The resolved path and the lexical absolute path, both case-normalized."""
+    return (
+        Path(_normalized_path(path)),
+        Path(os.path.normcase(os.path.abspath(path.expanduser()))),
+    )
+
+
 def _reject_package_store_output(output: Path | None) -> None:
     """Refuse to write into an installed contract, profile, or schema directory.
 
@@ -99,14 +107,18 @@ def _reject_package_store_output(output: Path | None) -> None:
     """
     if output is None:
         return
-    parents = Path(_normalized_path(output)).parents
+    # Both spellings of the output are checked. Resolving alone would let a
+    # symlink placed inside a store, pointing elsewhere, escape the check while
+    # the unlink still removes the link from the store; the lexical path alone
+    # would miss a symlink outside the store that points into it.
+    parents = {parent for form in _path_forms(output) for parent in form.parents}
     stores = (
         ("style", style_store.STYLE_DIR),
         ("profile", profile_store.PROFILE_DIR),
         ("schema", profile_store.SCHEMA_DIR),
     )
     for label, directory in stores:
-        if Path(_normalized_path(directory)) in parents:
+        if parents & set(_path_forms(directory)):
             raise ValueError(
                 f"output path {output} is inside the installed {label} "
                 "directory; write output elsewhere"

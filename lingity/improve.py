@@ -247,6 +247,10 @@ def _without(source_text: str, spans: Iterable[tuple[int, int]]) -> str:
     return text
 
 
+def _flattened(text: str) -> str:
+    return " ".join(text.split())
+
+
 def _delta_size(comparison: dict[str, JsonValue]) -> int:
     return sum(
         len(cast(list[JsonValue], comparison.get(key) or []))
@@ -266,11 +270,11 @@ def _compare_meaning(
     framing block is judged exactly as it would be without the exemption:
     deletion is an allowed remediation, never a required one.
 
-    When the full comparison fails, each removable block is considered once,
-    in source order, and stays exempted only if dropping it from the baseline
-    shrinks the protected delta. A block the candidate deleted stops counting
-    as missing; a block the candidate kept would start counting as added, so
-    it is not exempted. This settles any subset of deleted blocks with one
+    When the full comparison fails, each removable block the candidate no
+    longer contains is considered once, in source order, and stays exempted
+    only if dropping it from the baseline shrinks the protected delta. A block
+    the candidate deleted stops counting as missing; a block the candidate kept
+    would start counting as added, so it is not exempted. This settles any subset of deleted blocks with one
     extraction per block. Every baseline tried omits only blocks whose
     protected elements the later block restates, so the search can miss an
     equivalence but never manufacture one. When no baseline is equivalent, the
@@ -283,7 +287,16 @@ def _compare_meaning(
         return full
     best = full
     exempted: list[tuple[int, int]] = []
+    # Protected comparison is blind to position, so it cannot tell which of two
+    # blocks with the same elements the candidate kept. The exemption is tied to
+    # the earlier block itself: it applies only once that block's text is gone
+    # from the candidate, so keeping it and deleting the canonical later block
+    # never qualifies. An earlier block whose text also occurs elsewhere is
+    # therefore never exempted, which fails closed.
+    flattened = _flattened(candidate_text)
     for span in _removable_framing_spans(source_text, source_analysis, profile):
+        if _flattened(source_text[span[0] : span[1]]) in flattened:
+            continue
         trial = compare_protected(
             extract_protected(_without(source_text, [*exempted, span]), profile),
             candidate,

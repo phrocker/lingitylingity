@@ -18,9 +18,10 @@ from jsonschema import ValidationError as SchemaValidationError
 
 from lingity.analyzer import analyze_text
 from lingity.critique import CritiqueError, build_critique
+import lingity.improve as improve_module
 from lingity.improve import ImprovementError, improve_text, judge_candidate
 from lingity.models import JsonValue
-from lingity.profiles import SCHEMA_DIR, Profile, load_profile
+from lingity.profiles import SCHEMA_DIR, Profile, load_profile, sha256_json
 from lingity.providers import (
     ProviderError,
     available_proposal_providers,
@@ -370,6 +371,62 @@ def test_removing_framing_blocks_does_not_excuse_other_losses() -> None:
     assert evidence["protected_disposition"] == "changed"
     delta = cast(dict[str, list[str]], evidence["protected_delta"])
     assert any("HVAC-42" in element for element in delta["missing"])
+
+
+def test_the_later_framing_block_stays_canonical_when_signatures_match(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Protected comparison cannot see position, so the exemption must.
+
+    The stand-in extractor gives each paragraph one position-blind signature
+    and maps both framing blocks to the same one. Deleting the earlier block
+    and deleting the later block then look identical to the comparison; only
+    the first is the remediation the rule permits.
+    """
+    profile = load_profile("local-service")
+    earlier = (
+        "Permits, inspections, and what tends to be wrong with heating and "
+        "cooling in any Howard County house."
+    )
+    later = (
+        "Permits, inspections, and what tends to be wrong with the heating and "
+        "cooling in a Howard County house."
+    )
+    source = (
+        "# HVAC in Howard County\n\n"
+        + earlier
+        + "\n\n- Howard County permits and inspections\n"
+        "- Local prices, dated at the source\n\n"
+        "## On this page\n\n"
+        "1. Do you actually need a permit?\n"
+        "2. The inspections\n\n"
+        + later
+        + "\n\n## Permits\n\n"
+        "The county inspector checks every furnace before the permit closes."
+    )
+
+    def position_blind(text: str, _: Profile) -> dict[str, JsonValue]:
+        signatures = sorted(
+            "paragraph:" + (later if paragraph.strip() == earlier else paragraph.strip())
+            for paragraph in text.split("\n\n")
+            if paragraph.strip()
+        )
+        return {
+            "semantic_signature": cast(list[JsonValue], signatures),
+            "coverage": {"sentences": len(signatures), "uncovered": []},
+            "source_sha256": sha256_json(text),
+            "sha256": sha256_json(signatures),
+        }
+
+    monkeypatch.setattr(improve_module, "extract_protected", position_blind)
+
+    drop_earlier = source.replace(earlier + "\n\n", "", 1)
+    _, _, evidence = judge_candidate(source, drop_earlier, profile)
+    assert evidence["protected_disposition"] == "equivalent"
+
+    drop_later = source.replace(later + "\n\n", "", 1)
+    _, _, evidence = judge_candidate(source, drop_later, profile)
+    assert evidence["protected_disposition"] == "changed"
 
 
 def test_earlier_framing_block_with_unique_claims_may_not_be_removed() -> None:
