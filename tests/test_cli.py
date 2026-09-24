@@ -224,19 +224,34 @@ def test_prose_free_texts_produce_a_verdict_and_a_brief(tmp_path: Path) -> None:
     )
 
 
-@pytest.mark.parametrize("command", [["styles"], ["style", "architecture-review"]])
-def test_style_output_may_not_overwrite_an_installed_contract(
+@pytest.mark.parametrize(
+    "command",
+    [
+        ["styles"],
+        ["style", "architecture-review"],
+        ["critique", "SOURCE", "--style", "architecture-review"],
+        ["improve", "SOURCE", "--candidate", "SOURCE"],
+        ["analyze", "SOURCE"],
+    ],
+)
+def test_output_may_not_overwrite_an_installed_contract(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
+    recommendation_fixture: dict[str, str],
     command: list[str],
 ) -> None:
-    installed = tmp_path / "architecture-review.v1.json"
+    store = tmp_path / "styles"
+    store.mkdir()
+    installed = store / "architecture-review.v1.json"
     original = json.dumps(styles.load_style("architecture-review").data)
     installed.write_text(original, encoding="utf-8")
-    monkeypatch.setattr(styles, "STYLE_DIR", tmp_path)
+    monkeypatch.setattr(styles, "STYLE_DIR", store)
+    source = tmp_path / "source.txt"
+    source.write_text(recommendation_fixture["original"], encoding="utf-8")
+    argv = [str(source) if part == "SOURCE" else part for part in command]
 
-    assert main([*command, "--output", str(installed)]) == 2
+    assert main([*argv, "--output", str(installed)]) == 2
     assert "installed style directory" in capsys.readouterr().err
     assert installed.read_text(encoding="utf-8") == original
 
@@ -266,3 +281,21 @@ def test_improve_rejects_style_for_the_subagent_provider(
 
     assert code == 2
     assert "lingity critique --style" in capsys.readouterr().err
+
+
+def test_output_may_not_land_in_the_installed_profile_directory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    recommendation_fixture: dict[str, str],
+) -> None:
+    store = tmp_path / "profiles"
+    store.mkdir()
+    monkeypatch.setattr(profiles, "PROFILE_DIR", store)
+    source = tmp_path / "source.txt"
+    source.write_text(recommendation_fixture["original"], encoding="utf-8")
+    target = store / "stray.v1.json"
+
+    assert main(["analyze", str(source), "--output", str(target)]) == 2
+    assert "installed profile directory" in capsys.readouterr().err
+    assert not target.exists()

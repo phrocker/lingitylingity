@@ -18,6 +18,7 @@ from lingity.critique import CritiqueError, build_critique
 from lingity.improve import ImprovementError, improve_text, judge_candidate
 from lingity.markdown import MarkdownParserError
 from lingity.nlp import LinguisticModelError, model_fingerprint
+import lingity.profiles as profile_store
 from lingity.profiles import SCHEMA_DIR, canonical_json, load_profile
 from lingity.providers import (
     ProviderError,
@@ -89,25 +90,33 @@ def _reject_input_output_alias(input_path: Path, output: Path | None) -> None:
         raise ValueError("input and output paths must be different")
 
 
-def _reject_style_store_output(output: Path | None) -> None:
-    """Refuse to write into the installed style directory.
+def _reject_package_store_output(output: Path | None) -> None:
+    """Refuse to write into an installed contract, profile, or schema directory.
 
-    Stale output is removed before a style is loaded, so an output path naming
-    a shipped contract would delete it before discovery could read it.
+    Every command removes stale output before it loads a profile or style, so
+    an output path naming a shipped file would delete it before it could be
+    read, and any other path there would add a file to the installed store.
     """
     if output is None:
         return
-    store = Path(_normalized_path(style_store.STYLE_DIR))
-    if store in Path(_normalized_path(output)).parents:
-        raise ValueError(
-            f"output path {output} is inside the installed style directory; "
-            "write style output elsewhere"
-        )
+    parents = Path(_normalized_path(output)).parents
+    stores = (
+        ("style", style_store.STYLE_DIR),
+        ("profile", profile_store.PROFILE_DIR),
+        ("schema", profile_store.SCHEMA_DIR),
+    )
+    for label, directory in stores:
+        if Path(_normalized_path(directory)) in parents:
+            raise ValueError(
+                f"output path {output} is inside the installed {label} "
+                "directory; write output elsewhere"
+            )
 
 
 def _remove_stale_output(output: Path | None) -> None:
     if output is None:
         return
+    _reject_package_store_output(output)
     try:
         output.unlink()
     except FileNotFoundError:
@@ -341,7 +350,6 @@ def _improve(args: argparse.Namespace) -> int:
 def _styles(args: argparse.Namespace) -> int:
     output = cast(Path | None, args.output)
     try:
-        _reject_style_store_output(output)
         _remove_stale_output(output)
         _write_json(list(available_style_names()), output)
     except CLI_ERRORS as exc:
@@ -353,7 +361,6 @@ def _styles(args: argparse.Namespace) -> int:
 def _style(args: argparse.Namespace) -> int:
     output = cast(Path | None, args.output)
     try:
-        _reject_style_store_output(output)
         _remove_stale_output(output)
         style = load_style(cast(str, args.name))
         if cast(str, args.format) == "json":

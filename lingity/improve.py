@@ -17,9 +17,8 @@ never returns a success-shaped result it cannot justify.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
-from itertools import combinations
 from typing import Final, cast
 
 from lingity.analyzer import analyze_text
@@ -38,9 +37,6 @@ from lingity.styles import StyleContract
 
 DEFAULT_MAX_ATTEMPTS: Final = 3
 HIGH_SEVERITY: Final = "high"
-# Subsets of removable framing blocks are enumerated up to this many blocks;
-# each subset costs one protected-element extraction.
-MAX_FRAMING_SUBSET_BLOCKS: Final = 4
 
 
 class ImprovementError(RuntimeError):
@@ -236,28 +232,26 @@ def _removable_framing_spans(
     return sorted(spans)
 
 
-def _reduced_baselines(
-    source_text: str, removable: Sequence[tuple[int, int]]
-) -> Iterator[str]:
-    """The source with each subset of removable framing blocks deleted.
+def _without(source_text: str, spans: Iterable[tuple[int, int]]) -> str:
+    """Delete blocks together with the blank lines that follow them.
 
-    Subsets are tried smallest first, so a candidate may delete some removable
-    blocks and keep others. Past MAX_FRAMING_SUBSET_BLOCKS the subsets are not
-    enumerated and only the all-removed baseline is offered.
+    A block span ends at its last character, so deleting only the span leaves
+    an extra blank line where an author's deletion would leave none, and the
+    parse of the neighbouring block can differ on that whitespace alone.
     """
-    if len(removable) > MAX_FRAMING_SUBSET_BLOCKS:
-        subsets: Iterable[tuple[tuple[int, int], ...]] = [tuple(removable)]
-    else:
-        subsets = (
-            subset
-            for size in range(1, len(removable) + 1)
-            for subset in combinations(removable, size)
-        )
-    for subset in subsets:
-        text = source_text
-        for start, end in sorted(subset, reverse=True):
-            text = text[:start] + text[end:]
-        yield text
+    text = source_text
+    for start, end in sorted(spans, reverse=True):
+        while end < len(text) and text[end].isspace():
+            end += 1
+        text = text[:start] + text[end:]
+    return text
+
+
+def _delta_size(comparison: dict[str, JsonValue]) -> int:
+    return sum(
+        len(cast(list[JsonValue], comparison.get(key) or []))
+        for key in ("missing", "added", "unresolved")
+    )
 
 
 def _compare_meaning(
@@ -266,24 +260,39 @@ def _compare_meaning(
     source_analysis: dict[str, JsonValue],
     profile: Profile,
 ) -> dict[str, JsonValue]:
-    """Compare against the full source, then against reduced baselines.
+    """Compare against the full source, then exempt removable framing blocks.
 
     The full source is authoritative, so a candidate that keeps a removable
     framing block is judged exactly as it would be without the exemption:
-    deletion is an allowed remediation, never a required one. Only when the
-    full comparison fails are the reduced baselines tried, and when none of
-    them is equivalent either, the full comparison is reported so the delta
-    names what moved relative to the text as written.
+    deletion is an allowed remediation, never a required one.
+
+    When the full comparison fails, each removable block is considered once,
+    in source order, and stays exempted only if dropping it from the baseline
+    shrinks the protected delta. A block the candidate deleted stops counting
+    as missing; a block the candidate kept would start counting as added, so
+    it is not exempted. This settles any subset of deleted blocks with one
+    extraction per block. Every baseline tried omits only blocks whose
+    protected elements the later block restates, so the search can miss an
+    equivalence but never manufacture one. When no baseline is equivalent, the
+    full comparison is reported so the delta names what moved relative to the
+    text as written.
     """
     candidate = extract_protected(candidate_text, profile)
     full = compare_protected(extract_protected(source_text, profile), candidate)
     if full["disposition"] == "equivalent":
         return full
-    removable = _removable_framing_spans(source_text, source_analysis, profile)
-    for baseline in _reduced_baselines(source_text, removable):
-        comparison = compare_protected(extract_protected(baseline, profile), candidate)
-        if comparison["disposition"] == "equivalent":
-            return comparison
+    best = full
+    exempted: list[tuple[int, int]] = []
+    for span in _removable_framing_spans(source_text, source_analysis, profile):
+        trial = compare_protected(
+            extract_protected(_without(source_text, [*exempted, span]), profile),
+            candidate,
+        )
+        if trial["disposition"] == "equivalent":
+            return trial
+        if _delta_size(trial) < _delta_size(best):
+            exempted.append(span)
+            best = trial
     return full
 
 

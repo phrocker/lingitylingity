@@ -291,6 +291,87 @@ def test_keeping_a_removable_framing_block_is_not_a_meaning_change() -> None:
     }
 
 
+_FRAMING_SECTIONS = (
+    (
+        "Permits, inspections, and what tends to be wrong with the heating and "
+        "cooling in a Howard County house.",
+        "Permits, inspections, what the county actually charges, and what tends "
+        "to be wrong with the heating and cooling in a Howard County house.",
+    ),
+    (
+        "Furnaces, boilers, and what tends to fail in the ductwork of an older "
+        "Ellicott City rowhouse.",
+        "Furnaces, boilers, what installers actually charge, and what tends to "
+        "fail in the ductwork of an older Ellicott City rowhouse.",
+    ),
+    (
+        "Heat pumps, rebates, and what tends to break in the compressor of a "
+        "Columbia townhouse.",
+        "Heat pumps, rebates, what utilities actually refund, and what tends to "
+        "break in the compressor of a Columbia townhouse.",
+    ),
+    (
+        "Thermostats, wiring, and what tends to confuse owners about zoning in "
+        "a Laurel duplex.",
+        "Thermostats, wiring, what electricians actually charge, and what tends "
+        "to confuse owners about zoning in a Laurel duplex.",
+    ),
+    (
+        "Filters, humidity, and what tends to clog the drainage lines in a "
+        "Savage basement.",
+        "Filters, humidity, what cleaners actually charge, and what tends to "
+        "clog the drainage lines in a Savage basement.",
+    ),
+)
+
+
+def _many_framing_sections() -> str:
+    sections = [
+        f"## Section {number}\n\n{intro}\n\n- first point\n- second point\n\n{restated}"
+        for number, (intro, restated) in enumerate(_FRAMING_SECTIONS, 1)
+    ]
+    return "# Guide\n\n" + "\n\n".join(sections) + "\n"
+
+
+@pytest.mark.parametrize("removed", [(0,), (1, 3), (0, 1, 2, 3, 4)])
+def test_any_subset_of_many_removable_framing_blocks_may_be_removed(
+    removed: tuple[int, ...],
+) -> None:
+    profile = load_profile("local-service")
+    source = _many_framing_sections()
+    framing = [
+        finding
+        for finding in cast(
+            list[dict[str, JsonValue]], analyze_text(source, profile)["findings"]
+        )
+        if finding["rule_id"] == "LING-DUPLICATED-FRAMING-001"
+    ]
+    assert len(framing) == len(_FRAMING_SECTIONS)
+    candidate = source
+    for index in removed:
+        candidate = candidate.replace(_FRAMING_SECTIONS[index][0] + "\n\n", "", 1)
+
+    _, _, evidence = judge_candidate(source, candidate, profile)
+
+    assert evidence["protected_disposition"] == "equivalent"
+
+
+def test_removing_framing_blocks_does_not_excuse_other_losses() -> None:
+    profile = load_profile("local-service")
+    source = _many_framing_sections().replace(
+        "- first point", "- Howard County requires 2 inspections for permit HVAC-42", 1
+    )
+    candidate = source.replace(_FRAMING_SECTIONS[2][0] + "\n\n", "", 1).replace(
+        "- Howard County requires 2 inspections for permit HVAC-42\n", "", 1
+    )
+
+    _, _, evidence = judge_candidate(source, candidate, profile)
+
+    assert evidence["protected_disposition"] == "changed"
+    delta = cast(dict[str, list[str]], evidence["protected_delta"])
+    assert any("HVAC-42" in element for element in delta["missing"])
+
+
 def test_earlier_framing_block_with_unique_claims_may_not_be_removed() -> None:
     """Framing detection is partial term overlap, not meaning equivalence.
 
