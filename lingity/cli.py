@@ -20,6 +20,7 @@ from lingity.markdown import MarkdownParserError
 from lingity.nlp import LinguisticModelError, model_fingerprint
 import lingity.profiles as profile_store
 from lingity.profiles import SCHEMA_DIR, canonical_json, load_profile
+from lingity.readability import FORMULAS, SyllableTableError
 from lingity.providers import (
     ProviderError,
     available_proposal_providers,
@@ -41,6 +42,7 @@ CLI_ERRORS = (
     CritiqueError,
     ImprovementError,
     ProviderError,
+    SyllableTableError,
 )
 
 
@@ -145,7 +147,7 @@ def _analyze(args: argparse.Namespace) -> int:
         result = analyze_text(text, load_profile(cast(str, args.profile)))
         Draft202012Validator(_schema("analysis.schema.json")).validate(result)
         _write_json(result, output)
-    except (OSError, TypeError, ValueError, json.JSONDecodeError, SchemaError, ValidationError, LinguisticModelError, MarkdownParserError) as exc:
+    except (OSError, TypeError, ValueError, json.JSONDecodeError, SchemaError, ValidationError, LinguisticModelError, MarkdownParserError, SyllableTableError) as exc:
         print(f"lingity analyze failed: {exc}", file=sys.stderr)
         return 2
     return 0
@@ -204,8 +206,104 @@ def _verify(args: argparse.Namespace) -> int:
         }
         Draft202012Validator(_schema("verification.schema.json")).validate(verification)
         _write_json(verification, output)
-    except (OSError, TypeError, ValueError, json.JSONDecodeError, SchemaError, ValidationError, LinguisticModelError, MarkdownParserError) as exc:
+    except (OSError, TypeError, ValueError, json.JSONDecodeError, SchemaError, ValidationError, LinguisticModelError, MarkdownParserError, SyllableTableError) as exc:
         print(f"lingity verify failed: {exc}", file=sys.stderr)
+        return 2
+    return 0
+
+
+FORMULA_LABELS = {
+    "flesch_kincaid_grade": "Flesch-Kincaid grade",
+    "flesch_reading_ease": "Flesch Reading Ease",
+    "coleman_liau_index": "Coleman-Liau index",
+    "smog_grade": "SMOG grade",
+    "gunning_fog": "Gunning Fog index",
+    "automated_readability_index": "Automated Readability Index",
+}
+COUNT_ORDER = ("words", "sentences", "syllables", "characters", "polysyllables")
+
+
+def _format_value(value: object) -> str:
+    return "n/a" if value is None else f"{cast(float, value):.2f}"
+
+
+def _format_counts(counts: dict[str, Any]) -> str:
+    listed = ", ".join(f"{counts[name]} {name}" for name in COUNT_ORDER)
+    return (
+        f"{listed}; {counts['figures']} figure(s) counted as one short word, "
+        f"{counts['excluded_words']} word(s) excluded as code, URL or citation"
+    )
+
+
+def render_grade_report(analysis: dict[str, Any], sentences: bool = False) -> str:
+    """Render an analysis artifact's readability estimates as plain text."""
+    block = cast(dict[str, Any], analysis["readability_estimates"])
+    document = cast(dict[str, Any], block["document"])
+    estimates = cast(dict[str, Any], document["estimates"])
+    raw = cast(dict[str, Any], document["without_normalization"])
+    width = max(len(label) for label in FORMULA_LABELS.values())
+    lines = [
+        "Readability estimates: surface features only. The formulas disagree, "
+        "and none of them measures comprehension.",
+        f"Counts: {_format_counts(document['counts'])}",
+        "",
+        f"{'formula':<{width}}  {'value':>7}  {'no-norm':>7}",
+    ]
+    for name in FORMULAS:
+        lines.append(
+            f"{FORMULA_LABELS[name]:<{width}}  "
+            f"{_format_value(estimates[name]['value']):>7}  "
+            f"{_format_value(raw['values'][name]):>7}"
+        )
+    lines.append("")
+    lines.append(
+        "'no-norm' counts figures, codes and citations as ordinary words: "
+        f"{_format_counts(raw['counts'])}"
+    )
+    policy = cast(dict[str, Any] | None, block["method"]["grade_threshold"])
+    if policy is not None:
+        flagged = [
+            finding
+            for finding in cast(list[dict[str, Any]], analysis["findings"])
+            if finding["rule_id"] == policy["rule_id"]
+        ]
+        lines.append(
+            f"Profile limit: {FORMULA_LABELS[policy['formula']]} <= {policy['max_grade']} "
+            f"for sentences of at least {policy['min_words']} words; "
+            f"{len(flagged)} sentence(s) above it ({policy['rule_id']})."
+        )
+    if sentences:
+        texts = {
+            cast(int, entry["index"]): cast(str, entry["text"])
+            for entry in cast(list[dict[str, Any]], analysis["sentences"])
+        }
+        lines.append("")
+        lines.append("Per sentence (Flesch-Kincaid grade, offsets, text):")
+        for entry in cast(list[dict[str, Any]], block["sentences"]):
+            text = texts[cast(int, entry["sentence_index"])]
+            excerpt = text if len(text) <= 72 else text[:69] + "..."
+            lines.append(
+                f"  [{entry['sentence_index']}] "
+                f"{_format_value(entry['values']['flesch_kincaid_grade']):>6}  "
+                f"{entry['start']}-{entry['end']}  {excerpt}"
+            )
+    return "\n".join(lines)
+
+
+def _grade(args: argparse.Namespace) -> int:
+    path = cast(Path, args.input)
+    output = cast(Path | None, args.output)
+    try:
+        _reject_input_output_alias(path, output)
+        _remove_stale_output(output)
+        text = path.read_text(encoding="utf-8")
+        result = analyze_text(text, load_profile(cast(str, args.profile)))
+        if cast(str, args.format) == "json":
+            _write_json(result["readability_estimates"], output)
+        else:
+            _write_text(render_grade_report(result, sentences=cast(bool, args.sentences)), output)
+    except CLI_ERRORS as exc:
+        print(f"lingity grade failed: {exc}", file=sys.stderr)
         return 2
     return 0
 
@@ -398,6 +496,17 @@ def build_parser() -> argparse.ArgumentParser:
     verify.add_argument("analysis", type=Path)
     verify.add_argument("--output", type=Path)
     verify.set_defaults(handler=_verify)
+
+    grade = subparsers.add_parser(
+        "grade",
+        help="print grade-level readability estimates for a UTF-8 text file",
+    )
+    grade.add_argument("input", type=Path)
+    grade.add_argument("--profile", default="architecture-review")
+    grade.add_argument("--format", choices=["text", "json"], default="text")
+    grade.add_argument("--sentences", action="store_true", help="also list each sentence's grade")
+    grade.add_argument("--output", type=Path)
+    grade.set_defaults(handler=_grade)
 
     critique = subparsers.add_parser(
         "critique",

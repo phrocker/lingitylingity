@@ -54,6 +54,7 @@ reading like professional human communication.
 ```text
 lingity analyze review.md --profile architecture-review
 lingity verify analysis.json
+lingity grade page.md --sentences
 
 lingity critique review.md --output brief.json
 lingity critique review.md --style technical-writer --output styled-brief.json
@@ -122,6 +123,19 @@ The Human Readability Index weights those six dimensions and converts each
 dimension's deducted points into a score with a half-life decay, so worse text
 never scores higher than better text. The exact arithmetic is published in the
 artifact's `score.formula` field.
+
+Every artifact also carries `readability_estimates`: Flesch-Kincaid grade,
+Flesch Reading Ease, Coleman-Liau, SMOG, Gunning Fog, and ARI, for the whole
+document and per sentence (keyed by `sentence_index`). Each value records its
+exact formula and the counts it used. Syllables come from a vendored table
+derived from a pinned CMUdict commit, with its hash checked at load time and a
+documented spelling fallback. Figures and codes count as one short word, and
+code, URLs, and citations are not counted. Document values without that
+normalization are reported beside them. `lingity grade` prints the block. The
+formulas disagree by several grades on dense text and measure surface features,
+not comprehension. They never change the Human Readability Index unless a
+profile sets `max_grade`, which turns on `LING-GRADE-001` per sentence above
+that Flesch-Kincaid grade. No shipped profile sets it.
 
 `analyze` and `verify` perform no network or LLM calls; only the rewriting
 commands can reach a configured provider.
@@ -259,10 +273,12 @@ on preserved governed meaning, so those are implemented here.
 Apache License 2.0. The full text is in [LICENSE](LICENSE), and [NOTICE](NOTICE)
 carries the copyright statement and the attribution required by section 4(d).
 
-The two data artifacts Lingity needs are not redistributed with it and are not
-declared as dependencies. Each is downloaded by the installing user under its
-own terms: the `en_core_web_sm` spaCy model under the MIT License, and the
-NLTK WordNet corpus under the WordNet 3.0 License. `NOTICE` records both.
+The two linguistic data artifacts Lingity needs are not redistributed with it
+and are not declared as dependencies. Each is downloaded by the installing user
+under its own terms: the `en_core_web_sm` spaCy model under the MIT License, and
+the NLTK WordNet corpus under the WordNet 3.0 License. Lingity bundles one
+derived file, a syllable table built from CMUdict, whose BSD-style license ships
+as `lingity/data/CMUDICT-LICENSE`. `NOTICE` records all three.
 
 ## Release
 

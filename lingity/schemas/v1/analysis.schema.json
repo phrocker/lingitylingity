@@ -16,11 +16,12 @@
     "protected",
     "findings",
     "score",
+    "readability_estimates",
     "analysis_sha256"
   ],
   "properties": {
     "schema_version": {
-      "const": "1.2.0"
+      "const": "1.3.0"
     },
     "analyzer_version": {
       "type": "string"
@@ -230,6 +231,126 @@
         }
       }
     },
+    "readability_estimates": {
+      "type": "object",
+      "description": "Grade-level estimates from several standard formulas, for the whole document and for each sentence, with the exact formula and counts behind every value. Surface-feature estimates, not a measure of comprehension.",
+      "additionalProperties": false,
+      "required": ["version", "method", "document", "sentences"],
+      "properties": {
+        "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "method": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["word", "sentence", "character", "polysyllable", "rounding", "formulas", "syllables", "normalization", "grade_threshold"],
+          "properties": {
+            "word": {"type": "string", "minLength": 1},
+            "sentence": {"type": "string", "minLength": 1},
+            "character": {"type": "string", "minLength": 1},
+            "polysyllable": {"type": "string", "minLength": 1},
+            "rounding": {"type": "string", "minLength": 1},
+            "formulas": {"$ref": "#/$defs/readabilityFormulaStrings"},
+            "syllables": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["source", "pronunciation", "fallback"],
+              "properties": {
+                "source": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["name", "repository", "commit", "source_file", "source_sha256", "license", "table", "table_sha256", "entries", "derivation"],
+                  "properties": {
+                    "name": {"type": "string"},
+                    "repository": {"type": "string"},
+                    "commit": {"type": "string", "pattern": "^[a-f0-9]{40}$"},
+                    "source_file": {"type": "string"},
+                    "source_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+                    "license": {"type": "string"},
+                    "table": {"type": "string"},
+                    "table_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+                    "entries": {"type": "integer", "minimum": 1},
+                    "derivation": {"type": "string"}
+                  }
+                },
+                "pronunciation": {"type": "string"},
+                "fallback": {"type": "string", "minLength": 1}
+              }
+            },
+            "normalization": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["applied", "rule", "figure_syllables", "figure_characters"],
+              "properties": {
+                "applied": {"type": "boolean"},
+                "rule": {"type": "string", "minLength": 1},
+                "figure_syllables": {"type": "integer", "minimum": 0},
+                "figure_characters": {"type": "integer", "minimum": 0}
+              }
+            },
+            "grade_threshold": {
+              "oneOf": [
+                {"type": "null"},
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["rule_id", "formula", "max_grade", "min_words"],
+                  "properties": {
+                    "rule_id": {"type": "string", "pattern": "^LING-[A-Z-]+-[0-9]{3}$"},
+                    "formula": {"$ref": "#/$defs/readabilityFormulaName"},
+                    "max_grade": {"type": "number", "minimum": 0},
+                    "min_words": {"type": "integer", "minimum": 0}
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "document": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["counts", "estimates", "without_normalization"],
+          "properties": {
+            "counts": {"$ref": "#/$defs/readabilityCounts"},
+            "estimates": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["flesch_kincaid_grade", "flesch_reading_ease", "coleman_liau_index", "smog_grade", "gunning_fog", "automated_readability_index"],
+              "properties": {
+                "flesch_kincaid_grade": {"$ref": "#/$defs/readabilityEstimate"},
+                "flesch_reading_ease": {"$ref": "#/$defs/readabilityEstimate"},
+                "coleman_liau_index": {"$ref": "#/$defs/readabilityEstimate"},
+                "smog_grade": {"$ref": "#/$defs/readabilityEstimate"},
+                "gunning_fog": {"$ref": "#/$defs/readabilityEstimate"},
+                "automated_readability_index": {"$ref": "#/$defs/readabilityEstimate"}
+              }
+            },
+            "without_normalization": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["counts", "values"],
+              "properties": {
+                "counts": {"$ref": "#/$defs/readabilityCounts"},
+                "values": {"$ref": "#/$defs/readabilityValues"}
+              }
+            }
+          }
+        },
+        "sentences": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["sentence_index", "start", "end", "counts", "values"],
+            "properties": {
+              "sentence_index": {"type": "integer", "minimum": 0},
+              "start": {"type": "integer", "minimum": 0},
+              "end": {"type": "integer", "minimum": 1},
+              "counts": {"$ref": "#/$defs/readabilityCounts"},
+              "values": {"$ref": "#/$defs/readabilityValues"}
+            }
+          }
+        }
+      }
+    },
     "ingest": {
       "type": "object",
       "additionalProperties": false,
@@ -287,6 +408,65 @@
     }
   },
   "$defs": {
+    "readabilityFormulaName": {
+      "enum": ["flesch_kincaid_grade", "flesch_reading_ease", "coleman_liau_index", "smog_grade", "gunning_fog", "automated_readability_index"]
+    },
+    "readabilityFormulaStrings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["flesch_kincaid_grade", "flesch_reading_ease", "coleman_liau_index", "smog_grade", "gunning_fog", "automated_readability_index"],
+      "properties": {
+        "flesch_kincaid_grade": {"type": "string"},
+        "flesch_reading_ease": {"type": "string"},
+        "coleman_liau_index": {"type": "string"},
+        "smog_grade": {"type": "string"},
+        "gunning_fog": {"type": "string"},
+        "automated_readability_index": {"type": "string"}
+      }
+    },
+    "readabilityValue": {"type": ["number", "null"]},
+    "readabilityValues": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["flesch_kincaid_grade", "flesch_reading_ease", "coleman_liau_index", "smog_grade", "gunning_fog", "automated_readability_index"],
+      "properties": {
+        "flesch_kincaid_grade": {"$ref": "#/$defs/readabilityValue"},
+        "flesch_reading_ease": {"$ref": "#/$defs/readabilityValue"},
+        "coleman_liau_index": {"$ref": "#/$defs/readabilityValue"},
+        "smog_grade": {"$ref": "#/$defs/readabilityValue"},
+        "gunning_fog": {"$ref": "#/$defs/readabilityValue"},
+        "automated_readability_index": {"$ref": "#/$defs/readabilityValue"}
+      }
+    },
+    "readabilityCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["words", "sentences", "syllables", "characters", "polysyllables", "figures", "excluded_words", "dictionary_words", "fallback_words"],
+      "properties": {
+        "words": {"type": "integer", "minimum": 0},
+        "sentences": {"type": "integer", "minimum": 0},
+        "syllables": {"type": "integer", "minimum": 0},
+        "characters": {"type": "integer", "minimum": 0},
+        "polysyllables": {"type": "integer", "minimum": 0},
+        "figures": {"type": "integer", "minimum": 0},
+        "excluded_words": {"type": "integer", "minimum": 0},
+        "dictionary_words": {"type": "integer", "minimum": 0},
+        "fallback_words": {"type": "integer", "minimum": 0}
+      }
+    },
+    "readabilityEstimate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "formula", "counts"],
+      "properties": {
+        "value": {"$ref": "#/$defs/readabilityValue"},
+        "formula": {"type": "string", "minLength": 1},
+        "counts": {
+          "type": "object",
+          "additionalProperties": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
     "rewritePolicy": {
       "type": "object",
       "additionalProperties": false,

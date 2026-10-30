@@ -141,6 +141,42 @@ digest are recorded as `linguistic_model` inside the hashed analysis artifact.
 Verification rejects an artifact produced by a different pipeline rather than
 re-analysing it under new assumptions.
 
+## Grade-level estimates
+
+Every analysis artifact (schema 1.3.0) carries `readability_estimates`. It holds
+Flesch-Kincaid grade, Flesch Reading Ease, Coleman-Liau, SMOG, Gunning Fog, and
+ARI for the document and for each sentence. Sentences are keyed by
+`sentence_index` with source offsets. Each document value records its exact
+formula and the counts it used. `method` records the counting definitions,
+rounding (half up, 2 decimals), the syllable source and hashes, the fallback
+rule, the normalization rule, and the grade policy. The block is hashed, so
+`verify` replays it exactly.
+
+- **Syllables:** a vendored table derived from CMUdict at a pinned commit, built
+  by `scripts/build_syllable_table.py` from the first-listed pronunciation. Its
+  SHA-256 is pinned and checked at load. A mismatch raises
+  `SyllableTableError`, and nothing is downloaded. A word the dictionary does
+  not list uses a documented spelling rule: vowel runs, a consonantal initial
+  `y`, a silent final `e` and `-ed`, and a minimum of 1. CMUdict's BSD-style
+  license ships as `lingity/data/CMUDICT-LICENSE`.
+- **Normalization:** a word containing a digit counts as one word of one
+  syllable and three characters. Inline code, URLs, non-link bracket
+  references, author-year citations, and page citations are not counted.
+  `document.without_normalization` reports the unnormalized counts and values.
+- **Opt-in limit:** a profile threshold `max_grade` enables `LING-GRADE-001` for
+  each sentence of at least `grade_min_words` (default 5) words whose
+  Flesch-Kincaid grade exceeds it. The finding costs `sentence_load` 1.5 points
+  per grade over the limit, capped at 15. No shipped profile sets it. Adding it
+  to `web-copy` would have changed `web-copy` scores, so it ships as an option.
+  `tests/fixtures/score-goldens.json` pins every shipped profile's score,
+  findings, sentences, and protected manifest as they were before this change.
+- **Caveats:** the formulas disagree by several grades on dense text, and they
+  measure surface features, not comprehension. Tools that share formula names
+  still differ in syllable source, sentence splitting, character counting, and
+  rounding. On a 2,188-word budget page, textstat 0.7.4 and Lingity count the
+  same words but differ by up to 4.4 grades on Fog. DESIGN.md explains each
+  difference.
+
 ## Scoring
 
 The score is an explanation aid, not the acceptance authority.

@@ -10,10 +10,11 @@ from typing import cast
 import pytest
 from jsonschema import Draft202012Validator
 
-from lingity.analyzer import analyze_text
+from lingity.analyzer import ANALYSIS_SCHEMA_VERSION, analyze_text
 from lingity.models import Finding, JsonValue, Location
-from lingity.nlp import model_fingerprint
+from lingity.nlp import model_fingerprint, parse
 from lingity.profiles import Profile, canonical_json, load_profile
+from lingity.readability import readability_estimates
 from lingity.scoring import (
     DIMENSIONS,
     HRI_REPORTED_FLOOR,
@@ -76,7 +77,7 @@ def _analysis_artifact(
 ) -> dict[str, JsonValue]:
     text = "Synthetic source sentence."
     artifact: dict[str, JsonValue] = {
-        "schema_version": "1.2.0",
+        "schema_version": ANALYSIS_SCHEMA_VERSION,
         "analyzer_version": "test",
         "linguistic_model": cast(dict[str, JsonValue], model_fingerprint()),
         "profile": profile.reference(),
@@ -106,6 +107,7 @@ def _analysis_artifact(
         },
         "findings": cast(list[JsonValue], [finding.to_dict() for finding in findings]),
         "score": score,
+        "readability_estimates": readability_estimates(parse(text), profile.thresholds),
         "analysis_sha256": "0" * 64,
     }
     artifact["analysis_sha256"] = hashlib.sha256(

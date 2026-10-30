@@ -491,6 +491,164 @@ One phrase was dropped rather than shipped. The pinned pipeline lemmatises
 typo, so a future reader would repair it and silence the rule. A phrase that
 cannot be stored legibly is not worth the maintenance hazard.
 
+## Grade-level estimates
+
+Writers and reviewers ask for a grade level, and the classic formulas answer in
+one number. The formulas disagree with each other, though, and each depends on
+counting rules that tools rarely state. Lingity therefore reports several
+formulas side by side, each with its exact formula and the counts behind it, so
+a reader can see why two of them disagree.
+
+### What the artifact records
+
+Every analysis artifact (schema 1.3.0) carries a `readability_estimates` block:
+
+- `method` records the definitions of word, sentence, character, and
+  polysyllable, the rounding rule, every formula string, the syllable source
+  with its hashes, the fallback rule, the normalization rule, and the profile's
+  grade policy, or `null` when the profile sets none.
+- `document` reports the counts and, for each formula, its value, its formula,
+  and the counts that formula used. `without_normalization` repeats the counts
+  and values with figures, codes, and citations counted as ordinary words.
+- `sentences` reports the counts and the six values for each sentence that
+  holds a counted word. Each entry carries its `sentence_index` and source
+  offsets. Formula strings live once in `method.formulas`, under the same keys.
+
+| Key | Formula |
+|---|---|
+| `flesch_kincaid_grade` | `0.39 * (words / sentences) + 11.8 * (syllables / words) - 15.59` |
+| `flesch_reading_ease` | `206.835 - 1.015 * (words / sentences) - 84.6 * (syllables / words)` |
+| `coleman_liau_index` | `0.0588 * (100 * characters / words) - 0.296 * (100 * sentences / words) - 15.8` |
+| `smog_grade` | `1.0430 * sqrt(polysyllables * 30 / sentences) + 3.1291` |
+| `gunning_fog` | `0.4 * ((words / sentences) + 100 * (polysyllables / words))` |
+| `automated_readability_index` | `4.71 * (characters / words) + 0.5 * (words / sentences) - 21.43` |
+
+Each value is computed in double precision and rounded half up to two decimals,
+the same rounding the Human Readability Index uses. When nothing is counted, a
+value is `null` rather than an invented number.
+
+The block sits inside the hashed artifact, so `verify` replays it exactly. A
+value changed after analysis fails verification even when the attacker
+recomputes `analysis_sha256`.
+
+### Counting rules
+
+- **Sentences** are the analyzer's own sentences, so a grade line and a finding
+  point at the same span. A Markdown heading is a sentence of its own, and a
+  table or a code block is never read. Tools that split on terminal punctuation
+  instead join a heading to the sentence after it.
+- **Words** are runs of letters and digits joined across a single apostrophe,
+  hyphen, period, comma, colon, or slash. `11,898,367,000`, `P.1`, `don't`,
+  and `well-known` are one word each.
+- **Characters** are the letters and digits in counted words. Punctuation is
+  not a character, so ARI and Coleman-Liau read the same count.
+- **Polysyllables** are words of three or more syllables. Gunning Fog's
+  original exclusions for proper nouns, compounds, and suffixes are not
+  applied, so Fog here runs higher than tools that apply them.
+
+### Syllables come from a pinned dictionary
+
+Syllable counts come from `lingity/data/cmudict-syllables.tsv`. The table is
+derived from CMUdict at a pinned commit by `scripts/build_syllable_table.py`.
+The script counts the phones that carry a stress digit in the first
+pronunciation listed. The module pins the table's SHA-256 and refuses any other
+bytes with `SyllableTableError`, the way the spaCy model is pinned. Nothing is
+downloaded at analysis time. The nltk `cmudict` corpus was not used because
+nltk fetches it at runtime.
+
+CMUdict is distributed under a BSD-style license that requires its copyright
+notice to travel with redistributed copies. The license text ships as
+`lingity/data/CMUDICT-LICENSE`, and `NOTICE` names it.
+
+A word the dictionary does not list falls back to a spelling rule. The rule
+counts vowel runs, treats a word-initial `y` as a consonant, and drops a silent
+final `e` (but not a syllabic `-le`) and a silent `-ed`. It never returns
+less than 1. Hyphenated and dotted words are looked up whole, then by their
+parts. The artifact counts how many words each source supplied
+(`dictionary_words`, `fallback_words`), so a reader can see how much of a
+syllable count is a guess.
+
+### Figures, codes, and citations
+
+Character- and syllable-based formulas misread figures. `$11,898,367,000` is
+one token to a reader but eleven characters to Coleman-Liau, and a code such as
+`W00A01` has no vowels for a syllable rule to find. A page citation such as
+`(p. P.1)` adds two words that nobody reads as prose.
+
+When normalization applies, which is the default:
+
+- A counted word containing a digit counts as one word of one syllable and
+  three characters. This covers amounts, counts, percentages, years, page
+  numbers, and codes. Such a word is never a polysyllable.
+- Inline code, URLs, a bracketed reference that is not a Markdown link,
+  author-year citations, and page citations are not counted at all. The first
+  four reuse the patterns the protected-meaning extractor already uses for
+  citations. A Markdown link's label is prose and is still counted.
+- A sentence with no counted word left is not counted as a sentence.
+
+`tests/test_readability.py` holds the tolerance. A figure-heavy sentence must
+score within 0.5 grade (3 Reading Ease points) of the same sentence with a
+one-syllable, three-letter word in place of each figure. Without
+normalization, the same pair falls outside that tolerance on Coleman-Liau and
+ARI.
+
+### An opt-in grade limit
+
+A profile may set `max_grade` in its thresholds. Under it, `LING-GRADE-001`
+reports each sentence whose Flesch-Kincaid grade is above the limit. The
+finding records the formula, the observed grade, the word count, the
+threshold, and a remediation. It feeds the `sentence_load` dimension with a
+penalty of 1.5 points per grade over the limit, capped at 15. Flesch-Kincaid
+drives the rule because it is the most widely quoted grade formula. The choice
+is recorded in `method.grade_threshold`.
+
+A sentence with fewer counted words than `grade_min_words` (default 5) is not
+reported. A two-word heading such as "Implementation Considerations" estimates
+above grade 30, which tells a writer nothing.
+
+No shipped profile sets `max_grade`, so their findings and scores are what they
+were before the estimates existed. `tests/fixtures/score-goldens.json` pins the
+score, findings, sentence records, and protected manifest of every shipped
+profile on eight texts. Those snapshots were taken from analyzer 1.7.0, before
+this change. `web-copy` was the candidate for `max_grade: 8`, but setting it
+would lower `web-copy` scores on six of the eight snapshot texts, so the key
+ships as an option rather than as a default. The rule is kept out of
+`RULE_DIMENSIONS`, whose every rule the architecture-review corpus must reach,
+and listed in `OPT_IN_RULE_DIMENSIONS`.
+
+### Caveats
+
+- The formulas disagree. On dense prose the spread between them is often four
+  grades or more, and no single one is correct.
+- They measure surface features: sentence length, syllables, and characters.
+  Short words in a confusing order score well, and a precise technical term
+  scores badly. Comprehension depends on the reader, which no count measures.
+- Formula names do not pin down a number. Tools that share a formula still
+  differ in syllable source, sentence splitting, character counting, and
+  rounding.
+- SMOG was calibrated on samples of 30 sentences. A per-sentence SMOG value is
+  reported for completeness, and it is not meaningful alone.
+
+A calibration run shows the size of those differences. The text was the prose
+of a 2,188-word public budget page. textstat 0.7.4 reported Flesch-Kincaid 9.3,
+Reading Ease 61.2, Coleman-Liau 12.8, SMOG 11.8, Fog 9.0, and ARI 13.9. Lingity
+reports 9.90, 52.51, 11.56, 12.68, 13.39, and 9.95 with normalization, and
+10.08, 51.27, 12.82, 12.74, 13.48, and 10.97 without it. Both tools count the
+same 2,188 words. The differences come from the counting rules:
+
+- textstat finds 118 sentences and Lingity 137, because each heading and
+  caption line is its own sentence here.
+- textstat's hyphenation-based syllable counter finds 3,367 syllables and
+  CMUdict 3,604. The hyphenation counter reads "allowance", "revenue", and
+  "edition" as two syllables and "amount" as one.
+- textstat rounds the average sentence length and syllables per word to one
+  decimal before applying Flesch-Kincaid and Reading Ease. That alone moves
+  its Flesch-Kincaid by half a grade.
+- textstat's Fog counts only polysyllables that are not on the Dale-Chall
+  easy-word list: 89 words against 383.
+- textstat's ARI counts punctuation as characters, which raises the
+  characters per word.
+
 ## Scoring
 
 The score is an explanation aid, not the acceptance authority.
