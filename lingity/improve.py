@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
+import math
 from typing import Final, cast
 
 from lingity.analyzer import analyze_text
@@ -58,6 +59,7 @@ class AttemptRecord:
     protected_disposition: str
     challenge: ChallengeResult | None = None
     addressed_rule_ids: tuple[str, ...] = ()
+    grade_goal: dict[str, JsonValue] | None = None
 
     def to_dict(self) -> dict[str, JsonValue]:
         record: dict[str, JsonValue] = {
@@ -75,6 +77,8 @@ class AttemptRecord:
         record["challenge"] = (
             self.challenge.to_dict() if self.challenge is not None else None
         )
+        if self.grade_goal is not None:
+            record["grade_goal"] = self.grade_goal
         return record
 
 
@@ -88,9 +92,10 @@ class ImprovementResult:
     selected_score: float
     attempts: tuple[AttemptRecord, ...] = field(default=())
     stop_reason: str = ""
+    grade_goal: dict[str, JsonValue] | None = None
 
     def to_dict(self) -> dict[str, JsonValue]:
-        return {
+        result: dict[str, JsonValue] = {
             "accepted": self.accepted,
             "selected_text": self.selected_text,
             "source_score": self.source_score,
@@ -98,6 +103,9 @@ class ImprovementResult:
             "stop_reason": self.stop_reason,
             "attempts": [attempt.to_dict() for attempt in self.attempts],
         }
+        if self.grade_goal is not None:
+            result["grade_goal"] = self.grade_goal
+        return result
 
 
 def _score_of(analysis: dict[str, JsonValue]) -> float:
@@ -108,6 +116,24 @@ def _score_of(analysis: dict[str, JsonValue]) -> float:
     if not isinstance(value, (int, float)):
         raise ImprovementError("analysis score is missing a numeric value")
     return float(value)
+
+
+def _grade_of(analysis: dict[str, JsonValue]) -> float | None:
+    block = cast(dict[str, JsonValue], analysis["readability_estimates"])
+    document = cast(dict[str, JsonValue], block["document"])
+    estimates = cast(dict[str, JsonValue], document["estimates"])
+    grade = cast(dict[str, JsonValue], estimates["flesch_kincaid_grade"])["value"]
+    return float(grade) if isinstance(grade, (int, float)) else None
+
+
+def _check_target_grade(target_grade: float | None) -> None:
+    if target_grade is not None and (
+        isinstance(target_grade, bool)
+        or not isinstance(target_grade, (int, float))
+        or not math.isfinite(target_grade)
+        or target_grade < 0
+    ):
+        raise ImprovementError("target_grade must be a finite non-negative number")
 
 
 def _high_severity_rules(analysis: dict[str, JsonValue]) -> set[str]:
@@ -326,6 +352,7 @@ def judge_candidate(
     profile: Profile,
     *,
     challenger: DriftChallenger | None = None,
+    target_grade: float | None = None,
 ) -> tuple[bool, tuple[str, ...], dict[str, JsonValue]]:
     """Decide a single candidate deterministically.
 
@@ -334,6 +361,7 @@ def judge_candidate(
     challenge may only *add* doubt — it can never clear a deterministic failure.
     """
 
+    _check_target_grade(target_grade)
     source_analysis = analyze_text(source_text, profile=profile)
     candidate_analysis = analyze_text(candidate_text, profile=profile)
 
@@ -347,6 +375,35 @@ def judge_candidate(
     disposition = cast(str, comparison["disposition"])
 
     reasons: list[str] = []
+
+    grade_goal: dict[str, JsonValue] | None = None
+    if target_grade is not None:
+        source_grade = _grade_of(source_analysis)
+        candidate_grade = _grade_of(candidate_analysis)
+        grade_goal = {
+            "formula": "flesch_kincaid_grade",
+            "source_grade": source_grade,
+            "candidate_grade": candidate_grade,
+            "target_grade": target_grade,
+            "passed": (
+                source_grade is not None
+                and candidate_grade is not None
+                and candidate_grade < source_grade
+                and candidate_grade <= target_grade
+            ),
+        }
+        if source_grade is None or candidate_grade is None:
+            reasons.append("grade goal cannot be evaluated without counted prose")
+        elif candidate_grade >= source_grade:
+            reasons.append(
+                f"Flesch-Kincaid grade did not decrease: {source_grade:.2f} to "
+                f"{candidate_grade:.2f}"
+            )
+        elif candidate_grade > target_grade:
+            reasons.append(
+                f"Flesch-Kincaid grade {candidate_grade:.2f} exceeds target "
+                f"{target_grade:.2f}"
+            )
 
     if disposition != "equivalent":
         missing = cast(list[JsonValue], comparison.get("missing") or [])
@@ -365,11 +422,12 @@ def judge_candidate(
             else f"protected meaning is {disposition}"
         )
 
-    if candidate_score <= source_score:
+    if candidate_score < source_score or (target_grade is None and candidate_score == source_score):
         verb = "did not change" if candidate_score == source_score else "regressed"
         reasons.append(
             f"readability {verb}: candidate scores {candidate_score:.2f} against "
-            f"source {source_score:.2f}; a rewrite must strictly improve the score"
+            f"source {source_score:.2f}; a rewrite must "
+            f"{'not lower the score when targeting a grade' if target_grade is not None else 'strictly improve the score'}"
         )
 
     new_high = _high_severity_rules(candidate_analysis) - _high_severity_rules(
@@ -423,6 +481,8 @@ def judge_candidate(
         },
         "challenge": challenge.to_dict() if challenge is not None else None,
     }
+    if grade_goal is not None:
+        evidence["grade_goal"] = grade_goal
     return (not reasons, tuple(reasons), evidence)
 
 
@@ -434,6 +494,7 @@ def improve_text(
     max_attempts: int = DEFAULT_MAX_ATTEMPTS,
     challenger: DriftChallenger | None = None,
     style: StyleContract | None = None,
+    target_grade: float | None = None,
 ) -> ImprovementResult:
     """Run the bounded improvement loop and return an attributed outcome."""
 
@@ -441,9 +502,11 @@ def improve_text(
         raise ImprovementError(
             f"max_attempts must be at least 1; received {max_attempts}"
         )
+    _check_target_grade(target_grade)
 
     source_analysis = analyze_text(source_text, profile=profile)
     source_score = _score_of(source_analysis)
+    source_grade = _grade_of(source_analysis) if target_grade is not None else None
 
     attempts: list[AttemptRecord] = []
     prior: list[dict[str, JsonValue]] = []
@@ -451,7 +514,7 @@ def improve_text(
 
     for index in range(1, max_attempts + 1):
         brief = build_critique(
-            source_analysis, prior_attempts=prior, style=style
+            source_analysis, prior_attempts=prior, style=style, target_grade=target_grade
         )
         try:
             proposal = provider.propose(ProposalRequest(brief=brief))
@@ -460,7 +523,8 @@ def improve_text(
             break
 
         accepted, reasons, evidence = judge_candidate(
-            source_text, proposal.candidate_text, profile, challenger=challenger
+            source_text, proposal.candidate_text, profile,
+            challenger=challenger, target_grade=target_grade
         )
         record = AttemptRecord(
             index=index,
@@ -473,6 +537,7 @@ def improve_text(
             score_after=cast(float, evidence["candidate_score"]),
             protected_disposition=cast(str, evidence["protected_disposition"]),
             addressed_rule_ids=proposal.addressed_rule_ids,
+            grade_goal=cast(dict[str, JsonValue] | None, evidence.get("grade_goal")),
         )
         attempts.append(record)
 
@@ -484,6 +549,16 @@ def improve_text(
                 selected_score=record.score_after,
                 attempts=tuple(attempts),
                 stop_reason=f"candidate accepted on attempt {index}",
+                grade_goal=(
+                    {
+                        "formula": "flesch_kincaid_grade",
+                        "source_grade": source_grade,
+                        "selected_grade": cast(dict[str, JsonValue], evidence["grade_goal"])["candidate_grade"],
+                        "target_grade": target_grade,
+                        "passed": True,
+                    }
+                    if target_grade is not None else None
+                ),
             )
 
         prior.append(
@@ -520,6 +595,16 @@ def improve_text(
         selected_score=source_score,
         attempts=tuple(attempts),
         stop_reason=stop_reason,
+        grade_goal=(
+            {
+                "formula": "flesch_kincaid_grade",
+                "source_grade": source_grade,
+                "selected_grade": source_grade,
+                "target_grade": target_grade,
+                "passed": False,
+            }
+            if target_grade is not None else None
+        ),
     )
 
 

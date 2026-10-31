@@ -20,7 +20,7 @@ from lingity.markdown import MarkdownParserError
 from lingity.nlp import LinguisticModelError, model_fingerprint
 import lingity.profiles as profile_store
 from lingity.profiles import SCHEMA_DIR, canonical_json, load_profile
-from lingity.readability import FORMULAS, SyllableTableError
+from lingity.readability import DATA_DIR, FORMULAS, SyllableTableError
 from lingity.providers import (
     ProviderError,
     available_proposal_providers,
@@ -118,6 +118,7 @@ def _reject_package_store_output(output: Path | None) -> None:
         ("style", style_store.STYLE_DIR),
         ("profile", profile_store.PROFILE_DIR),
         ("schema", profile_store.SCHEMA_DIR),
+        ("data", DATA_DIR),
     )
     for label, directory in stores:
         if parents & set(_path_forms(directory)):
@@ -338,6 +339,7 @@ def _critique(args: argparse.Namespace) -> int:
                 Any, _load_prior_attempts(cast(Path | None, args.prior_attempts))
             ),
             style=style,
+            target_grade=cast(float | None, args.target_grade),
         )
         Draft202012Validator(_schema("critique.schema.json")).validate(brief)
         _write_json(brief, output)
@@ -370,7 +372,8 @@ def _judge(args: argparse.Namespace) -> int:
                 challenge_provider, model=cast(str | None, args.challenge_model)
             )
         accepted, reasons, evidence = judge_candidate(
-            source_text, candidate_text, profile, challenger=challenger
+            source_text, candidate_text, profile, challenger=challenger,
+            target_grade=cast(float | None, args.target_grade),
         )
         verdict = {
             "schema_version": "1.1.0",
@@ -385,6 +388,8 @@ def _judge(args: argparse.Namespace) -> int:
             "profile": profile.reference(),
             "linguistic_model": model_fingerprint(),
         }
+        if "grade_goal" in evidence:
+            verdict["grade_goal"] = evidence["grade_goal"]
         Draft202012Validator(_schema("verdict.schema.json")).validate(verdict)
         _write_json(verdict, output)
         return 0 if accepted else 1
@@ -444,6 +449,7 @@ def _improve(args: argparse.Namespace) -> int:
             max_attempts=cast(int, args.max_attempts),
             challenger=challenger,
             style=style,
+            target_grade=cast(float | None, args.target_grade),
         )
         record = result.to_dict()
         record["profile"] = cast(Any, profile.reference())
@@ -515,6 +521,7 @@ def build_parser() -> argparse.ArgumentParser:
     critique.add_argument("input", type=Path)
     critique.add_argument("--profile", default="architecture-review")
     critique.add_argument("--style")
+    critique.add_argument("--target-grade", type=float, dest="target_grade")
     critique.add_argument("--prior-attempts", type=Path, dest="prior_attempts")
     critique.add_argument("--output", type=Path)
     critique.set_defaults(handler=_critique)
@@ -526,6 +533,7 @@ def build_parser() -> argparse.ArgumentParser:
     judge.add_argument("source", type=Path)
     judge.add_argument("--candidate", type=Path, required=True)
     judge.add_argument("--profile", default="architecture-review")
+    judge.add_argument("--target-grade", type=float, dest="target_grade")
     judge.add_argument("--challenge-provider", dest="challenge_provider")
     judge.add_argument("--challenge-model", dest="challenge_model")
     judge.add_argument("--output", type=Path)
@@ -545,6 +553,7 @@ def build_parser() -> argparse.ArgumentParser:
     improve.add_argument("--candidate", type=Path, action="append")
     improve.add_argument("--max-attempts", type=int, default=3, dest="max_attempts")
     improve.add_argument("--profile", default="architecture-review")
+    improve.add_argument("--target-grade", type=float, dest="target_grade")
     improve.add_argument("--style")
     improve.add_argument("--challenge-provider", dest="challenge_provider")
     improve.add_argument("--challenge-model", dest="challenge_model")

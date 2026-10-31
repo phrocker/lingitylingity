@@ -299,6 +299,45 @@ def test_code_urls_and_references_are_not_counted_but_link_labels_are() -> None:
     assert count_text("Read the [guide](https://example.com) first.", normalize=False).words == 6
 
 
+def test_code_scanner_handles_escaped_and_multi_backticks() -> None:
+    escaped = count_text(r"Read \`plain words\` and ``code ` inner words`` now.")
+    assert escaped.words == 5  # Read, plain, words, and, now
+    assert count_text("Read ``code ` inner words`` now.").words == 2
+
+
+def test_link_destinations_and_reference_targets_are_not_prose() -> None:
+    assert count_text("Read the [guide](setup.md) first.").words == 4
+    assert count_text("Read the [guide](#installation) first.").words == 4
+    assert count_text("Read the [guide][ref] first.", references=frozenset({"REF"})).words == 4
+    assert count_text("Read the [guide][] first.", references=frozenset({"GUIDE"})).words == 4
+    assert count_text("Read the [guide] first.", references=frozenset({"GUIDE"})).words == 4
+    assert count_text("Read [ADR-12] first.").words == 2
+
+
+def test_document_reference_definition_preserves_visible_label() -> None:
+    text = "Read the [guide][ref] first.\n\n[ref]: setup.md\n"
+    assert _block(text)["document"]["counts"]["words"] == 4
+
+
+def test_grade_output_cannot_remove_the_installed_syllable_table(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    store = tmp_path / "data"
+    store.mkdir()
+    installed = store / "cmudict-syllables.tsv"
+    installed.write_text("pinned contents", encoding="utf-8")
+    monkeypatch.setattr(readability, "DATA_DIR", store)
+    # The CLI imports DATA_DIR by value, so patch the guard's binding too.
+    import lingity.cli as cli
+
+    monkeypatch.setattr(cli, "DATA_DIR", store)
+    source = tmp_path / "page.md"
+    source.write_text("The cat sat on the mat.", encoding="utf-8")
+    assert main(["grade", str(source), "--output", str(installed)]) == 2
+    assert "installed data directory" in capsys.readouterr().err
+    assert installed.read_text(encoding="utf-8") == "pinned contents"
+
+
 def test_a_sentence_of_only_excluded_words_is_not_a_sentence() -> None:
     counts = count_text("(p. 12)")
     assert (counts.words, counts.sentences) == (0, 0)

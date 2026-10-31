@@ -38,7 +38,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Iterable, cast
 
-from lingity.invariants import CITATION_RE, CODE_RE, URL_RE
+from lingity.invariants import CITATION_RE, URL_RE
+from lingity.markdown import inline_code_spans, normalize_reference_label, reference_labels
 from lingity.models import JsonValue
 from lingity.nlp import Document
 
@@ -216,13 +217,75 @@ class Counts:
         return {name: cast(int, getattr(self, name)) for name in self.__dataclass_fields__}
 
 
-def _excluded_spans(text: str) -> list[tuple[int, int]]:
+def _closing_bracket(text: str, start: int, opener: str, closer: str) -> int:
+    """Find a matching Markdown delimiter, allowing nesting and escapes."""
+    depth = 0
+    for position in range(start, len(text)):
+        backslashes = 0
+        previous = position - 1
+        while previous >= 0 and text[previous] == "\\":
+            backslashes += 1
+            previous -= 1
+        if backslashes % 2:
+            continue
+        if text[position] == opener:
+            depth += 1
+        elif text[position] == closer:
+            depth -= 1
+            if depth == 0:
+                return position
+    return -1
+
+
+def _links(
+    text: str, references: frozenset[str], code: tuple[tuple[int, int], ...]
+) -> tuple[list[tuple[int, int]], list[tuple[int, int]]]:
+    """Locate link destinations and visible labels in source Markdown."""
+    excluded: list[tuple[int, int]] = []
+    labels: list[tuple[int, int]] = []
+    position = 0
+    while position < len(text):
+        if text[position] != "[" or _inside(code, position, position + 1):
+            position += 1
+            continue
+        close = _closing_bracket(text, position, "[", "]")
+        if close < 0:
+            position += 1
+            continue
+        label = text[position + 1 : close]
+        next_position = close + 1
+        destination_end = -1
+        if next_position < len(text) and text[next_position] == "(":
+            destination_end = _closing_bracket(text, next_position, "(", ")")
+        elif next_position < len(text) and text[next_position] == "[":
+            reference_end = _closing_bracket(text, next_position, "[", "]")
+            if reference_end >= 0:
+                reference = text[next_position + 1 : reference_end] or label
+                if normalize_reference_label(reference) in references:
+                    destination_end = reference_end
+        elif normalize_reference_label(label) in references:
+            destination_end = close
+        if destination_end >= 0:
+            labels.append((position, close + 1))
+            if destination_end > close:
+                excluded.append((close + 1, destination_end + 1))
+            position = destination_end + 1
+        else:
+            position = close + 1
+    return excluded, labels
+
+
+def _excluded_spans(text: str, references: frozenset[str]) -> list[tuple[int, int]]:
     spans: list[tuple[int, int]] = []
-    for pattern in (CODE_RE, URL_RE, _PAGE_CITATION_RE):
+    code = inline_code_spans(text)
+    spans.extend(code)
+    link_destinations, link_labels = _links(text, references, code)
+    spans.extend(link_destinations)
+    for pattern in (URL_RE, _PAGE_CITATION_RE):
         spans.extend(match.span() for match in pattern.finditer(text))
     for match in CITATION_RE.finditer(text):
-        # "[label](url)" is a link whose label is prose, not a reference.
-        if match.group(0).startswith("[") and text[match.end() : match.end() + 1] == "(":
+        # Markdown link labels are prose, including reference and shortcut links.
+        if match.group(0).startswith("[") and _inside(link_labels, *match.span()):
             continue
         spans.append(match.span())
     return spans
@@ -232,9 +295,11 @@ def _inside(spans: Iterable[tuple[int, int]], start: int, end: int) -> bool:
     return any(span_start <= start and end <= span_end for span_start, span_end in spans)
 
 
-def count_text(text: str, normalize: bool = True) -> Counts:
+def count_text(
+    text: str, normalize: bool = True, references: frozenset[str] = frozenset()
+) -> Counts:
     """Count one sentence's text under the normalization rule, or without it."""
-    excluded = _excluded_spans(text) if normalize else []
+    excluded = _excluded_spans(text, references) if normalize else []
     words = syllable_total = characters = polysyllables = figures = 0
     excluded_words = dictionary_words = fallback_words = 0
     for match in _WORD_RE.finditer(text):
@@ -324,8 +389,9 @@ def readability_estimates(document: Document, thresholds: dict[str, int | float]
     sentence_entries: list[JsonValue] = []
     total = Counts()
     raw_total = Counts()
+    references = reference_labels(document.text)
     for sentence in document.sentences:
-        counts = count_text(sentence.text)
+        counts = count_text(sentence.text, references=references)
         raw_total = raw_total + count_text(sentence.text, normalize=False)
         total = total + counts
         if counts.words == 0:

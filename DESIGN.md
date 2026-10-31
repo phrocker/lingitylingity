@@ -764,6 +764,28 @@ draft -> analyzed -> improving -> selected
 - `report.md`: human-readable explanation
 - `selected.txt`: accepted text, or the source when no rewrite is accepted
 
+## Grade-directed brevity and factual review
+
+`--target-grade` adds an explicit Flesch-Kincaid goal to the critique and
+acceptance loop. A proposal should lead with its main point, split long
+sentences, replace jargon where the meaning permits, and remove repeated
+framing. Acceptance requires a strictly lower grade at or below the target,
+no HRI regression, equivalent protected meaning, no new high-severity rule,
+and the profile's word-growth budget. The optional semantic-drift challenger
+can block a candidate that changes an unprotected claim. This gate tests
+faithfulness to the source, not the source's truth.
+
+A full fact-checking stage should take an evidence bundle alongside the source.
+It should inventory each material claim, resolve each one to a cited excerpt
+and source revision, and classify it as supported, contradicted, or unresolved.
+Both the original and candidate should be checked: a faithful rewrite of a
+false source remains false. Claims without support or with conflicting evidence
+should block automatic acceptance and go to a human editor. The evidence
+bundle and claim decisions should be hashed into the run record so later
+verification can replay the decision against the same sources. A model may
+suggest claim-to-evidence matches, but it cannot invent the evidence or turn an
+unresolved claim into a verified one.
+
 ## Non-goals
 
 - Proving semantic equivalence from an LLM judgment

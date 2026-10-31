@@ -104,6 +104,29 @@ to a grade limit by setting `max_grade` in its thresholds. Lingity then reports
 those findings cost points like any other finding. No shipped profile sets
 `max_grade`. See [DESIGN.md](DESIGN.md) for the counting rules and caveats.
 
+To make a rewrite aim for a lower grade, pass `--target-grade` through the
+critique, judge, or improvement loop:
+
+```text
+lingity critique page.md --target-grade 8 --output brief.json
+lingity judge page.md --candidate shorter.md --target-grade 8 --output verdict.json
+lingity improve page.md --provider anthropic --model <model> --target-grade 8
+```
+
+The brief asks for the main point first, shorter concrete sentences, familiar
+words, and removal of repeated context. The judge requires the candidate's
+Flesch-Kincaid grade to decrease and reach the target. It also requires the
+existing score not to fall and applies the protected-meaning, high-severity,
+word-growth, and optional semantic-drift checks. A score already at 100 can
+therefore stay at 100 while the grade falls. `--target-grade` is a rewrite goal;
+the profile's `max_grade` remains an independent sentence finding policy.
+
+These checks compare the rewrite with its source; they do not establish that
+the source itself is true. For source-grounded review, add
+`--challenge-provider openai --challenge-model <model>` (or `anthropic`) to
+`judge` or `improve`. External fact verification requires cited evidence and
+claim-level review before publication; see [DESIGN.md](DESIGN.md).
+
 ## Choose a profile
 
 Five profiles ship:

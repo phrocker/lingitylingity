@@ -443,6 +443,24 @@ def inline_code_spans(
     return tuple(sorted(located))
 
 
+def reference_labels(text: str) -> frozenset[str]:
+    """Return CommonMark's normalized reference labels for a full document."""
+    environment: dict[str, object] = {}
+    _parser().parse(text, environment)
+    references = environment.get("references", {})
+    if not isinstance(references, dict):
+        return frozenset()
+    return frozenset(references)
+
+
+def normalize_reference_label(label: str) -> str:
+    """Normalize a link label with the parser's CommonMark rule."""
+    _parser()
+    from markdown_it.common.utils import normalizeReference
+
+    return normalizeReference(label)
+
+
 def block_counts(blocks: tuple[Block, ...]) -> dict[str, int]:
     """Summarise the segmentation for publication inside an analysis artifact."""
     counts: dict[str, int] = {}

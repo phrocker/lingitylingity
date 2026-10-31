@@ -17,6 +17,7 @@ from jsonschema import Draft202012Validator
 from jsonschema import ValidationError as SchemaValidationError
 
 from lingity.analyzer import analyze_text
+from lingity.cli import main
 from lingity.critique import CritiqueError, build_critique
 import lingity.improve as improve_module
 from lingity.improve import ImprovementError, improve_text, judge_candidate
@@ -79,6 +80,80 @@ def test_critique_brief_validates_and_is_deterministic() -> None:
     assert first == second
     assert first["critique_sha256"] == second["critique_sha256"]
     assert "style" not in first
+
+
+def test_grade_goal_guides_rewrite_and_accepts_a_lower_grade_at_score_ceiling(
+    profile: Profile,
+) -> None:
+    source = "The cat sat on the mat, and then the cat ran home."
+    candidate = "The cat sat on the mat. Then the cat ran home."
+    brief = build_critique(analyze_text(source, profile), target_grade=0)
+    _schema("critique.schema.json").validate(brief)
+    goal = cast(dict[str, Any], cast(dict[str, Any], brief["rewrite_constraints"])["grade_goal"])
+    assert goal["target_grade"] == 0
+    assert goal["source_grade"] == 0.89
+    assert cast(dict[str, Any], brief["acceptance"])["requires_higher_score"] is False
+
+    accepted, reasons, evidence = judge_candidate(source, candidate, profile, target_grade=0)
+    assert accepted and not reasons
+    assert evidence["source_score"] == evidence["candidate_score"] == 100.0
+    assert evidence["grade_goal"] == {
+        "formula": "flesch_kincaid_grade",
+        "source_grade": 0.89,
+        "candidate_grade": -1.64,
+        "target_grade": 0,
+        "passed": True,
+    }
+    rejected, reasons, _ = judge_candidate(source, source, profile, target_grade=0)
+    assert not rejected
+    assert any("grade did not decrease" in reason for reason in reasons)
+
+
+def test_grade_goal_keeps_the_semantic_challenge_gate(profile: Profile) -> None:
+    source = "The cat sat on the mat, and then the cat ran home."
+    candidate = "The cat sat on the mat. Then the cat ran home."
+    accepted, reasons, evidence = judge_candidate(
+        source, candidate, profile, target_grade=0,
+        challenger=_StubChallenger("material_change"),
+    )
+    assert not accepted
+    assert cast(dict[str, Any], evidence["grade_goal"])["passed"] is True
+    assert any("semantic-drift challenger" in reason for reason in reasons)
+
+
+def test_grade_goal_cli_critique_and_judge(tmp_path: Path) -> None:
+    source = tmp_path / "source.md"
+    candidate = tmp_path / "candidate.md"
+    brief_path = tmp_path / "brief.json"
+    verdict_path = tmp_path / "verdict.json"
+    source.write_text("The cat sat on the mat, and then the cat ran home.", encoding="utf-8")
+    candidate.write_text("The cat sat on the mat. Then the cat ran home.", encoding="utf-8")
+    assert main(["critique", str(source), "--target-grade", "0", "--output", str(brief_path)]) == 0
+    brief = json.loads(brief_path.read_text(encoding="utf-8"))
+    assert brief["rewrite_constraints"]["grade_goal"]["target_grade"] == 0
+    assert main([
+        "judge", str(source), "--candidate", str(candidate),
+        "--target-grade", "0", "--output", str(verdict_path),
+    ]) == 0
+    verdict = json.loads(verdict_path.read_text(encoding="utf-8"))
+    _schema("verdict.schema.json").validate(verdict)
+    assert verdict["accepted"] is True
+    assert verdict["grade_goal"]["candidate_grade"] == -1.64
+
+    improved_path = tmp_path / "improved.json"
+    assert main([
+        "improve", str(source), "--provider", "subagent", "--candidate", str(candidate),
+        "--target-grade", "0", "--output", str(improved_path),
+    ]) == 0
+    improved = json.loads(improved_path.read_text(encoding="utf-8"))
+    assert improved["grade_goal"]["selected_grade"] == -1.64
+    assert improved["attempts"][0]["grade_goal"]["passed"] is True
+
+
+@pytest.mark.parametrize("target", [float("nan"), float("inf"), -1])
+def test_grade_goal_rejects_invalid_targets(profile: Profile, target: float) -> None:
+    with pytest.raises(ImprovementError):
+        judge_candidate("The cat sat.", "The cat sat.", profile, target_grade=target)
 
 
 def test_critique_brief_carries_defects_and_protected_elements() -> None:
