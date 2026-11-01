@@ -461,6 +461,20 @@ def normalize_reference_label(label: str) -> str:
     return normalizeReference(label)
 
 
+def is_markdown_link(source: str, references: frozenset[str]) -> bool:
+    """Confirm a candidate source span parses as one CommonMark link."""
+    environment: dict[str, object] = {
+        "references": {label: {"href": "placeholder", "title": ""} for label in references}
+    }
+    inline = _parser().parseInline(source, environment)
+    children = inline[0].children if inline else None
+    return bool(
+        children
+        and children[0].type == "link_open"
+        and children[-1].type == "link_close"
+    )
+
+
 def block_counts(blocks: tuple[Block, ...]) -> dict[str, int]:
     """Summarise the segmentation for publication inside an analysis artifact."""
     counts: dict[str, int] = {}

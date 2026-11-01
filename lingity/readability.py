@@ -39,7 +39,12 @@ from pathlib import Path
 from typing import Iterable, cast
 
 from lingity.invariants import CITATION_RE, URL_RE
-from lingity.markdown import inline_code_spans, normalize_reference_label, reference_labels
+from lingity.markdown import (
+    inline_code_spans,
+    is_markdown_link,
+    normalize_reference_label,
+    reference_labels,
+)
 from lingity.models import JsonValue
 from lingity.nlp import Document
 
@@ -122,6 +127,17 @@ FORMULA_COUNTS: dict[str, tuple[str, ...]] = {
 GRADE_FORMULA = "flesch_kincaid_grade"
 GRADE_RULE_ID = "LING-GRADE-001"
 DEFAULT_GRADE_MIN_WORDS = 5
+
+
+def validate_target_grade(value: float | None) -> None:
+    """Reject targets that cannot be represented in a JSON rewrite contract."""
+    if value is not None and (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(value)
+        or value < 0
+    ):
+        raise ValueError("target_grade must be a finite non-negative number")
 
 _WORD_RE = re.compile(r"[^\W_]+(?:['’\-.,:/][^\W_]+)*")
 _PAGE_CITATION_RE = re.compile(r"\((?:p|pp)\.\s*[^()\n]*\)")
@@ -265,7 +281,9 @@ def _links(
                     destination_end = reference_end
         elif normalize_reference_label(label) in references:
             destination_end = close
-        if destination_end >= 0:
+        if destination_end >= 0 and is_markdown_link(
+            text[position : destination_end + 1], references
+        ):
             labels.append((position, close + 1))
             if destination_end > close:
                 excluded.append((close + 1, destination_end + 1))
@@ -296,10 +314,17 @@ def _inside(spans: Iterable[tuple[int, int]], start: int, end: int) -> bool:
 
 
 def count_text(
-    text: str, normalize: bool = True, references: frozenset[str] = frozenset()
+    text: str,
+    normalize: bool = True,
+    references: frozenset[str] = frozenset(),
+    precomputed_exclusions: tuple[tuple[int, int], ...] | None = None,
 ) -> Counts:
     """Count one sentence's text under the normalization rule, or without it."""
-    excluded = _excluded_spans(text, references) if normalize else []
+    excluded = (
+        list(precomputed_exclusions)
+        if normalize and precomputed_exclusions is not None
+        else _excluded_spans(text, references) if normalize else []
+    )
     words = syllable_total = characters = polysyllables = figures = 0
     excluded_words = dictionary_words = fallback_words = 0
     for match in _WORD_RE.finditer(text):
@@ -390,8 +415,32 @@ def readability_estimates(document: Document, thresholds: dict[str, int | float]
     total = Counts()
     raw_total = Counts()
     references = reference_labels(document.text)
+    # The linguistic parser joins each group's source spans with one space and
+    # then splits that chunk into sentences. Locate markup on that same chunk:
+    # a code span or link may cross a sentence or a wrapped source line.
+    groups: list[tuple[int, int, tuple[tuple[int, int], ...]]] = []
+    for group in document.groups:
+        if group:
+            chunk = " ".join(document.text[start:end] for start, end in group)
+            groups.append((group[0][0], group[-1][1], tuple(_excluded_spans(chunk, references))))
+    group_index = 0
     for sentence in document.sentences:
-        counts = count_text(sentence.text, references=references)
+        while group_index < len(groups) and sentence.start >= groups[group_index][1]:
+            group_index += 1
+        if (
+            group_index >= len(groups)
+            or sentence.start < groups[group_index][0]
+            or sentence.end > groups[group_index][1]
+        ):
+            raise ValueError("readability sentence does not map to a prose block")
+        chunk_start = sentence.chunk_start
+        chunk_end = chunk_start + len(sentence.text)
+        local_exclusions = tuple(
+            (max(0, start - chunk_start), min(len(sentence.text), end - chunk_start))
+            for start, end in groups[group_index][2]
+            if start < chunk_end and end > chunk_start
+        )
+        counts = count_text(sentence.text, precomputed_exclusions=local_exclusions)
         raw_total = raw_total + count_text(sentence.text, normalize=False)
         total = total + counts
         if counts.words == 0:

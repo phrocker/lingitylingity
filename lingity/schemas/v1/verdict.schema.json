@@ -19,7 +19,7 @@
     "linguistic_model"
   ],
   "properties": {
-    "schema_version": {"const": "1.1.0"},
+    "schema_version": {"const": "1.2.0"},
     "accepted": {"type": "boolean"},
     "rejection_reasons": {
       "type": "array",

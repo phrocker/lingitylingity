@@ -314,6 +314,26 @@ def test_link_destinations_and_reference_targets_are_not_prose() -> None:
     assert count_text("Read [ADR-12] first.").words == 2
 
 
+def test_invalid_commonmark_link_keeps_its_parenthesized_words() -> None:
+    invalid = count_text("Read [note](important setup instructions) now.")
+    assert (invalid.words, invalid.excluded_words) == (5, 1)
+    assert count_text("Read [note](setup. md) now.").words == 4
+
+
+def test_exclusions_cross_sentence_boundaries_and_wrapped_lines() -> None:
+    code = _block("Read `alpha. beta gamma` now.")["document"]["counts"]
+    assert (code["words"], code["sentences"], code["excluded_words"]) == (2, 2, 3)
+
+    wrapped = _block("Read `alpha. beta gamma` across\nwrapped lines and act.")["document"]["counts"]
+    assert (wrapped["words"], wrapped["excluded_words"]) == (6, 3)
+
+    linked = _block("Read [the guide. setup instructions](setup.md) now.")["document"]["counts"]
+    assert (linked["words"], linked["excluded_words"]) == (6, 1)
+
+    linked_wrapped = _block("Read [the guide. setup\ninstructions](setup.md) now.")["document"]["counts"]
+    assert (linked_wrapped["words"], linked_wrapped["excluded_words"]) == (6, 1)
+
+
 def test_document_reference_definition_preserves_visible_label() -> None:
     text = "Read the [guide][ref] first.\n\n[ref]: setup.md\n"
     assert _block(text)["document"]["counts"]["words"] == 4

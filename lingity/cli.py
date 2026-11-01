@@ -376,7 +376,7 @@ def _judge(args: argparse.Namespace) -> int:
             target_grade=cast(float | None, args.target_grade),
         )
         verdict = {
-            "schema_version": "1.1.0",
+            "schema_version": "1.2.0",
             "accepted": accepted,
             "rejection_reasons": list(reasons),
             "source_score": evidence["source_score"],

@@ -18,9 +18,10 @@ from typing import Final, cast
 
 from lingity.models import JsonValue
 from lingity.profiles import sha256_json
+from lingity.readability import validate_target_grade
 from lingity.styles import StyleContract
 
-CRITIQUE_SCHEMA_VERSION: Final = "1.1.0"
+CRITIQUE_SCHEMA_VERSION: Final = "1.2.0"
 CRITIQUE_KIND: Final = "lingity.critique.v1"
 
 SEVERITY_ORDER: Final[dict[str, int]] = {"high": 0, "medium": 1, "low": 2}
@@ -86,6 +87,11 @@ def build_critique(
     provider is told exactly why its last attempt failed instead of rediscovering
     the same rejection.
     """
+
+    try:
+        validate_target_grade(target_grade)
+    except ValueError as error:
+        raise CritiqueError(str(error)) from error
 
     source = cast(dict[str, JsonValue], _require(analysis, "source", "the analysis artifact"))
     text = cast(str, _require(source, "text", "the analysis source"))

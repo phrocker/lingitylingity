@@ -19,7 +19,6 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
-import math
 from typing import Final, cast
 
 from lingity.analyzer import analyze_text
@@ -27,6 +26,7 @@ from lingity.critique import allowed_word_growth, build_critique, response_diges
 from lingity.invariants import compare_protected, extract_protected
 from lingity.models import JsonValue
 from lingity.profiles import Profile
+from lingity.readability import validate_target_grade
 from lingity.providers.base import (
     ChallengeResult,
     DriftChallenger,
@@ -127,13 +127,10 @@ def _grade_of(analysis: dict[str, JsonValue]) -> float | None:
 
 
 def _check_target_grade(target_grade: float | None) -> None:
-    if target_grade is not None and (
-        isinstance(target_grade, bool)
-        or not isinstance(target_grade, (int, float))
-        or not math.isfinite(target_grade)
-        or target_grade < 0
-    ):
-        raise ImprovementError("target_grade must be a finite non-negative number")
+    try:
+        validate_target_grade(target_grade)
+    except ValueError as error:
+        raise ImprovementError(str(error)) from error
 
 
 def _high_severity_rules(analysis: dict[str, JsonValue]) -> set[str]:
