@@ -204,6 +204,9 @@ def test_dictionary_wins_over_the_fallback_and_reports_which_was_used() -> None:
 def test_compound_and_possessive_lookup() -> None:
     assert syllables("well-known") == (2, True)
     assert syllables("agency’s") == (3, True)
+    assert syllables("reader's-guide") == (3, True)
+    compound = count_text("Read the reader's-guide now.")
+    assert compound.polysyllables == 1
 
 
 def test_the_vendored_table_is_the_pinned_one() -> None:
@@ -318,6 +321,21 @@ def test_invalid_commonmark_link_keeps_its_parenthesized_words() -> None:
     invalid = count_text("Read [note](important setup instructions) now.")
     assert (invalid.words, invalid.excluded_words) == (5, 1)
     assert count_text("Read [note](setup. md) now.").words == 4
+
+
+def test_quoted_link_title_parenthesis_and_code_bracket() -> None:
+    titled = count_text('Read the [guide](setup.md "Step 1) Setup") first.')
+    assert (titled.words, titled.excluded_words) == (4, 4)
+    coded_label = count_text("Read [Read `]` carefully](setup.md) now.")
+    assert (coded_label.words, coded_label.excluded_words) == (4, 1)
+
+
+def test_many_unmatched_brackets_do_not_hide_later_link() -> None:
+    text = "[" * 10000 + " Read [guide](setup.md) now."
+    counted = count_text(text)
+    assert (counted.words, counted.excluded_words) == (3, 1)
+    nested = count_text("See [the [guide](setup.md)] now.")
+    assert (nested.words, nested.excluded_words) == (4, 1)
 
 
 def test_exclusions_cross_sentence_boundaries_and_wrapped_lines() -> None:

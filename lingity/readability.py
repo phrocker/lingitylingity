@@ -195,11 +195,6 @@ def syllables(word: str) -> tuple[int, bool]:
     key = word.lower().replace("’", "'")
     if key in table:
         return table[key], True
-    if "'" in key:
-        base = key.split("'", 1)[0]
-        if base in table:
-            return table[base], True
-        return fallback_syllables(base or key), False
     parts = [part for part in _PART_SPLIT_RE.split(key) if part]
     if len(parts) > 1 and any(character.isalpha() for character in key):
         total = 0
@@ -209,6 +204,11 @@ def syllables(word: str) -> tuple[int, bool]:
             total += count
             known = known and found
         return total, known
+    if "'" in key:
+        base = key.split("'", 1)[0]
+        if base in table:
+            return table[base], True
+        return fallback_syllables(base or key), False
     return fallback_syllables(key), False
 
 
@@ -233,24 +233,42 @@ class Counts:
         return {name: cast(int, getattr(self, name)) for name in self.__dataclass_fields__}
 
 
-def _closing_bracket(text: str, start: int, opener: str, closer: str) -> int:
-    """Find a matching Markdown delimiter, allowing nesting and escapes."""
-    depth = 0
-    for position in range(start, len(text)):
-        backslashes = 0
-        previous = position - 1
-        while previous >= 0 and text[previous] == "\\":
-            backslashes += 1
-            previous -= 1
-        if backslashes % 2:
+def _delimiter_pairs(
+    text: str,
+    opener: str,
+    closer: str,
+    code_mask: bytearray,
+    *,
+    quoted_titles: bool = False,
+) -> dict[int, int]:
+    """Index matched delimiters in one pass, including malformed Markdown."""
+    pairs: dict[int, int] = {}
+    stack: list[int] = []
+    quote: str | None = None
+    position = 0
+    while position < len(text):
+        character = text[position]
+        if code_mask[position]:
+            position += 1
             continue
-        if text[position] == opener:
-            depth += 1
-        elif text[position] == closer:
-            depth -= 1
-            if depth == 0:
-                return position
-    return -1
+        if character == "\\":
+            # Markdown punctuation after an odd backslash is literal. Skipping
+            # pairs also handles two backslashes before a real delimiter.
+            position += 2
+            continue
+        if quoted_titles and quote is not None:
+            if character == quote:
+                quote = None
+            position += 1
+            continue
+        if quoted_titles and stack and character in "\"'" and position > 0 and text[position - 1].isspace():
+            quote = character
+        elif character == opener:
+            stack.append(position)
+        elif character == closer and stack:
+            pairs[stack.pop()] = position
+        position += 1
+    return pairs
 
 
 def _links(
@@ -259,22 +277,27 @@ def _links(
     """Locate link destinations and visible labels in source Markdown."""
     excluded: list[tuple[int, int]] = []
     labels: list[tuple[int, int]] = []
+    code_mask = bytearray(len(text))
+    for start, end in code:
+        code_mask[start:end] = b"\x01" * (end - start)
+    brackets = _delimiter_pairs(text, "[", "]", code_mask)
+    parentheses = _delimiter_pairs(text, "(", ")", code_mask, quoted_titles=True)
     position = 0
     while position < len(text):
-        if text[position] != "[" or _inside(code, position, position + 1):
+        if text[position] != "[" or code_mask[position]:
             position += 1
             continue
-        close = _closing_bracket(text, position, "[", "]")
-        if close < 0:
+        close = brackets.get(position)
+        if close is None:
             position += 1
             continue
         label = text[position + 1 : close]
         next_position = close + 1
         destination_end = -1
         if next_position < len(text) and text[next_position] == "(":
-            destination_end = _closing_bracket(text, next_position, "(", ")")
+            destination_end = parentheses.get(next_position, -1)
         elif next_position < len(text) and text[next_position] == "[":
-            reference_end = _closing_bracket(text, next_position, "[", "]")
+            reference_end = brackets.get(next_position, -1)
             if reference_end >= 0:
                 reference = text[next_position + 1 : reference_end] or label
                 if normalize_reference_label(reference) in references:
@@ -289,7 +312,9 @@ def _links(
                 excluded.append((close + 1, destination_end + 1))
             position = destination_end + 1
         else:
-            position = close + 1
+            # A bracketed literal can contain a real link. Advance one source
+            # character so its inner opener still gets considered.
+            position += 1
     return excluded, labels
 
 
