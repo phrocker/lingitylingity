@@ -330,12 +330,23 @@ def test_quoted_link_title_parenthesis_and_code_bracket() -> None:
     assert (coded_label.words, coded_label.excluded_words) == (4, 1)
 
 
+def test_apostrophe_in_parenthesized_prose_does_not_hide_later_link() -> None:
+    counted = count_text("For music (think '80s), read [the guide](setup.md).")
+    assert (counted.words, counted.excluded_words) == (7, 1)
+
+
 def test_many_unmatched_brackets_do_not_hide_later_link() -> None:
     text = "[" * 10000 + " Read [guide](setup.md) now."
     counted = count_text(text)
     assert (counted.words, counted.excluded_words) == (3, 1)
     nested = count_text("See [the [guide](setup.md)] now.")
     assert (nested.words, nested.excluded_words) == (4, 1)
+
+
+def test_many_matched_nested_brackets_do_not_rescan_every_label() -> None:
+    text = "[" * 10000 + "word" + "]" * 10000 + " Read [guide](setup.md) now."
+    counted = count_text(text, references=frozenset({"GUIDE"}))
+    assert (counted.words, counted.excluded_words) == (3, 2)
 
 
 def test_exclusions_cross_sentence_boundaries_and_wrapped_lines() -> None:

@@ -453,26 +453,27 @@ def reference_labels(text: str) -> frozenset[str]:
     return frozenset(references)
 
 
-def normalize_reference_label(label: str) -> str:
-    """Normalize a link label with the parser's CommonMark rule."""
-    _parser()
-    from markdown_it.common.utils import normalizeReference
+def markdown_link_span(
+    source: str, start: int, references: frozenset[str]
+) -> tuple[int, int] | None:
+    """Return the label's closing bracket and link end using CommonMark's link rule.
 
-    return normalizeReference(label)
+    Callers prefilter candidate openers, since asking the parser to seek a label
+    close at every unmatched ``[`` would rescan malformed prose quadratically.
+    """
+    from markdown_it.rules_inline import link
+    from markdown_it.rules_inline.state_inline import StateInline
 
-
-def is_markdown_link(source: str, references: frozenset[str]) -> bool:
-    """Confirm a candidate source span parses as one CommonMark link."""
     environment: dict[str, object] = {
         "references": {label: {"href": "placeholder", "title": ""} for label in references}
     }
-    inline = _parser().parseInline(source, environment)
-    children = inline[0].children if inline else None
-    return bool(
-        children
-        and children[0].type == "link_open"
-        and children[-1].type == "link_close"
-    )
+    parser = _parser()
+    state = StateInline(source, parser, environment, [])
+    state.pos = start
+    label_end = parser.helpers.parseLinkLabel(state, start, True)
+    if label_end < 0 or not link(state, True):
+        return None
+    return label_end, state.pos
 
 
 def block_counts(blocks: tuple[Block, ...]) -> dict[str, int]:

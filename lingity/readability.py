@@ -41,8 +41,7 @@ from typing import Iterable, cast
 from lingity.invariants import CITATION_RE, URL_RE
 from lingity.markdown import (
     inline_code_spans,
-    is_markdown_link,
-    normalize_reference_label,
+    markdown_link_span,
     reference_labels,
 )
 from lingity.models import JsonValue
@@ -238,13 +237,10 @@ def _delimiter_pairs(
     opener: str,
     closer: str,
     code_mask: bytearray,
-    *,
-    quoted_titles: bool = False,
 ) -> dict[int, int]:
     """Index matched delimiters in one pass, including malformed Markdown."""
     pairs: dict[int, int] = {}
     stack: list[int] = []
-    quote: str | None = None
     position = 0
     while position < len(text):
         character = text[position]
@@ -256,14 +252,7 @@ def _delimiter_pairs(
             # pairs also handles two backslashes before a real delimiter.
             position += 2
             continue
-        if quoted_titles and quote is not None:
-            if character == quote:
-                quote = None
-            position += 1
-            continue
-        if quoted_titles and stack and character in "\"'" and position > 0 and text[position - 1].isspace():
-            quote = character
-        elif character == opener:
+        if character == opener:
             stack.append(position)
         elif character == closer and stack:
             pairs[stack.pop()] = position
@@ -281,7 +270,6 @@ def _links(
     for start, end in code:
         code_mask[start:end] = b"\x01" * (end - start)
     brackets = _delimiter_pairs(text, "[", "]", code_mask)
-    parentheses = _delimiter_pairs(text, "(", ")", code_mask, quoted_titles=True)
     position = 0
     while position < len(text):
         if text[position] != "[" or code_mask[position]:
@@ -291,30 +279,27 @@ def _links(
         if close is None:
             position += 1
             continue
-        label = text[position + 1 : close]
         next_position = close + 1
-        destination_end = -1
-        if next_position < len(text) and text[next_position] == "(":
-            destination_end = parentheses.get(next_position, -1)
-        elif next_position < len(text) and text[next_position] == "[":
-            reference_end = brackets.get(next_position, -1)
-            if reference_end >= 0:
-                reference = text[next_position + 1 : reference_end] or label
-                if normalize_reference_label(reference) in references:
-                    destination_end = reference_end
-        elif normalize_reference_label(label) in references:
-            destination_end = close
-        if destination_end >= 0 and is_markdown_link(
-            text[position : destination_end + 1], references
-        ):
-            labels.append((position, close + 1))
-            if destination_end > close:
-                excluded.append((close + 1, destination_end + 1))
-            position = destination_end + 1
-        else:
-            # A bracketed literal can contain a real link. Advance one source
-            # character so its inner opener still gets considered.
-            position += 1
+        suffix = text[next_position : next_position + 1]
+        # CommonMark reference labels are at most 999 characters. Check the
+        # suffix before slicing a label: nested bracket literals have many
+        # matched pairs but almost none can begin a link.
+        eligible = suffix == "(" or (
+            bool(references)
+            and close - position <= 1000
+            and (suffix != "[" or next_position in brackets)
+        )
+        if eligible:
+            parsed = markdown_link_span(text, position, references)
+            if parsed is not None:
+                label_end, link_end = parsed
+                labels.append((position, label_end + 1))
+                if link_end > label_end + 1:
+                    excluded.append((label_end + 1, link_end))
+                position = link_end
+                continue
+        # A bracketed literal can contain a real link.
+        position += 1
     return excluded, labels
 
 
