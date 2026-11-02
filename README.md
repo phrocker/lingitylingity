@@ -62,6 +62,71 @@ protected-element manifests, source and profile hashes, ingest coverage, and
 the pinned linguistic model identity. The same source, profile, analyzer, model,
 and parser produce the same result.
 
+## Read grade-level estimates
+
+Every `analyze` artifact carries a `readability_estimates` block with six
+standard formulas: Flesch-Kincaid grade, Flesch Reading Ease, Coleman-Liau,
+SMOG, Gunning Fog, and the Automated Readability Index. Each one reports its
+value, its exact formula, and the counts it used. The block covers the whole
+document and each sentence, keyed by `sentence_index` with source offsets.
+
+To print the estimates without reading JSON:
+
+```text
+lingity grade page.md
+lingity grade page.md --sentences
+lingity grade page.md --format json
+```
+
+Read the numbers as estimates, not measurements:
+
+- The formulas disagree. On dense prose they can differ by four grades or
+  more, so the command prints all of them side by side.
+- They count surface features: sentence length, syllables, and characters.
+  They do not measure whether a reader understands the text.
+- Other tools disagree with Lingity's counts too. The same formula name can
+  mean a different syllable source, sentence split, or rounding.
+
+The counts are deterministic and offline:
+
+- Syllables come from a vendored table derived from a pinned CMUdict release,
+  with a documented spelling rule for words the dictionary does not list.
+- Figures, codes, and citations are normalized. A figure such as
+  `$11,898,367,000` or a code such as `W00A01` counts as one short word. Inline
+  code, URLs, and citations such as `(p. P.1)` are not counted.
+- The artifact records the syllable source and its hash, the fallback rule, and
+  the normalization rule. It also reports document values without
+  normalization for comparison.
+
+The estimates do not change the Human Readability Index. A profile can opt in
+to a grade limit by setting `max_grade` in its thresholds. Lingity then reports
+`LING-GRADE-001` for each sentence whose Flesch-Kincaid grade exceeds it, and
+those findings cost points like any other finding. No shipped profile sets
+`max_grade`. See [DESIGN.md](DESIGN.md) for the counting rules and caveats.
+
+To make a rewrite aim for a lower grade, pass `--target-grade` through the
+critique, judge, or improvement loop:
+
+```text
+lingity critique page.md --target-grade 8 --output brief.json
+lingity judge page.md --candidate shorter.md --target-grade 8 --output verdict.json
+lingity improve page.md --provider anthropic --model <model> --target-grade 8
+```
+
+The brief asks for the main point first, shorter concrete sentences, familiar
+words, and removal of repeated context. The judge requires the candidate's
+Flesch-Kincaid grade to decrease and reach the target. It also requires the
+existing score not to fall and applies the protected-meaning, high-severity,
+word-growth, and optional semantic-drift checks. A score already at 100 can
+therefore stay at 100 while the grade falls. `--target-grade` is a rewrite goal;
+the profile's `max_grade` remains an independent sentence finding policy.
+
+These checks compare the rewrite with its source; they do not establish that
+the source itself is true. For source-grounded review, add
+`--challenge-provider openai --challenge-model <model>` (or `anthropic`) to
+`judge` or `improve`. External fact verification requires cited evidence and
+claim-level review before publication; see [DESIGN.md](DESIGN.md).
+
 ## Choose a profile
 
 Five profiles ship:
@@ -290,10 +355,14 @@ adds attributed findings and governed-meaning rewrite gates.
 Apache License 2.0. The full text is in [LICENSE](LICENSE), and [NOTICE](NOTICE)
 carries the copyright statement and required section 4(d) attribution.
 
-Lingity does not redistribute or declare its two data artifacts as
+Lingity does not redistribute or declare its two linguistic data artifacts as
 dependencies. Users download the `en_core_web_sm` spaCy model under the MIT
-License and the NLTK WordNet corpus under the WordNet 3.0 License. `NOTICE`
-records both.
+License and the NLTK WordNet corpus under the WordNet 3.0 License.
+
+Lingity does bundle one derived data file: a syllable-count table built from
+the Carnegie Mellon Pronouncing Dictionary (CMUdict). CMUdict is distributed
+under a BSD-style license, and its full text ships as
+`lingity/data/CMUDICT-LICENSE`. `NOTICE` records all three.
 
 ## Release
 

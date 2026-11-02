@@ -18,9 +18,10 @@ from typing import Final, cast
 
 from lingity.models import JsonValue
 from lingity.profiles import sha256_json
+from lingity.readability import validate_target_grade
 from lingity.styles import StyleContract
 
-CRITIQUE_SCHEMA_VERSION: Final = "1.1.0"
+CRITIQUE_SCHEMA_VERSION: Final = "1.2.0"
 CRITIQUE_KIND: Final = "lingity.critique.v1"
 
 SEVERITY_ORDER: Final[dict[str, int]] = {"high": 0, "medium": 1, "low": 2}
@@ -78,6 +79,7 @@ def build_critique(
     *,
     prior_attempts: list[dict[str, JsonValue]] | None = None,
     style: StyleContract | None = None,
+    target_grade: float | None = None,
 ) -> dict[str, JsonValue]:
     """Build a deterministic improvement brief from an analysis artifact.
 
@@ -85,6 +87,11 @@ def build_critique(
     provider is told exactly why its last attempt failed instead of rediscovering
     the same rejection.
     """
+
+    try:
+        validate_target_grade(target_grade)
+    except ValueError as error:
+        raise CritiqueError(str(error)) from error
 
     source = cast(dict[str, JsonValue], _require(analysis, "source", "the analysis artifact"))
     text = cast(str, _require(source, "text", "the analysis source"))
@@ -159,7 +166,8 @@ def build_critique(
         "must_preserve": cast(JsonValue, must_preserve),
         "protected_sha256": _require(protected, "sha256", "the protected manifest"),
         "acceptance": {
-            "requires_higher_score": True,
+            "requires_higher_score": target_grade is None,
+            "requires_non_regressing_score": target_grade is not None,
             "requires_protected_equivalence": True,
             "forbids_new_high_severity_findings": True,
             "requires_economy_budget": True,
@@ -204,6 +212,24 @@ def build_critique(
         cast(int | float, constraints["max_readable_word_growth_percent"]),
         cast(int, constraints["max_readable_word_growth_absolute"]),
     )
+    if target_grade is not None:
+        readability = cast(dict[str, JsonValue], _require(analysis, "readability_estimates", "the analysis artifact"))
+        document = cast(dict[str, JsonValue], _require(readability, "document", "readability estimates"))
+        estimates = cast(dict[str, JsonValue], _require(document, "estimates", "readability document"))
+        fk = cast(dict[str, JsonValue], _require(estimates, "flesch_kincaid_grade", "readability estimates"))
+        constraints["grade_goal"] = {
+            "formula": "flesch_kincaid_grade",
+            "source_grade": fk["value"],
+            "target_grade": target_grade,
+            "requires_lower_grade": True,
+            "instructions": (
+                "Lead with the main point and, when the source supports it, its impact. "
+                "Use short concrete sentences, familiar words, and scannable paragraphs "
+                "or bullets where appropriate. Cut repetition and extra context. Preserve "
+                "every distinct claim, condition, number, source, and uncertainty. Do not "
+                "invent or strengthen facts."
+            ),
+        }
     brief["critique_sha256"] = sha256_json(brief)
     return brief
 

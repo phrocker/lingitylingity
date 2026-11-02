@@ -19,7 +19,7 @@
     "linguistic_model"
   ],
   "properties": {
-    "schema_version": {"const": "1.1.0"},
+    "schema_version": {"const": "1.2.0"},
     "accepted": {"type": "boolean"},
     "rejection_reasons": {
       "type": "array",
@@ -79,6 +79,17 @@
           }
         }
       ]
+    },
+    "grade_goal": {
+      "type": "object",
+      "required": ["formula", "source_grade", "candidate_grade", "target_grade", "passed"],
+      "properties": {
+        "formula": {"const": "flesch_kincaid_grade"},
+        "source_grade": {"type": ["number", "null"]},
+        "candidate_grade": {"type": ["number", "null"]},
+        "target_grade": {"type": "number", "minimum": 0},
+        "passed": {"type": "boolean"}
+      }
     },
     "profile": {
       "type": "object",

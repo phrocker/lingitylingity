@@ -443,6 +443,39 @@ def inline_code_spans(
     return tuple(sorted(located))
 
 
+def reference_labels(text: str) -> frozenset[str]:
+    """Return CommonMark's normalized reference labels for a full document."""
+    environment: dict[str, object] = {}
+    _parser().parse(text, environment)
+    references = environment.get("references", {})
+    if not isinstance(references, dict):
+        return frozenset()
+    return frozenset(references)
+
+
+def markdown_link_span(
+    source: str, start: int, references: frozenset[str]
+) -> tuple[int, int] | None:
+    """Return the label's closing bracket and link end using CommonMark's link rule.
+
+    Callers prefilter candidate openers, since asking the parser to seek a label
+    close at every unmatched ``[`` would rescan malformed prose quadratically.
+    """
+    from markdown_it.rules_inline import link
+    from markdown_it.rules_inline.state_inline import StateInline
+
+    environment: dict[str, object] = {
+        "references": {label: {"href": "placeholder", "title": ""} for label in references}
+    }
+    parser = _parser()
+    state = StateInline(source, parser, environment, [])
+    state.pos = start
+    label_end = parser.helpers.parseLinkLabel(state, start, True)
+    if label_end < 0 or not link(state, True):
+        return None
+    return label_end, state.pos
+
+
 def block_counts(blocks: tuple[Block, ...]) -> dict[str, int]:
     """Summarise the segmentation for publication inside an analysis artifact."""
     counts: dict[str, int] = {}

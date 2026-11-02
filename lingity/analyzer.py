@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 from bisect import bisect_left, bisect_right
 from collections import Counter, defaultdict
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Iterable, Sequence, cast
 
 from lingity.invariants import extract_protected, source_sha256
@@ -20,10 +21,12 @@ from lingity.markdown import (
 from lingity.models import Finding, JsonValue, Location
 from lingity.nlp import Document, Sentence, Token, model_fingerprint, parse
 from lingity.profiles import Profile, canonical_json, load_profile
+from lingity.readability import GRADE_FORMULA, GRADE_RULE_ID, readability_estimates
 from lingity.scoring import calculate_hri
 from lingity.text import line_column
 
-ANALYZER_VERSION = "1.7.0"
+ANALYZER_VERSION = "1.8.0"
+ANALYSIS_SCHEMA_VERSION = "1.3.0"
 
 RULE_DIMENSIONS = {
     "LING-SENTENCE-001": "sentence_load",
@@ -50,6 +53,14 @@ RULE_DIMENSIONS = {
     "LING-DUPLICATED-RECOMMENDATION-001": "redundancy",
     "LING-DUPLICATED-FRAMING-001": "redundancy",
     "LING-QUALIFIER-001": "redundancy",
+}
+
+# Rules that fire only when a profile opts in. They are kept apart from
+# RULE_DIMENSIONS, whose every rule the labelled architecture-review corpus must
+# reach: a rule no shipped profile enables cannot be reached by that corpus, and
+# listing it there would force a shipped profile to enable it.
+OPT_IN_RULE_DIMENSIONS = {
+    GRADE_RULE_ID: "sentence_load",
 }
 
 DESIGN_SIGNAL_RULES = {
@@ -1576,6 +1587,53 @@ def _abstract_evidence_findings(document: Document, profile: Profile) -> list[Fi
     return findings
 
 
+def _round_hundredths(value: float) -> float:
+    return float(Decimal(str(value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+
+def _grade_findings(document: Document, readability: dict[str, JsonValue]) -> list[Finding]:
+    """Report each sentence whose grade estimate exceeds the profile's ``max_grade``.
+
+    Only a profile that sets ``max_grade`` reaches this rule, so every other
+    profile's findings and score are exactly what they were before readability
+    estimates existed. A sentence shorter than ``min_words`` counted words is
+    not reported: a two-word heading such as "Implementation Considerations"
+    estimates above grade 30, which says nothing a reader would act on.
+    """
+    method = cast(dict[str, JsonValue], readability["method"])
+    policy = method["grade_threshold"]
+    if policy is None:
+        return []
+    policy = cast(dict[str, JsonValue], policy)
+    max_grade = float(cast(float, policy["max_grade"]))
+    min_words = int(cast(int, policy["min_words"]))
+    findings: list[Finding] = []
+    for raw in cast(list[dict[str, JsonValue]], readability["sentences"]):
+        counts = cast(dict[str, JsonValue], raw["counts"])
+        value = cast(dict[str, JsonValue], raw["values"])[GRADE_FORMULA]
+        if value is None or cast(int, counts["words"]) < min_words:
+            continue
+        grade = float(cast(float, value))
+        if grade <= max_grade:
+            continue
+        start = cast(int, raw["start"])
+        end = cast(int, raw["end"])
+        findings.append(
+            Finding(
+                GRADE_RULE_ID,
+                OPT_IN_RULE_DIMENSIONS[GRADE_RULE_ID],
+                _severity(grade, max_grade),
+                _location(document.text, start, end, cast(int, raw["sentence_index"])),
+                {"formula": GRADE_FORMULA, "grade": grade, "words": cast(int, counts["words"])},
+                {"formula": GRADE_FORMULA, "max_grade": cast(float, policy["max_grade"])},
+                "Use shorter sentences and shorter words: split the sentence, "
+                "and swap long words for common ones where meaning permits.",
+                min(15.0, _round_hundredths((grade - max_grade) * 1.5)),
+            )
+        )
+    return findings
+
+
 def _dedupe_findings(findings: list[Finding]) -> list[Finding]:
     result: list[Finding] = []
     seen: set[tuple[str, int, int, str]] = set()
@@ -1660,6 +1718,8 @@ def analyze_text(text: str, profile: Profile | None = None) -> dict[str, JsonVal
     findings.extend(_duplicated_recommendation_findings(document, selected_profile))
     findings.extend(_duplicated_framing_findings(document, blocks, selected_profile))
     findings.extend(_qualifier_findings(document, selected_profile))
+    readability = readability_estimates(document, selected_profile.thresholds)
+    findings.extend(_grade_findings(document, readability))
     findings = [
         finding
         for finding in findings
@@ -1668,7 +1728,7 @@ def analyze_text(text: str, profile: Profile | None = None) -> dict[str, JsonVal
     findings = _dedupe_findings(findings)
 
     result: dict[str, JsonValue] = {
-        "schema_version": "1.2.0",
+        "schema_version": ANALYSIS_SCHEMA_VERSION,
         "analyzer_version": ANALYZER_VERSION,
         "linguistic_model": cast(dict[str, JsonValue], model_fingerprint()),
         "profile": selected_profile.reference(),
@@ -1690,6 +1750,7 @@ def analyze_text(text: str, profile: Profile | None = None) -> dict[str, JsonVal
         "protected": extract_protected(text, selected_profile),
         "findings": [finding.to_dict() for finding in findings],
         "score": calculate_hri(findings, selected_profile),
+        "readability_estimates": readability,
     }
     result["analysis_sha256"] = hashlib.sha256(canonical_json(result).encode("utf-8")).hexdigest()
     return result

@@ -1,0 +1,365 @@
+{
+  "generated_with_analyzer_version": "1.7.0",
+  "profiles": {
+    "architecture-review": {
+      "artifacts": {
+        "figure-heavy": {
+          "findings_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "protected_sha256": "daff3aa24aad57b03b8399d85c91ef1cbb682b855b8dd0d9edd0d2500fc83c22",
+          "score_band": "clear",
+          "score_sha256": "67ff6d6e3922fac009315c068c463dc501d56a0339af1a6d2929908d22e022fd",
+          "score_value": 100.0,
+          "sentences_sha256": "1fe2d09d2c8e39c665f3e38fd614a9245ee876ee03785b08e216755d2a091aa2"
+        },
+        "local-service-specific": {
+          "findings_sha256": "3cd597403d66e1fa768dfdbb38203d4b2d6a2acdd1488e112b17aabf2a2fe124",
+          "protected_sha256": "bbb0fd8d6ba23d7ae50e0387e484e4db0d0fe2e8e660973fa6fa750001043093",
+          "score_band": "clear",
+          "score_sha256": "efb79f5f7dbd1ddd3003ca81c1c4bf8465407da648ee6c9553c05f3842df232a",
+          "score_value": 89.63,
+          "sentences_sha256": "060a7d3699b19846805a48e6e09a39aad62edd7cdd66ed1185273fdd253fa53c"
+        },
+        "local-service-stock": {
+          "findings_sha256": "7b892d0b8a3d5285d827ceccd5ba707e6018968b29b197dd938cf49d618dc339",
+          "protected_sha256": "d3a980ecb7f5b97747bbda12d919e73e9078c9cc994b5409fd2806f96602485a",
+          "score_band": "clear",
+          "score_sha256": "16ab719b8f7256d11a35bd4cb947a95e232b177297600f9edbeae914ad9e230e",
+          "score_value": 96.25,
+          "sentences_sha256": "aa3d07ae23a097d125872c551aa88879b020ea50a65efac39e5ffd0b66e2727d"
+        },
+        "recommended-decision-original": {
+          "findings_sha256": "1ce96a42f43e77e79362dfb53f9a977b716e1aa223f6ee6131f656ec663f677a",
+          "protected_sha256": "9fa1cfe6373abb372d2abd9bbd79a2828e6aed15f6800bbd16eef58341b1a249",
+          "score_band": "usable_but_improvable",
+          "score_sha256": "9387c2ad6343e3985f21faab2ad549a03fe9b1170558e3d0183f88288f6001d5",
+          "score_value": 70.46,
+          "sentences_sha256": "78671b032f9be8949a3c52c2469ead49b9d48d12a3a9a5f6e0e668fdebb3dafb"
+        },
+        "recommended-decision-rewrite": {
+          "findings_sha256": "6c200fe9fd5a9c045c8a835f8f2eba325a838ed22d9b535e6fd555e0ba57d2ea",
+          "protected_sha256": "16a7f899625e8b081c5d9e01f228e2f0f4402ab622f05a1eee30b2e21ce5637d",
+          "score_band": "usable_but_improvable",
+          "score_sha256": "e31a06d437e21e9f52db3bc670a2826d5036d3b2fedb5db73a5ec0fc71205ddf",
+          "score_value": 84.28,
+          "sentences_sha256": "dd13ef77c48cc7a870b1ea516ff91838fccfa4b8d56b29f700c3f6a9b9e018b0"
+        },
+        "style-contract-source": {
+          "findings_sha256": "2f0524497008b6d34b7f11cded74ccb19db1697a66aabf2f97f20a742c6ba421",
+          "protected_sha256": "3fe0fd533fae7caf2312418a750bdf4b33c501cb1a99e610ccc09f1810864574",
+          "score_band": "clear",
+          "score_sha256": "03823c3281c334eb2834d59343de85401dfdda7ac4d864812ad420983a09191c",
+          "score_value": 86.36,
+          "sentences_sha256": "1b5a02f5ad46858e8afb6f98a201610d8ddf333920a43bf740412a22d0fb6c6a"
+        },
+        "web-copy-concrete": {
+          "findings_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "protected_sha256": "67f5b6d22eaebb235f5a917c8af140a5f69e113c420d13079d9044514d966fc7",
+          "score_band": "clear",
+          "score_sha256": "67ff6d6e3922fac009315c068c463dc501d56a0339af1a6d2929908d22e022fd",
+          "score_value": 100.0,
+          "sentences_sha256": "1d99457bb7c7eac320b539d238e79101fab4e7fa8f77f4e3a603c3802325fb5d"
+        },
+        "web-copy-slop": {
+          "findings_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "protected_sha256": "6a50ffb8eebb187f28f5a1cb697881b90fc0483b3b9003e6c72884b0ab687091",
+          "score_band": "clear",
+          "score_sha256": "67ff6d6e3922fac009315c068c463dc501d56a0339af1a6d2929908d22e022fd",
+          "score_value": 100.0,
+          "sentences_sha256": "657ad3ee788c82cdfa87dc0a9fe8d9ac5f45f76202d59f29939a67b5b14b96b3"
+        }
+      },
+      "digest": "aa49f97640f2f508a9b14ba8c5b53886bc2033014a5b02989e980f36bcab029e",
+      "version": "1.4.0"
+    },
+    "local-service": {
+      "artifacts": {
+        "figure-heavy": {
+          "findings_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "protected_sha256": "daff3aa24aad57b03b8399d85c91ef1cbb682b855b8dd0d9edd0d2500fc83c22",
+          "score_band": "clear",
+          "score_sha256": "2130727d81859ed6c5247a6ff0784defeef8e01155deb39404182229d6f1d4fe",
+          "score_value": 100.0,
+          "sentences_sha256": "1fe2d09d2c8e39c665f3e38fd614a9245ee876ee03785b08e216755d2a091aa2"
+        },
+        "local-service-specific": {
+          "findings_sha256": "0829945afcea0c013430f8d11b0ede5baa17a343ce30b6eeb14f8cebe8168b7f",
+          "protected_sha256": "bbb0fd8d6ba23d7ae50e0387e484e4db0d0fe2e8e660973fa6fa750001043093",
+          "score_band": "usable_but_improvable",
+          "score_sha256": "13c8c5c246251854910bd02ba689acab4af0ae737ff08c205faec14568812f8d",
+          "score_value": 82.97,
+          "sentences_sha256": "060a7d3699b19846805a48e6e09a39aad62edd7cdd66ed1185273fdd253fa53c"
+        },
+        "local-service-stock": {
+          "findings_sha256": "e55896d28356ed45a9913b5ccfbcfe0b6ced5ff9d2d24cacf6f7cfe4b9983266",
+          "protected_sha256": "d3a980ecb7f5b97747bbda12d919e73e9078c9cc994b5409fd2806f96602485a",
+          "score_band": "revision_required",
+          "score_sha256": "47a82455be422dfef201555e4e8615799d50075ac99c921f302bde386d7fe00a",
+          "score_value": 71.75,
+          "sentences_sha256": "aa3d07ae23a097d125872c551aa88879b020ea50a65efac39e5ffd0b66e2727d"
+        },
+        "recommended-decision-original": {
+          "findings_sha256": "589577178afb8ce8b483c19afa5a80be5f70539d38318914bf2305c12b334ab5",
+          "protected_sha256": "9fa1cfe6373abb372d2abd9bbd79a2828e6aed15f6800bbd16eef58341b1a249",
+          "score_band": "usable_but_improvable",
+          "score_sha256": "f6f7d55b2cf0a0c39a38075da7209219ffb07e6e33c28c161b284c231743b085",
+          "score_value": 81.16,
+          "sentences_sha256": "78671b032f9be8949a3c52c2469ead49b9d48d12a3a9a5f6e0e668fdebb3dafb"
+        },
+        "recommended-decision-rewrite": {
+          "findings_sha256": "c636072a5595cd57c0ff58247f7d30c05a02b3974ec5056161377f4019c6e809",
+          "protected_sha256": "16a7f899625e8b081c5d9e01f228e2f0f4402ab622f05a1eee30b2e21ce5637d",
+          "score_band": "usable_but_improvable",
+          "score_sha256": "2ba0d7c471482cf38f1ee97ab455586c4115eb64f739f0abe6226d4f861941a0",
+          "score_value": 88.31,
+          "sentences_sha256": "dd13ef77c48cc7a870b1ea516ff91838fccfa4b8d56b29f700c3f6a9b9e018b0"
+        },
+        "style-contract-source": {
+          "findings_sha256": "8e1b1e16ff5bb03d3b61e969719010021ff68e9b15c49e370e241671ac256a6d",
+          "protected_sha256": "3fe0fd533fae7caf2312418a750bdf4b33c501cb1a99e610ccc09f1810864574",
+          "score_band": "usable_but_improvable",
+          "score_sha256": "ef42e129435f6f1f7f20db7783be1ef56a68df7190f5f7aa581d8e84322baf9d",
+          "score_value": 85.66,
+          "sentences_sha256": "1b5a02f5ad46858e8afb6f98a201610d8ddf333920a43bf740412a22d0fb6c6a"
+        },
+        "web-copy-concrete": {
+          "findings_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "protected_sha256": "67f5b6d22eaebb235f5a917c8af140a5f69e113c420d13079d9044514d966fc7",
+          "score_band": "clear",
+          "score_sha256": "2130727d81859ed6c5247a6ff0784defeef8e01155deb39404182229d6f1d4fe",
+          "score_value": 100.0,
+          "sentences_sha256": "1d99457bb7c7eac320b539d238e79101fab4e7fa8f77f4e3a603c3802325fb5d"
+        },
+        "web-copy-slop": {
+          "findings_sha256": "c129de01ea62cc73bbc12c1ee72e3f6c886bd5732024cf01dbee7b36ca3d7410",
+          "protected_sha256": "6a50ffb8eebb187f28f5a1cb697881b90fc0483b3b9003e6c72884b0ab687091",
+          "score_band": "usable_but_improvable",
+          "score_sha256": "baac6306a811952bb3ddb817032655d97bed2971b03f72049274ba2b19b66912",
+          "score_value": 78.49,
+          "sentences_sha256": "657ad3ee788c82cdfa87dc0a9fe8d9ac5f45f76202d59f29939a67b5b14b96b3"
+        }
+      },
+      "digest": "29fb36b471a07defabc4651aaff1402abcbfe25f5625f7242f3186d267bcc4ea",
+      "version": "1.1.0"
+    },
+    "product-strategy": {
+      "artifacts": {
+        "figure-heavy": {
+          "findings_sha256": "9bdeaab87d6406bd123158b57f87fa3eb5aec5e35036f15e73c60d1c34d8cd60",
+          "protected_sha256": "daff3aa24aad57b03b8399d85c91ef1cbb682b855b8dd0d9edd0d2500fc83c22",
+          "score_band": "clear",
+          "score_sha256": "75aa1a1ee87ee231b8289561deebff0115d3bb3c50bbaf64eb8cbe1d6ad607de",
+          "score_value": 97.69,
+          "sentences_sha256": "1fe2d09d2c8e39c665f3e38fd614a9245ee876ee03785b08e216755d2a091aa2"
+        },
+        "local-service-specific": {
+          "findings_sha256": "ab3991eabd2c2f595be30603ac249b0c3523e3041b02729c4a29dbb3fe8c7225",
+          "protected_sha256": "bbb0fd8d6ba23d7ae50e0387e484e4db0d0fe2e8e660973fa6fa750001043093",
+          "score_band": "clear",
+          "score_sha256": "d8dce71d676b55b56e76c95332b64a879a261c0acfee401169d37b8f7fe0aaeb",
+          "score_value": 86.14,
+          "sentences_sha256": "060a7d3699b19846805a48e6e09a39aad62edd7cdd66ed1185273fdd253fa53c"
+        },
+        "local-service-stock": {
+          "findings_sha256": "b5f475163831d9dc4609b788f301320cf937d06ce7314f1e36df670b0ba2b60c",
+          "protected_sha256": "d3a980ecb7f5b97747bbda12d919e73e9078c9cc994b5409fd2806f96602485a",
+          "score_band": "clear",
+          "score_sha256": "53c477c16de06dfa46204aea1539486c3a15a1599fc5a593c44ec8a625d8d93b",
+          "score_value": 94.78,
+          "sentences_sha256": "aa3d07ae23a097d125872c551aa88879b020ea50a65efac39e5ffd0b66e2727d"
+        },
+        "recommended-decision-original": {
+          "findings_sha256": "b02a326cd5c9b8306ebbd03760b318cca02d116957fde9be7bc1005b1e8921a9",
+          "protected_sha256": "9fa1cfe6373abb372d2abd9bbd79a2828e6aed15f6800bbd16eef58341b1a249",
+          "score_band": "clear",
+          "score_sha256": "7c95cbf47e6340951c9ef75a9bde125b079647c78f6b099ad5297d2db0741d82",
+          "score_value": 85.69,
+          "sentences_sha256": "78671b032f9be8949a3c52c2469ead49b9d48d12a3a9a5f6e0e668fdebb3dafb"
+        },
+        "recommended-decision-rewrite": {
+          "findings_sha256": "92db1384067323264509f16c7806aba1e9d17292d792f7ff92b5fc71aab7341a",
+          "protected_sha256": "16a7f899625e8b081c5d9e01f228e2f0f4402ab622f05a1eee30b2e21ce5637d",
+          "score_band": "clear",
+          "score_sha256": "b81a8709d14093255441c72101eac5774e1c92f814a7c5ecdf8c11be47614217",
+          "score_value": 89.58,
+          "sentences_sha256": "dd13ef77c48cc7a870b1ea516ff91838fccfa4b8d56b29f700c3f6a9b9e018b0"
+        },
+        "style-contract-source": {
+          "findings_sha256": "b63e0a6b725adb01a8c6f3e2db6b97efb437e6a9227c52e9726800a81b31d937",
+          "protected_sha256": "3fe0fd533fae7caf2312418a750bdf4b33c501cb1a99e610ccc09f1810864574",
+          "score_band": "clear",
+          "score_sha256": "361d5543f42ac1eac87a45f3d8d27b0d10ef6aa2a69c9fa9fa23c0f53c73bf68",
+          "score_value": 87.43,
+          "sentences_sha256": "1b5a02f5ad46858e8afb6f98a201610d8ddf333920a43bf740412a22d0fb6c6a"
+        },
+        "web-copy-concrete": {
+          "findings_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "protected_sha256": "67f5b6d22eaebb235f5a917c8af140a5f69e113c420d13079d9044514d966fc7",
+          "score_band": "clear",
+          "score_sha256": "acc726135f36debcc960f514346a44b232e4ffe2fa2a8f8a6e2462e8119bfe7d",
+          "score_value": 100.0,
+          "sentences_sha256": "1d99457bb7c7eac320b539d238e79101fab4e7fa8f77f4e3a603c3802325fb5d"
+        },
+        "web-copy-slop": {
+          "findings_sha256": "c8939aabffd599403f69a273c4bce600e3c45206a286ec6df002227643cee73a",
+          "protected_sha256": "6a50ffb8eebb187f28f5a1cb697881b90fc0483b3b9003e6c72884b0ab687091",
+          "score_band": "clear",
+          "score_sha256": "67f38667865b25e3b0edf2d3c7b964e07f3f73bb4a066e0a979128ae75bb3c34",
+          "score_value": 92.93,
+          "sentences_sha256": "657ad3ee788c82cdfa87dc0a9fe8d9ac5f45f76202d59f29939a67b5b14b96b3"
+        }
+      },
+      "digest": "f9d1784ef0c1c0df1bddbb8c85504522effff824acaae843417e10419b423f5b",
+      "version": "1.1.0"
+    },
+    "resume-review": {
+      "artifacts": {
+        "figure-heavy": {
+          "findings_sha256": "9bdeaab87d6406bd123158b57f87fa3eb5aec5e35036f15e73c60d1c34d8cd60",
+          "protected_sha256": "daff3aa24aad57b03b8399d85c91ef1cbb682b855b8dd0d9edd0d2500fc83c22",
+          "score_band": "clear",
+          "score_sha256": "79cb9a9995a73dba4ee6109686def302ed24d95589b9d3172123370955b39b4d",
+          "score_value": 97.23,
+          "sentences_sha256": "1fe2d09d2c8e39c665f3e38fd614a9245ee876ee03785b08e216755d2a091aa2"
+        },
+        "local-service-specific": {
+          "findings_sha256": "9779b2e0492576d6d8972c0821e87e82fc9c981784ab325f818a02033e9737ba",
+          "protected_sha256": "bbb0fd8d6ba23d7ae50e0387e484e4db0d0fe2e8e660973fa6fa750001043093",
+          "score_band": "clear",
+          "score_sha256": "20c2ac5ade93f035843f7b9021573ec93bbce5ba81f8b72029fd9c47d7761a13",
+          "score_value": 87.07,
+          "sentences_sha256": "060a7d3699b19846805a48e6e09a39aad62edd7cdd66ed1185273fdd253fa53c"
+        },
+        "local-service-stock": {
+          "findings_sha256": "b46ae1e34ae61aeed3959ae0d509f59decf7dbad164bba42f86b58864b60006b",
+          "protected_sha256": "d3a980ecb7f5b97747bbda12d919e73e9078c9cc994b5409fd2806f96602485a",
+          "score_band": "clear",
+          "score_sha256": "34cd5f74a2ec9ceaf7d805fc4eb5f3b96c15af5a48276b3900d9ef12726bc5c8",
+          "score_value": 94.15,
+          "sentences_sha256": "aa3d07ae23a097d125872c551aa88879b020ea50a65efac39e5ffd0b66e2727d"
+        },
+        "recommended-decision-original": {
+          "findings_sha256": "0a733c75c4a5fd4c5c959157e7b154c8cd0157251e9bcad32fe8a8969bb2ebfb",
+          "protected_sha256": "9fa1cfe6373abb372d2abd9bbd79a2828e6aed15f6800bbd16eef58341b1a249",
+          "score_band": "clear",
+          "score_sha256": "3e5d09cc210f043c243916d49dfb33373fe7b4cfe4c3f3036649faea70b41c9f",
+          "score_value": 87.68,
+          "sentences_sha256": "78671b032f9be8949a3c52c2469ead49b9d48d12a3a9a5f6e0e668fdebb3dafb"
+        },
+        "recommended-decision-rewrite": {
+          "findings_sha256": "c424842a1a03f09b07a07653d7d1965f73b5e466e6cf103974feac5edf139131",
+          "protected_sha256": "16a7f899625e8b081c5d9e01f228e2f0f4402ab622f05a1eee30b2e21ce5637d",
+          "score_band": "clear",
+          "score_sha256": "3b5c51ccfce9b4fa394ca98efe82867239cbda1c44db1640bbe67c005fa84a14",
+          "score_value": 95.03,
+          "sentences_sha256": "dd13ef77c48cc7a870b1ea516ff91838fccfa4b8d56b29f700c3f6a9b9e018b0"
+        },
+        "style-contract-source": {
+          "findings_sha256": "78c6e9530946f5b6a3641718f1fc4bbe32a23c7ceea8d521149749adc0648263",
+          "protected_sha256": "3fe0fd533fae7caf2312418a750bdf4b33c501cb1a99e610ccc09f1810864574",
+          "score_band": "clear",
+          "score_sha256": "8d00b8c48c932a9ae2294de1efd6f5ffcdd52623d1675b9a19a8cd0907b73b8a",
+          "score_value": 87.93,
+          "sentences_sha256": "1b5a02f5ad46858e8afb6f98a201610d8ddf333920a43bf740412a22d0fb6c6a"
+        },
+        "web-copy-concrete": {
+          "findings_sha256": "ffcb24b1a38022f9b27ec5056e059928021a2c39088ec886feb50192e8b571e2",
+          "protected_sha256": "67f5b6d22eaebb235f5a917c8af140a5f69e113c420d13079d9044514d966fc7",
+          "score_band": "clear",
+          "score_sha256": "574e13df61318f633f06903d7e5f0abfc17cdded7c5f694bf8ed9d3b444c0f03",
+          "score_value": 98.92,
+          "sentences_sha256": "1d99457bb7c7eac320b539d238e79101fab4e7fa8f77f4e3a603c3802325fb5d"
+        },
+        "web-copy-slop": {
+          "findings_sha256": "1873b1cc22934765dc51228ed0a9a1b67374367ffcee94237e0dbaac50dcf522",
+          "protected_sha256": "6a50ffb8eebb187f28f5a1cb697881b90fc0483b3b9003e6c72884b0ab687091",
+          "score_band": "clear",
+          "score_sha256": "49ea69236b893eb180e95669cca9866c32a060d392996dae0f9ff8d98e4d4525",
+          "score_value": 96.77,
+          "sentences_sha256": "657ad3ee788c82cdfa87dc0a9fe8d9ac5f45f76202d59f29939a67b5b14b96b3"
+        }
+      },
+      "digest": "1c283c88de4899b8244e238919453548a4c8f56ec9854c16c5b6d75b515ff3ce",
+      "version": "1.1.0"
+    },
+    "web-copy": {
+      "artifacts": {
+        "figure-heavy": {
+          "findings_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "protected_sha256": "daff3aa24aad57b03b8399d85c91ef1cbb682b855b8dd0d9edd0d2500fc83c22",
+          "score_band": "clear",
+          "score_sha256": "d4404aa020c38317a2eed3b607ee674f3690ff7cfb89cdd8bb7c0c2198a78b08",
+          "score_value": 100.0,
+          "sentences_sha256": "1fe2d09d2c8e39c665f3e38fd614a9245ee876ee03785b08e216755d2a091aa2"
+        },
+        "local-service-specific": {
+          "findings_sha256": "b48aa2defb8e0f52f47eb883eb7edc25fbe8473481ac752b8534033090b204cc",
+          "protected_sha256": "bbb0fd8d6ba23d7ae50e0387e484e4db0d0fe2e8e660973fa6fa750001043093",
+          "score_band": "clear",
+          "score_sha256": "ba928fdcf96a4f0437e2174a458d823cf2c06c22c62bdb53047c0b4f0737ec73",
+          "score_value": 86.3,
+          "sentences_sha256": "060a7d3699b19846805a48e6e09a39aad62edd7cdd66ed1185273fdd253fa53c"
+        },
+        "local-service-stock": {
+          "findings_sha256": "0c8b8720bca3a450d3e69a12363f19a03604bc628bc8e212aa1533fce2a03378",
+          "protected_sha256": "d3a980ecb7f5b97747bbda12d919e73e9078c9cc994b5409fd2806f96602485a",
+          "score_band": "clear",
+          "score_sha256": "363e79dbf5366b01a266a1d2f7e85593df37c510656da9c53b18c2e17f6c2115",
+          "score_value": 88.26,
+          "sentences_sha256": "aa3d07ae23a097d125872c551aa88879b020ea50a65efac39e5ffd0b66e2727d"
+        },
+        "recommended-decision-original": {
+          "findings_sha256": "f37b07f117a12840db535335ba8a5603fc074e1a1230a5f9aef3da6c373eec86",
+          "protected_sha256": "9fa1cfe6373abb372d2abd9bbd79a2828e6aed15f6800bbd16eef58341b1a249",
+          "score_band": "usable_but_improvable",
+          "score_sha256": "070762d0a31f379880501d30482bf4f3beb009b57683497247f373b10ccaca3c",
+          "score_value": 79.18,
+          "sentences_sha256": "78671b032f9be8949a3c52c2469ead49b9d48d12a3a9a5f6e0e668fdebb3dafb"
+        },
+        "recommended-decision-rewrite": {
+          "findings_sha256": "90192aef482a3d3c161c32556625cf5991de325697ee5066f0b8756d14db7389",
+          "protected_sha256": "16a7f899625e8b081c5d9e01f228e2f0f4402ab622f05a1eee30b2e21ce5637d",
+          "score_band": "clear",
+          "score_sha256": "e27d35b5f2d23551d915cc2704492a9dc970c156a8b533a823a6b7deb7162d0c",
+          "score_value": 93.04,
+          "sentences_sha256": "dd13ef77c48cc7a870b1ea516ff91838fccfa4b8d56b29f700c3f6a9b9e018b0"
+        },
+        "style-contract-source": {
+          "findings_sha256": "7d857d711c08ab2d89869c6fe1876eb76a489a709285579d8b02d09547926a02",
+          "protected_sha256": "3fe0fd533fae7caf2312418a750bdf4b33c501cb1a99e610ccc09f1810864574",
+          "score_band": "usable_but_improvable",
+          "score_sha256": "484af7015b638aa1603fee24c379ab3b122961e2329267c2964459d31f690cd7",
+          "score_value": 81.76,
+          "sentences_sha256": "1b5a02f5ad46858e8afb6f98a201610d8ddf333920a43bf740412a22d0fb6c6a"
+        },
+        "web-copy-concrete": {
+          "findings_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "protected_sha256": "67f5b6d22eaebb235f5a917c8af140a5f69e113c420d13079d9044514d966fc7",
+          "score_band": "clear",
+          "score_sha256": "d4404aa020c38317a2eed3b607ee674f3690ff7cfb89cdd8bb7c0c2198a78b08",
+          "score_value": 100.0,
+          "sentences_sha256": "1d99457bb7c7eac320b539d238e79101fab4e7fa8f77f4e3a603c3802325fb5d"
+        },
+        "web-copy-slop": {
+          "findings_sha256": "c129de01ea62cc73bbc12c1ee72e3f6c886bd5732024cf01dbee7b36ca3d7410",
+          "protected_sha256": "6a50ffb8eebb187f28f5a1cb697881b90fc0483b3b9003e6c72884b0ab687091",
+          "score_band": "usable_but_improvable",
+          "score_sha256": "3aab4f931ef2a7ff6c6a4b88593586767740ddc4d15aefe3e8d79276a2438c95",
+          "score_value": 81.78,
+          "sentences_sha256": "657ad3ee788c82cdfa87dc0a9fe8d9ac5f45f76202d59f29939a67b5b14b96b3"
+        }
+      },
+      "digest": "eaf9230fcb617252abf7e94ecd17dda80656ab9f8c1038955afcbb778a25a437",
+      "version": "1.2.0"
+    }
+  },
+  "texts": {
+    "figure-heavy": "# Budget summary\n\nThe enacted FY 2027 budget totals $11,898,367,000 across 412 programs (p. P.1). Agency W00A01 received $4,210,000 in 2026, up 3.4% from 2025.\n\n- The reserve must stay above 5% of revenue.\n- Transfers listed in Table 7 are one-time.\n",
+    "local-service-specific": "Howard County requires a mechanical permit for a furnace or condenser replacement. The Department of Inspections, Licenses and Permits charges $95 for the permit and inspects the work before it can be closed out. We pull the permit; you do not.\n\nMost of Columbia went up between 1967 and 1975, so a lot of the village homes still run the original ductwork in an unconditioned crawl space. That is why a system here can be sized correctly and still lose a third of its capacity before the air reaches the room.\n\nA furnace replacement in this county runs $4,200 to $7,800 depending on the unit and the ductwork. We quote the ductwork separately because it is where the surprise usually is.\n\nCall 410-555-0143. We answer the phone between 7am and 7pm.",
+    "local-service-stock": "Looking for reliable HVAC service in Howard County? Our family owned and operated team has been serving Howard County homeowners since 1998. No job is too big or too small.\n\nWe are licensed and insured, and we offer free estimates on all work. Our technicians are experts in heating and cooling, and we pride ourselves on providing exceptional customer service to every single customer we serve.\n\nWhether you need AC repair, furnace installation, or routine maintenance, we have you covered. We offer 24/7 emergency service because we know that your comfort cannot wait. Call us today for a free quote.",
+    "recommended-decision-original": "Recommended decision: Propose deferring architecture ratification and any irreversible V2 cutover. Use the repository-evidenced hybrid topology only as a provisional current-state baseline, immediately address confirmed authorization concerns, verify the two critical messaging loss hypotheses, and require closure evidence for the governed recommendations before a target architecture returns for human decision.",
+    "recommended-decision-rewrite": "Recommendation: Do not ratify the architecture or begin any irreversible V2 cutover yet. Use the hybrid topology evidenced in the repository only as a provisional current-state baseline. Immediately address the confirmed authorization concerns. Verify the two critical messaging loss hypotheses. Require closure evidence for the governed recommendations before a target architecture returns for human decision.",
+    "style-contract-source": "In October 2026, the facilities team will replace two rooftop heating and cooling units at the North Campus library, the work requires a county mechanical permit and two inspections, and the project budget is $84,000. The library will remain open during the project, but the east entrance will close for three days, and the project manager must publish the inspection schedule and notify library staff at least 48 hours before each closure. If weather delays the crane work, the facilities team will move the installation to the next available Saturday.\n",
+    "web-copy-concrete": "The office sits at 2720 Technology Drive, inside the park. Several other contractors are a short walk away. Most postings ask for an active clearance before you start. Many ask for a polygraph on top of it.",
+    "web-copy-slop": "Our world class team leverages cutting edge solutions to deliver seamless outcomes. We foster a dynamic team environment where passionate engineers harness the power of next generation technology. This is a testament to our robust, holistic approach."
+  }
+}

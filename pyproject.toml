@@ -15,7 +15,7 @@ authors = [{ name = "phrocker" }]
 # `License :: ...` classifier: declaring both is an error, not a duplication,
 # so the classifier list below deliberately carries none.
 license = "Apache-2.0"
-license-files = ["LICENSE", "NOTICE"]
+license-files = ["LICENSE", "NOTICE", "lingity/data/CMUDICT-LICENSE"]
 keywords = ["linguistics", "readability", "governance", "nlp", "deterministic"]
 classifiers = [
   "Development Status :: 3 - Alpha",
@@ -80,7 +80,7 @@ lingity = "lingity.cli:main"
 include = ["lingity*"]
 
 [tool.setuptools.package-data]
-lingity = ["py.typed", "profiles/*.json", "styles/*.json", "schemas/v1/*.json"]
+lingity = ["py.typed", "profiles/*.json", "styles/*.json", "schemas/v1/*.json", "data/*.tsv", "data/CMUDICT-LICENSE"]
 
 [tool.pytest.ini_options]
 addopts = "-q"

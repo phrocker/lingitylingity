@@ -15,9 +15,19 @@ limitations under the License.
 
 --------------------------------------------------------------------------------
 
-This product bundles no third-party source. It depends at runtime on the
-packages declared in pyproject.toml, and on two data artifacts that are not
-declared as dependencies and must be installed separately:
+This product bundles one third-party derived data file:
+
+  * lingity/data/cmudict-syllables.tsv, a table of syllable counts derived
+    from the Carnegie Mellon Pronouncing Dictionary (CMUdict), commit
+    74790861f652b15e4ac49015a90074ad62a27690 of
+    https://github.com/cmusphinx/cmudict.
+    Copyright (C) 1993-2015 Carnegie Mellon University. All rights reserved.
+    Redistributed under the CMUdict BSD-style license, whose full text is in
+    lingity/data/CMUDICT-LICENSE.
+
+It depends at runtime on the packages declared in pyproject.toml, and on two
+data artifacts that are not declared as dependencies and must be installed
+separately:
 
   * spaCy's en_core_web_sm model, distributed under the MIT License by
     Explosion AI (https://github.com/explosion/spacy-models).

@@ -22,7 +22,7 @@
     "critique_sha256"
   ],
   "properties": {
-    "schema_version": {"const": "1.1.0"},
+    "schema_version": {"const": "1.2.0"},
     "kind": {"const": "lingity.critique.v1"},
     "analyzer_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
     "linguistic_model": {
@@ -126,7 +126,8 @@
         "requires_economy_budget"
       ],
       "properties": {
-        "requires_higher_score": {"const": true},
+        "requires_higher_score": {"type": "boolean"},
+        "requires_non_regressing_score": {"type": "boolean"},
         "requires_protected_equivalence": {"const": true},
         "forbids_new_high_severity_findings": {"const": true},
         "requires_economy_budget": {"const": true}
@@ -149,7 +150,18 @@
         "max_readable_word_growth_percent": {"type": "number", "minimum": 0},
         "max_readable_word_growth_absolute": {"type": "integer", "minimum": 0},
         "maximum_candidate_readable_words": {"type": "integer", "minimum": 0},
-        "prefer_shorter_candidate": {"type": "boolean"}
+        "prefer_shorter_candidate": {"type": "boolean"},
+        "grade_goal": {
+          "type": "object",
+          "required": ["formula", "source_grade", "target_grade", "requires_lower_grade", "instructions"],
+          "properties": {
+            "formula": {"const": "flesch_kincaid_grade"},
+            "source_grade": {"type": ["number", "null"]},
+            "target_grade": {"type": "number", "minimum": 0},
+            "requires_lower_grade": {"const": true},
+            "instructions": {"type": "string", "minLength": 1}
+          }
+        }
       }
     },
     "style": {
