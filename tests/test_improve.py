@@ -807,7 +807,7 @@ def test_network_providers_require_an_explicit_model() -> None:
 def test_verdict_schema_requires_a_reason_for_every_rejection() -> None:
     validator = _schema("verdict.schema.json")
     base: dict[str, JsonValue] = {
-        "schema_version": "1.2.0",
+        "schema_version": "1.3.0",
         "accepted": False,
         "rejection_reasons": [],
         "source_score": 50.0,

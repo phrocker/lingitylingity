@@ -23,6 +23,7 @@ from typing import Final, cast
 
 from lingity.analyzer import analyze_text
 from lingity.critique import allowed_word_growth, build_critique, response_digest
+from lingity.factcheck import EvidenceBundle, FactChecker
 from lingity.invariants import compare_protected, extract_protected
 from lingity.models import JsonValue
 from lingity.profiles import Profile
@@ -60,6 +61,7 @@ class AttemptRecord:
     challenge: ChallengeResult | None = None
     addressed_rule_ids: tuple[str, ...] = ()
     grade_goal: dict[str, JsonValue] | None = None
+    fact_check: dict[str, JsonValue] | None = None
 
     def to_dict(self) -> dict[str, JsonValue]:
         record: dict[str, JsonValue] = {
@@ -79,6 +81,8 @@ class AttemptRecord:
         )
         if self.grade_goal is not None:
             record["grade_goal"] = self.grade_goal
+        if self.fact_check is not None:
+            record["fact_check"] = self.fact_check
         return record
 
 
@@ -93,6 +97,7 @@ class ImprovementResult:
     attempts: tuple[AttemptRecord, ...] = field(default=())
     stop_reason: str = ""
     grade_goal: dict[str, JsonValue] | None = None
+    fact_check: dict[str, JsonValue] | None = None
 
     def to_dict(self) -> dict[str, JsonValue]:
         result: dict[str, JsonValue] = {
@@ -105,6 +110,8 @@ class ImprovementResult:
         }
         if self.grade_goal is not None:
             result["grade_goal"] = self.grade_goal
+        if self.fact_check is not None:
+            result["fact_check"] = self.fact_check
         return result
 
 
@@ -350,6 +357,8 @@ def judge_candidate(
     *,
     challenger: DriftChallenger | None = None,
     target_grade: float | None = None,
+    evidence_bundle: EvidenceBundle | None = None,
+    fact_checker: FactChecker | None = None,
 ) -> tuple[bool, tuple[str, ...], dict[str, JsonValue]]:
     """Decide a single candidate deterministically.
 
@@ -359,6 +368,8 @@ def judge_candidate(
     """
 
     _check_target_grade(target_grade)
+    if (evidence_bundle is None) != (fact_checker is None):
+        raise ImprovementError("fact checking requires both an evidence bundle and a checker")
     source_analysis = analyze_text(source_text, profile=profile)
     candidate_analysis = analyze_text(candidate_text, profile=profile)
 
@@ -458,6 +469,34 @@ def judge_candidate(
                 "resolve equivalence and requires human review"
             )
 
+    fact_check: dict[str, JsonValue] | None = None
+    if evidence_bundle is not None and fact_checker is not None:
+        source_review = fact_checker.check(source_text, evidence_bundle)
+        candidate_review = fact_checker.check(candidate_text, evidence_bundle)
+        fact_check = {
+            "evidence_sha256": evidence_bundle.digest,
+            "sources": [
+                {
+                    "id": item.id, "url": item.url,
+                    "retrieved_at": item.retrieved_at, "sha256": item.sha256,
+                }
+                for item in evidence_bundle.sources
+            ],
+            "source": source_review,
+            "candidate": candidate_review,
+            "passed": bool(source_review["passed"] and candidate_review["passed"]),
+        }
+        for label, review in (("source", source_review), ("candidate", candidate_review)):
+            if not review["passed"]:
+                unresolved = [
+                    str(item["index"]) for item in cast(list[dict[str, JsonValue]], review["sentences"])
+                    if item["status"] not in ("supported", "not_factual")
+                ]
+                reasons.append(
+                    f"{label} has contradicted or unresolved factual sentence(s): "
+                    + ", ".join(cast(list[str], unresolved))
+                )
+
     evidence: dict[str, JsonValue] = {
         "source_score": source_score,
         "candidate_score": candidate_score,
@@ -480,6 +519,8 @@ def judge_candidate(
     }
     if grade_goal is not None:
         evidence["grade_goal"] = grade_goal
+    if fact_check is not None:
+        evidence["fact_check"] = fact_check
     return (not reasons, tuple(reasons), evidence)
 
 
@@ -492,6 +533,8 @@ def improve_text(
     challenger: DriftChallenger | None = None,
     style: StyleContract | None = None,
     target_grade: float | None = None,
+    evidence_bundle: EvidenceBundle | None = None,
+    fact_checker: FactChecker | None = None,
 ) -> ImprovementResult:
     """Run the bounded improvement loop and return an attributed outcome."""
 
@@ -500,6 +543,8 @@ def improve_text(
             f"max_attempts must be at least 1; received {max_attempts}"
         )
     _check_target_grade(target_grade)
+    if (evidence_bundle is None) != (fact_checker is None):
+        raise ImprovementError("fact checking requires both an evidence bundle and a checker")
 
     source_analysis = analyze_text(source_text, profile=profile)
     source_score = _score_of(source_analysis)
@@ -521,7 +566,8 @@ def improve_text(
 
         accepted, reasons, evidence = judge_candidate(
             source_text, proposal.candidate_text, profile,
-            challenger=challenger, target_grade=target_grade
+            challenger=challenger, target_grade=target_grade,
+            evidence_bundle=evidence_bundle, fact_checker=fact_checker,
         )
         record = AttemptRecord(
             index=index,
@@ -535,6 +581,7 @@ def improve_text(
             protected_disposition=cast(str, evidence["protected_disposition"]),
             addressed_rule_ids=proposal.addressed_rule_ids,
             grade_goal=cast(dict[str, JsonValue] | None, evidence.get("grade_goal")),
+            fact_check=cast(dict[str, JsonValue] | None, evidence.get("fact_check")),
         )
         attempts.append(record)
 
@@ -556,6 +603,7 @@ def improve_text(
                     }
                     if target_grade is not None else None
                 ),
+                fact_check=record.fact_check,
             )
 
         prior.append(

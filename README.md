@@ -122,10 +122,28 @@ therefore stay at 100 while the grade falls. `--target-grade` is a rewrite goal;
 the profile's `max_grade` remains an independent sentence finding policy.
 
 These checks compare the rewrite with its source; they do not establish that
-the source itself is true. For source-grounded review, add
-`--challenge-provider openai --challenge-model <model>` (or `anthropic`) to
-`judge` or `improve`. External fact verification requires cited evidence and
-claim-level review before publication; see [DESIGN.md](DESIGN.md).
+the source itself is true. For source-backed fact review, save the reference
+material in an evidence bundle and pass it to `judge` or `improve`:
+
+```json
+{"sources": [{"id": "report", "url": "https://example.org/report", "retrieved_at": "2026-11-02T12:00:00Z", "content": "The exact source text used for review."}]}
+```
+
+```text
+lingity judge page.md --candidate shorter.md --target-grade 8 \
+  --evidence evidence.json --fact-check-provider openai \
+  --fact-check-model <model> --output verdict.json
+```
+
+`anthropic` is also supported. Lingity asks the model to list the factual
+claims in every sentence of both the source and rewrite and assess them against
+the saved snapshots. A contradicted or unresolved claim blocks acceptance.
+Every cited quote must occur in its named source;
+the verdict records source hashes and the evidence bundle hash. The model's
+judgment of whether a quote actually supports a claim still needs human review
+before publication, especially for consequential claims. Lingity does not
+fetch URLs or verify a source's authority. `--challenge-provider` remains a
+separate check for meaning drift between source and rewrite.
 
 ## Choose a profile
 
