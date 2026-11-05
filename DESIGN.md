@@ -775,16 +775,16 @@ and the profile's word-growth budget. The optional semantic-drift challenger
 can block a candidate that changes an unprotected claim. This gate tests
 faithfulness to the source, not the source's truth.
 
-A full fact-checking stage should take an evidence bundle alongside the source.
-It should inventory each material claim, resolve each one to a cited excerpt
-and source revision, and classify it as supported, contradicted, or unresolved.
-Both the original and candidate should be checked: a faithful rewrite of a
-false source remains false. Claims without support or with conflicting evidence
-should block automatic acceptance and go to a human editor. The evidence
-bundle and claim decisions should be hashed into the run record so later
-verification can replay the decision against the same sources. A model may
-suggest claim-to-evidence matches, but it cannot invent the evidence or turn an
-unresolved claim into a verified one.
+An optional evidence review takes saved source snapshots alongside the text.
+A model inventories claims in every sentence of both original and candidate
+and assesses each as supported, contradicted, or unresolved. The gate rejects
+contradicted or unresolved claims and rejects missing sentence reviews, unknown sources, and quotes
+that do not occur in a saved snapshot. The evidence bundle and each text are
+hashed into the verdict. A faithful rewrite of a false source therefore cannot
+pass the gate when the reviewer identifies the conflict. Source retrieval and
+authority checks remain the editor's responsibility. Quote presence is checked
+deterministically; whether the quote truly entails a claim is a model judgment
+and requires human review before consequential publication.
 
 ## Non-goals
 

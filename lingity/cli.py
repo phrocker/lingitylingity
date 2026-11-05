@@ -15,6 +15,7 @@ from jsonschema.exceptions import SchemaError, ValidationError
 
 from lingity.analyzer import analyze_text
 from lingity.critique import CritiqueError, build_critique
+from lingity.factcheck import EvidenceBundle, ModelFactChecker, create_fact_checker
 from lingity.improve import ImprovementError, improve_text, judge_candidate
 from lingity.markdown import MarkdownParserError
 from lingity.nlp import LinguisticModelError, model_fingerprint
@@ -349,13 +350,32 @@ def _critique(args: argparse.Namespace) -> int:
     return 0
 
 
+def _fact_check_options(
+    args: argparse.Namespace,
+) -> tuple[EvidenceBundle | None, ModelFactChecker | None]:
+    path = cast(Path | None, args.evidence)
+    provider = cast(str | None, args.fact_check_provider)
+    model = cast(str | None, args.fact_check_model)
+    if path is None and provider is None and model is None:
+        return None, None
+    if path is None or not provider or not model:
+        raise ValueError(
+            "fact checking requires --evidence, --fact-check-provider, and "
+            "--fact-check-model together"
+        )
+    return EvidenceBundle.from_file(path), create_fact_checker(provider, model)
+
+
 def _judge(args: argparse.Namespace) -> int:
     source_path = cast(Path, args.source)
     candidate_path = cast(Path, args.candidate)
     output = cast(Path | None, args.output)
+    evidence_path = cast(Path | None, args.evidence)
     try:
         _reject_input_output_alias(source_path, output)
         _reject_input_output_alias(candidate_path, output)
+        if evidence_path is not None:
+            _reject_input_output_alias(evidence_path, output)
         _remove_stale_output(output)
         profile = load_profile(cast(str, args.profile))
         source_text = source_path.read_text(encoding="utf-8")
@@ -371,12 +391,14 @@ def _judge(args: argparse.Namespace) -> int:
             challenger = create_challenge_provider(
                 challenge_provider, model=cast(str | None, args.challenge_model)
             )
+        evidence_bundle, fact_checker = _fact_check_options(args)
         accepted, reasons, evidence = judge_candidate(
             source_text, candidate_text, profile, challenger=challenger,
             target_grade=cast(float | None, args.target_grade),
+            evidence_bundle=evidence_bundle, fact_checker=fact_checker,
         )
         verdict = {
-            "schema_version": "1.2.0",
+            "schema_version": "1.3.0",
             "accepted": accepted,
             "rejection_reasons": list(reasons),
             "source_score": evidence["source_score"],
@@ -390,6 +412,8 @@ def _judge(args: argparse.Namespace) -> int:
         }
         if "grade_goal" in evidence:
             verdict["grade_goal"] = evidence["grade_goal"]
+        if "fact_check" in evidence:
+            verdict["fact_check"] = evidence["fact_check"]
         Draft202012Validator(_schema("verdict.schema.json")).validate(verdict)
         _write_json(verdict, output)
         return 0 if accepted else 1
@@ -401,8 +425,11 @@ def _judge(args: argparse.Namespace) -> int:
 def _improve(args: argparse.Namespace) -> int:
     source_path = cast(Path, args.source)
     output = cast(Path | None, args.output)
+    evidence_path = cast(Path | None, args.evidence)
     try:
         _reject_input_output_alias(source_path, output)
+        if evidence_path is not None:
+            _reject_input_output_alias(evidence_path, output)
         _remove_stale_output(output)
         profile = load_profile(cast(str, args.profile))
         style_name = cast(str | None, args.style)
@@ -441,6 +468,7 @@ def _improve(args: argparse.Namespace) -> int:
             challenger = create_challenge_provider(
                 challenge_provider, model=cast(str | None, args.challenge_model)
             )
+        evidence_bundle, fact_checker = _fact_check_options(args)
 
         result = improve_text(
             source_text,
@@ -450,6 +478,8 @@ def _improve(args: argparse.Namespace) -> int:
             challenger=challenger,
             style=style,
             target_grade=cast(float | None, args.target_grade),
+            evidence_bundle=evidence_bundle,
+            fact_checker=fact_checker,
         )
         record = result.to_dict()
         record["profile"] = cast(Any, profile.reference())
@@ -536,6 +566,9 @@ def build_parser() -> argparse.ArgumentParser:
     judge.add_argument("--target-grade", type=float, dest="target_grade")
     judge.add_argument("--challenge-provider", dest="challenge_provider")
     judge.add_argument("--challenge-model", dest="challenge_model")
+    judge.add_argument("--evidence", type=Path)
+    judge.add_argument("--fact-check-provider", choices=["openai", "anthropic"])
+    judge.add_argument("--fact-check-model")
     judge.add_argument("--output", type=Path)
     judge.set_defaults(handler=_judge)
 
@@ -557,6 +590,9 @@ def build_parser() -> argparse.ArgumentParser:
     improve.add_argument("--style")
     improve.add_argument("--challenge-provider", dest="challenge_provider")
     improve.add_argument("--challenge-model", dest="challenge_model")
+    improve.add_argument("--evidence", type=Path)
+    improve.add_argument("--fact-check-provider", choices=["openai", "anthropic"])
+    improve.add_argument("--fact-check-model")
     improve.add_argument("--output", type=Path)
     improve.set_defaults(handler=_improve)
 

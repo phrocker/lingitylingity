@@ -19,7 +19,7 @@
     "linguistic_model"
   ],
   "properties": {
-    "schema_version": {"const": "1.2.0"},
+    "schema_version": {"const": "1.3.0"},
     "accepted": {"type": "boolean"},
     "rejection_reasons": {
       "type": "array",
@@ -91,6 +91,32 @@
         "passed": {"type": "boolean"}
       }
     },
+    "fact_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_sha256", "sources", "source", "candidate", "passed"],
+      "properties": {
+        "evidence_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "url", "retrieved_at", "sha256"],
+            "properties": {
+              "id": {"type": "string", "minLength": 1},
+              "url": {"type": "string", "minLength": 1},
+              "retrieved_at": {"type": "string", "minLength": 1},
+              "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+            }
+          }
+        },
+        "source": {"$ref": "#/$defs/factReview"},
+        "candidate": {"$ref": "#/$defs/factReview"},
+        "passed": {"type": "boolean"}
+      }
+    },
     "profile": {
       "type": "object",
       "additionalProperties": false,
@@ -110,6 +136,60 @@
         "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
         "runtime": {"type": "string", "minLength": 1},
         "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  },
+  "$defs": {
+    "factReview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text_sha256", "evidence_sha256", "provider", "model", "passed", "sentences"],
+      "properties": {
+        "text_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "evidence_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "provider": {"type": "string", "minLength": 1},
+        "model": {"type": "string", "minLength": 1},
+        "passed": {"type": "boolean"},
+        "sentences": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["index", "text", "status", "claims", "reason"],
+            "properties": {
+              "index": {"type": "integer", "minimum": 0},
+              "text": {"type": "string", "minLength": 1},
+              "status": {"enum": ["supported", "contradicted", "unresolved", "not_factual"]},
+              "claims": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["text", "status", "citations", "reason"],
+                  "properties": {
+                    "text": {"type": "string", "minLength": 1},
+                    "status": {"enum": ["supported", "contradicted", "unresolved"]},
+                    "citations": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["source_id", "quote"],
+                        "properties": {
+                          "source_id": {"type": "string", "minLength": 1},
+                          "quote": {"type": "string", "minLength": 1}
+                        }
+                      }
+                    },
+                    "reason": {"type": "string", "minLength": 1}
+                  }
+                }
+              },
+              "reason": {"type": "string", "minLength": 1}
+            }
+          }
+        }
       }
     }
   },
